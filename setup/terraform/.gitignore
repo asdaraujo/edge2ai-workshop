@@ -1,0 +1,7 @@
+.env
+.instance.list
+.key.file.name
+.terraform/
+.tf.json*
+terraform.tfstate
+terraform.tfstate.backup

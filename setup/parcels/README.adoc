@@ -1,0 +1,4 @@
+# Additional Parcels
+
+All the parcels in this directory will be deployed to the Cloudera Manager's /opt/cloudera/parcel-repo directory.
+This is to be used for parcels that are still under development and/or not available through a public URL.

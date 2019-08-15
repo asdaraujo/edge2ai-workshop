@@ -1,0 +1,4 @@
+# Additional CSDs
+
+All the CSDs in this directory will be deployed to the Cloudera Manager's /opt/cloudera/csd directory.
+This is to be used for CSDs that are still under development and/or not available through a public URL.
