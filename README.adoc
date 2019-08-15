@@ -72,8 +72,9 @@ systemctl start mosquitto
 +
 [source,shell]
 ----
-git clone https://github.com/fabiog1901/IoT-predictive-maintenance.git
-mv IoT-predictive-maintenance/mqtt.* ~
+cd ~
+git clone https://github.com/asdaraujo/edge2ai-workshop.git
+mv edge2ai-workshop/mqtt.* ~
 python mqtt.iot_simulator.py mqtt.iot.config
 ----
 
@@ -138,58 +139,56 @@ Cloudera Edge Flow Management gives you a visual overview of all MiNiFi agents i
 
 . Open the EFM Web UI at http://<public_dns>:10080/efm/ui/. Ensure you see your minifi agent's heartbeat messages in the **Events Monitor**.
 +
-image::images/image14.png[width=800]
+image::images/cem_heartbeats.png[width=800]
 
-. You can then select the **Flow Designer** tab and build the flow. To build a dataflow, select the desired class from the table and click OPEN. Alternatively, you can double-click on the desired class.
+. You can then select the **Flow Designer** tab (image:images/flow_designer_icon.png[width=30]). To build a dataflow, select the desired class (`iot-1`) from the table and click OPEN.  Alternatively, you can double-click on the desired class.
 
-. Add a _ConsumeMQTT_ Processor to the canvas and configure it with below settings:
+. Add a _ConsumeMQTT_ Processor to the canvas, double-click it and configure it with below settings:
 +
 [source]
 ----
-Broker URI: tcp://localhost:1883
+Broker URI: tcp://edge2ai-1.dim.local:1883
 Client ID: minifi-iot
 Topic Filter: iot/#
 Max Queue Size = 60
 ----
 +
-image::images/image9.png[width=800]
+image::images/add_consumer_mqtt.png[width=800]
 
 . Add a _Remote Process Group_ (RPG) to the canvas and configure it as follows:
 +
 [source]
 ----
-URL = http://<hostname>:8080/nifi
+URL = http://edge2ai-1.dim.local:8080/nifi
 ----
 +
-image::images/image24.png[width=800]
+image::images/add_rpg.png[width=800]
 
-. At this point you need to connect the ConsumerMQTT processor to the RPG. For this you first need the ID of the NiFi entry port in the RPG. Open the NiFi Web UI at `http://<public_dns>:8080/nifi/` and add an _Input Port_ to the convas. Call it something like "from Gateway". Double-click the _Input Port_ and copy the ID of the input port, as you will soon need it.
+. At this point you need to connect the ConsumerMQTT processor to the RPG. For this you first need the ID of the NiFi entry port in the RPG. Open the NiFi Web UI at `http://<public_dns>:8080/nifi/` and add an _Input Port_ to the canvas. Call it something like "from Gateway". Double-click the _Input Port_ and copy the ID of the input port, as you will soon need it.
 +
-image::images/image4.png[width=800]
+image::images/add_input_port.png[width=800]
 
 . To terminate the NiFI _Input Port_ you can, for now, add a _Funnel_ to the canvas and setup a connection from the Input Port to it.
 +
-image:images/funnel_termination.png[width=600]
+image::images/add_funnel.png[width=600]
 
-. Start the InputPort
-+
-image::images/image26.png[width=600]
+. Right-click on the Input Port and start it
 
-. Back to the Flow Designer, connect the ConsumeMQTT to the RPG. The connection requires an ID and you can paste here the ID you copied from the Input Port.
+. Back to the Flow Designer, connect the ConsumeMQTT processor to the RPG. The connection requires an ID and you can paste here the ID you copied from the Input Port.
 +
-image::images/image7.png[width=800]
+image::images/connect_to_rpg.png[width=800]
 
-. The Flow is now complete, but before publishing it, create the Bucket in the NiFi Registry so that all versions of your flows are stored for review and audit. Open the NiFi Registry at `http://<public_dns>:18080/nifi-registry` and create a bucket called "IoT".
+. The Flow is now complete, but before publishing it, create the Bucket in the _NiFi Registry_ so that all versions of your flows are stored for review and audit. Open the NiFi Registry at `http://<public_dns>:18080/nifi-registry`, click on the spanner icon on the top-right corner on and create a bucket called `IoT`.
 +
-image::images/image25.png[width=800]
+image::images/create_bucket.png[width=800]
 
-. You can now publish the flow for the minifi agent to automatically pick up.
+. You can now publish the flow for the MiNiFi agent to automatically pick up.
 +
-image::images/image21.png[width=800]
+image::images/publish_flow.png[width=800]
 
 . If successful, you will see the Flow details in the NiFi Registry.
 +
-image::images/image17.png[width=800]
+image::images/flow_in_nifi_registry.png[width=800]
 
 . At this point, you can test the edge flow up until NiFi. Start the simulator again and confirm you can see the messages queued in NiFi.
 +
@@ -200,7 +199,7 @@ python mqtt.iot_simulator.py mqtt.iot.config
 +
 image::images/running_simulator.png[width=800]
 +
-image::images/queue_messages.png[width=600]
+image::images/queued_events.png[width=300]
 
 [[lab_4, Lab 4]]
 == Lab 4 - Configuring the NiFi flow and push to Kafka
@@ -279,7 +278,7 @@ Open a second Terminal and SSH into the VM. The first is running the sensor data
 $ sudo su -
 $ ACCESS_KEY=<put here your cdsw model access key>
 $ PUBLIC_IP=`curl https://api.ipify.org/`
-$ mv ~/IoT-predictive-maintenance/spark.iot.py ~
+$ mv ~/edge2ai-workshop/spark.iot.py ~
 $ sed -i "s/YourHostname/`hostname -f`/" spark.iot.py
 $ sed -i "s/YourCDSWDomain/cdsw.$PUBLIC_IP.nip.io/" spark.iot.py
 $ sed -i "s/YourAccessKey/$ACCESS_KEY/" spark.iot.py
@@ -334,7 +333,7 @@ Please note: this env variable is not required for a CDH 5 cluster.
 
 **STEP 1** : Create the project
 
-Return to the main page and click on **New Project**, using this GitHub project as the source: `https://github.com/fabiog1901/IoT-predictive-maintenance`.
+Return to the main page and click on **New Project**, using this GitHub project as the source: `https://github.com/asdaraujo/edge2ai-workshop`.
 
 
 ![](./images/image8.png)
