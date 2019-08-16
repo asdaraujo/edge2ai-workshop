@@ -28,8 +28,6 @@ sysctl vm.swappiness=1
 timedatectl set-timezone UTC
 # CDSW requires Centos 7.5, so we trick it to believe it is...
 echo "CentOS Linux release 7.5.1810 (Core)" > /etc/redhat-release
-# Add an edge2ai alias for the local IP address
-sed -i 's/ip-.*compute.internal/& edge2ai-1.dim.local/' /etc/hosts
 
 echo "-- Install Java OpenJDK8 and other tools"
 yum install -d1 -y $JAVA_PACKAGE_NAME vim wget curl git bind-utils
@@ -77,7 +75,7 @@ echo "Docker device: $DOCKERDEVICE"
 echo "-- Configure networking"
 PUBLIC_IP=`curl https://api.ipify.org/ 2>/dev/null`
 hostnamectl set-hostname `hostname -f`
-echo "`hostname -I` `hostname`" >> /etc/hosts
+echo "`hostname -I` `hostname` edge2ai-1.dim.local" >> /etc/hosts
 if [ -f /etc/sysconfig/network ]; then
   sed -i "/HOSTNAME=/ d" /etc/sysconfig/network
 fi
@@ -113,7 +111,6 @@ yum repolist
 yum install -d1 -y cloudera-manager-daemons cloudera-manager-agent cloudera-manager-server
 yum install -d1 -y MariaDB-server MariaDB-client
 cat $BASE_DIR/mariadb.config > /etc/my.cnf
-
 
 echo "--Enable and start MariaDB"
 systemctl enable mariadb
@@ -262,8 +259,8 @@ echo "-- Configure and start EFM"
 retries=0
 while true; do
   mysql -u efm -pcloudera < <( echo -e "drop database efm;\ncreate database efm;" )
-  service efm start
-  sleep 30
+  nohup service efm start &
+  sleep 10
   ps -ef | grep  efm.jar | grep -v grep
   cnt=$(ps -ef | grep  efm.jar | grep -v grep | wc -l)
   if [ "$cnt" -gt 0 ]; then
