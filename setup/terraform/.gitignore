@@ -5,3 +5,4 @@
 .tf.json*
 terraform.tfstate
 terraform.tfstate.backup
+rules.tf

@@ -28,6 +28,8 @@ sysctl vm.swappiness=1
 timedatectl set-timezone UTC
 # CDSW requires Centos 7.5, so we trick it to believe it is...
 echo "CentOS Linux release 7.5.1810 (Core)" > /etc/redhat-release
+# Add an edge2ai alias for the local IP address
+sed -i 's/ip-.*compute.internal/& edge2ai-1.dim.local/' /etc/hosts
 
 echo "-- Install Java OpenJDK8 and other tools"
 yum install -d1 -y $JAVA_PACKAGE_NAME vim wget curl git bind-utils
