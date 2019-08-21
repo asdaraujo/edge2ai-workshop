@@ -14,25 +14,32 @@ FULL_NAME = 'Workshop Admin'
 EMAIL = 'admin@cloudera.com'
 
 print('# Prepare CDSW for workshop')
+r = None
 try:
     s = requests.Session()
     
     print('# Create user')
     while True:
-        r = s.post(CDSW_API + '/users', json={
-                'email': EMAIL,
-                'name': FULL_NAME,
-                'username': USERNAME,
-                'password': PASSWORD,
-                'type': 'user'
-            })
-        if r.status_code == 201:
-            break
-        elif r.status_code == 422:
-            raise RuntimeError('User admin already exists')
-        print('Waiting for CDSW to be ready... (error code: %s)' % (r.status_code,))
+        try:
+            r = s.post(CDSW_API + '/users', json={
+                    'email': EMAIL,
+                    'name': FULL_NAME,
+                    'username': USERNAME,
+                    'password': PASSWORD,
+                    'type': 'user'
+                }, timeout=10)
+            if r.status_code == 201:
+                break
+            elif r.status_code == 422:
+                print('WARNING: User admin already exists')
+                break
+        except requests.exceptions.ConnectTimeout:
+            pass
+        if r:
+            print('Waiting for CDSW to be ready... (error code: %s)' % (r.status_code,))
+        else:
+            print('Waiting for CDSW to be ready... (connection timed out)')
         time.sleep(10)
-    exit()
 
     print('# Authenticate')
     r = s.post(CDSW_API + '/authenticate', json={'login': USERNAME, 'password': PASSWORD})
@@ -55,10 +62,12 @@ try:
     print('Project ID: %s'% (project_id,))
     
     print('# Upload setup script')
-    setup_script = """
-    !pip3 install --upgrade pip scikit-learn
-    !hdfs dfs -put data/historical_iot.txt /user/$HADOOP_USER_NAME
-    """
+    setup_script = """!pip3 install --upgrade pip scikit-learn
+!HADOOP_USER_NAME=hdfs hdfs dfs -mkdir /user/$HADOOP_USER_NAME
+!HADOOP_USER_NAME=hdfs hdfs dfs -chown $HADOOP_USER_NAME:$HADOOP_USER_NAME /user/$HADOOP_USER_NAME
+!hdfs dfs -put data/historical_iot.txt /user/$HADOOP_USER_NAME
+!hdfs dfs -ls -R /user/$HADOOP_USER_NAME
+"""
     r = s.put(CDSW_API + '/projects/admin/edge2ai-workshop/files/setup_workshop.py', files={'name': setup_script})
     
     print('# Create job to run the setup script')
@@ -97,6 +106,8 @@ try:
         print('Job %s status: %s' % (job_id, status))
         if status == 'succeeded':
             break
+        elif status == 'failed':
+            raise RuntimeError('Job failed')
         time.sleep(10)
     
     print('# Run experiment')
@@ -125,6 +136,8 @@ try:
             print('Experiment run %s status: %s' % (run_id, status))
             if status == 'succeeded':
                 break
+            elif status == 'failed':
+                raise RuntimeError('Experiment failed')
         time.sleep(10)
     
     print('# Promote output')
@@ -167,7 +180,10 @@ try:
             print('Model %s: build status: %s, deployment status: %s' % (model_id, build_status, deployment_status))
             if build_status == 'built' and deployment_status == 'deployed':
                 break
+            elif build_status == 'failed' or deployment_status == 'failed':
+                raise RuntimeError('Model deployment failed')
         time.sleep(10)
 except Exception as e:
-    print(r.text)
+    if r:
+        print(r.text)
     raise

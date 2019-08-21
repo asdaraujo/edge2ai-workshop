@@ -42,7 +42,7 @@ You should have 2 addresses for you one-node cluster: the public DNS name and th
 |Schema Registry|http://<public_dns>:7788/|
 |SMM|http://<public_dns>:9991/|
 |Hue|http://<public_dns>:8888/|
-|CDSW|http://cdsw.<public_IP>.nip.io/|
+|CDSW|http://cdsw.<public_IP>.nip.io/|admin/supersecret1
 |===
 . Login into *Cloudera Manager* and familiarize yourself with the services installed
 . Login into *Hue*. As you are the first user to login into Hue, you are granted admin privileges. At this point, you won't need to do anything on Hue, but by logging in, CDH has created your HDFS user and folder, which you will need for the next lab.
@@ -379,7 +379,7 @@ image::images/producers.png[width=800]
 image::images/explore_partition.png[width=800]
 
 [[lab_7, Lab 7]]
-== Lab 7 - Use Spark to call the model endpoint and save to Kudu
+== Lab 7 - Use Spark to call the CDSW model endpoint and save to Kudu
 
 Spark Streaming is a processing framework for (near) real-time data. In this lab, you will use Spark to consume Kafka messages which contains the IoT data from the machine, and call the model API endpoint to predict whether, with those IoT values the machine sent, the machine is likely to break. Then save the results to Kudu for fast analytics.
 
@@ -413,7 +413,9 @@ TBLPROPERTIES ('kudu.num_tablet_replicas' = '1');
 +
 image::images/image28.png[width=800]
 
-. Now you can configure and run the Spark Streaming job. You need here the CDSW Access Key you saved in Lab 2.
+. To configure and run the Spark Streaming job, you will need a CDSW Access Key to connect to the model endpoint that has been deployed there. To get the Access Key, go to the CDSW Web UI and click on *Models > Iot Prediction Model > Settings*. Copy the Access Key.
++
+image::images/model_access_key.png[width=800]
 
 . Open a second Terminal and SSH into the VM. The first is running the sensor data simulator, so you can't use it.
 +
@@ -421,9 +423,9 @@ image::images/image28.png[width=800]
 ----
 sudo su -
 ACCESS_KEY=<put here your cdsw model access key>
-PUBLIC_IP=`curl https://api.ipify.org/`
+PUBLIC_IP=$(curl https://api.ipify.org/)
 mv ~/edge2ai-workshop/spark.iot.py ~
-sed -i "s/YourHostname/`hostname -f`/" spark.iot.py
+sed -i "s/YourHostname/$(hostname -f)/" spark.iot.py
 sed -i "s/YourCDSWDomain/cdsw.$PUBLIC_IP.nip.io/" spark.iot.py
 sed -i "s/YourAccessKey/$ACCESS_KEY/" spark.iot.py
 wget http://central.maven.org/maven2/org/apache/kudu/kudu-spark2_2.11/1.9.0/kudu-spark2_2.11-1.9.0.jar
@@ -438,7 +440,6 @@ spark-submit \
   spark.iot.py
 ----
 +
-*Please note*: you might have to use `spark2-submit` if you're running this demo out of a CDH 5 cluster.
 
 . Spark Streaming will flood your screen with log messages, however, at a 5 seconds interval, you should be able to spot a table: these are the messages that were consumed from Kafka and processed by Spark. You can configure Spark for a smaller time window, however, for this exercise 5 seconds is sufficient.
 +

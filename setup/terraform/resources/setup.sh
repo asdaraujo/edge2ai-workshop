@@ -275,7 +275,4 @@ done
 #echo "-- Configure and start Minifi"
 #service minifi start
 
-echo "-- Deploy CDSW model"
-python $BASE_DIR/cdsw_setup.py $(curl http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null)
-
 echo "-- At this point you can login into Cloudera Manager host on port 7180 and follow the deployment of the cluster"

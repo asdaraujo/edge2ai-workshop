@@ -3,7 +3,15 @@
 == Setup
 
 * Extend the Terraform automation for Azure and GCP environments
+* Test the automation at scale (several clusters at once)
+* SMM is a bit sluggish to update stats. Maybe there's some tweaking to help show updates faster on the screen.
 
 == Workshop
 
 * Update first diagram to include SMM and SR.
+* Complete review and tests of labs 6-10
+
+== Issues to follow up on
+
+* https://jira.cloudera.com/browse/CSP-349
+* https://jira.cloudera.com/browse/CSP-350
