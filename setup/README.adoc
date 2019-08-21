@@ -1,0 +1,235 @@
+= Single Node EDGE2AI CDH Cluster
+
+This script automatically sets up a CDH cluster on the public cloud on a single VM with the following 16 services: 
+
+- MiNiFi
+- EFM
+- NiFi 
+- NiFi Registry
+- Kafka
+- Kudu 
+- Impala 
+- Hue
+- Hive 
+- Spark 
+- Oozie
+- HDFS 
+- YARN
+- ZK 
+- CDSW
+
+As this cluster is meant to be used for demos, experimenting, training, and workshops, it doesn't setup Kerberos and TLS.
+
+== Instructions
+
+Below are instructions for creating the cluster. You can choose between the automated setup, using Terraform, or a manual setup.
+
+== Automated setup
+
+This setup uses link:https://www.terraform.io/[Terraform] to spin up the VMs and execute the required setup scripts.
+
+. Install Terraform
++
+[source,shell]
+----
+# The URL below is for Linux. For Terraform on Mac see www.terraform.io/downloads.html
+curl -O https://releases.hashicorp.com/terraform/0.12.6/terraform_0.12.6_linux_amd64.zip
+mkdir ./bin
+unzip -d ./bin/ terraform_0.12.6_linux_amd64.zip
+export PATH=$PWD/bin:$PATH
+----
+
+. Clone this repository
++
+[source,shell]
+----
+sudo yum install -y git
+git clone https://github.com/asdaraujo/edge2ai-workshop.git
+----
+
+. Review software versions and edit them as needed. All the versions and locations of the software used for the setup are defined in the `edge2ai-workshop/setup/scripts/env.sh` file. If this file does not exist, create it with the command below:
++
+[source,shell]
+----
+cp edge2ai-workshop/setup/scripts/env.sh.template edge2ai-workshop/setup/scripts/env.sh
+----
++
+IMPORTANT: Most of the software locations are already pre-defined in the template. For a few of the required software, though, there's currently no public repository available. Make sure you follow the instructions below to install these components.
++
+For Schema Registry (SR) and Streams Messaging Manager (SMM) installation you have two options:
+
+* If If you have an URL link to a location where the CSP parcel and SR/SMM CSDs can be downloaded from, configure the corresponding properties in the `env.sh` file:
++
+[source,shell]
+----
+CSP_PARCEL_REPO=
+SCHEMAREGISTRY_CSD_URL=
+STREAMS_MESSAGING_MANAGER_CSD_URL=
+----
+
+* Alternatively, leave the properties above unset and download the CSP parcel into `edge2ai-workshop/setup/parcels/` and both CSDs into `edge2ai-workshop/setup/csds/`. Note that the setup process will upload these files to every VM it creates, so if you're launching a large nuber of VMs, expect a good amount of upload volume.
+
+. Review the cloud and workshop environment definitions and edit them as needed. This information is defined in the
++
+[source,shell]
+----
+cp edge2ai-workshop/setup/terraform/.env.template edge2ai-workshop/setup/terraform/.env
+chown 400 edge2ai-workshop/setup/terraform/.env
+----
++
+The variables in this file are explained below:
+
+* `TF_VAR_cluster_count`: number of one-node cluster to be created
+
+* `TF_VAR_owner`: you user id. THis will be used to tag your cloud resources.
+* `TF_VAR_aws_region`: AWS region to use
+* `TF_VAR_aws_access_key_id`: Your AWS Access Key Id
+* `TF_VAR_aws_secret_access_key`: Your AWS Secret Access Key
+
+* `TF_VAR_cluster_ami`: AMI ID to use for the one-node cluster. Ensure you pick a Centos 7 image.
+* `TF_VAR_ssh_username`: The username used to log in to the VM. Typically: `centos`
+* `TF_VAR_cluster_instance_type`: Instance type to use for the one-node cluster. Recommended: `m5.4xlarge` or later/larger.
+
+* `TF_VAR_name_prefix`: Prefix for all your VM resource names
+* `TF_VAR_project`: Project name. This is used for instance tagging.
+* `TF_VAR_enddate`: End date in MMDDYYYY format. This is used for instance tagging. Some Cloudera environment use this to automatically kill "expired" instances.
+
+. Launch your environment
++
+[source,shell]
+----
+cd edge2ai-workshop/setup/terraform/
+terraform init # this only has to be executed once after cloning the repo
+./launch.sh
+----
++
+At the end of the script execution it will list the following information for all the clusters. This information should be provided to the workshop attendees:
+
+* Public DNS Name
+* Public IP
+* Private DNS Name
+
+A private key file will also be created on the local directory for authenticating the connections to the clusters.
+
+. Once the workshop is completed, terminate all the environments with the following command:
++
+[source,shell]
+----
+# cd edge2ai-workshop/setup/terraform/
+./terminate.sh
+----
+
+. A few helper scripts are provided to help connecting to the clusters:
+
+* `./list-details.sh` - display the details of all the clusters (public DNS, public IP and private DNS).
+* `./connect-to-cluster.sh <cluster_number>` - connect to the specified cluster using SSH.
+* `./browse-cluster.sh <cluster_number>` - (MacOS only) Opens a Chrome browser with all the tabs required for the workshop. All the URLs use the cluster's public DNS name.
+* `./browse-cluster-socks.sh <cluster_number>` - (MacOS only) Same as above, but using URLs with the private DNS name, instead, and setting the browser to use a SOCKS proxy, which is spawn by the script.
+
+Clusters numbers start from 0 (zero).
+
+== Manual setup
+
+=== Provisioning VM
+
+* Create a Centos 7 VM with at least 16 vCPUs/ 64 GB RAM. Choose the plain vanilla Centos image, not a cloudera-centos image.
+* OS disk size: at least 100 GB.
+* Docker device disk: at least 200GB SSD disk.
+** Note: you need a fast disk more than you need a large disk: aim for a disk with 3000 IOPS. This might mean choosing a 1TB disk.
+
+=== Configuration and installation
+
+* If you created the VM on Azure and need to resize the OS disk, here are the [instructions](scripts/how-to-resize-os-disk.md).
+* Add 2 inbound rules to the Security Group:
+** to allow your IP only, for all ports.
+** to allow the VM's own IP, for all ports.
+* ssh into the VM and clone this repo:
++
+[source,shell]
+----
+sudo su -
+yum install -y git
+git clone https://github.com/asdaraujo/edge2ai-workshop.git
+cd edge2ai-workshop/setup/scripts
+chmod +x setup.sh
+----
+* Run the `setup.sh` script. It takes 3 arguments:
+** The cloud provider name: `aws`,`azure`,`gcp`.
+** The template file.
+** (OPTIONAL) the Docker Device disk mount point.
+
+_Example_:
+
+[source,shell]
+----
+./setup.sh aws cdsw_template.json /dev/sdc
+----
+
+Wait until the script finishes, check for any error.
+
+== Use
+
+Once the script returns, you can open Cloudera Manager at http://<public_dns>:7180.
+
+Wait for about 10-20 mins for CDSW to be ready. You can monitor the status of CDSW by issuing the `cdsw status` command.
+
+You can use `kubectl get pods -n kube-system` to check if all the pods that the role `Master` is suppose to start have really started.
+
+You can also check the CDSW deployment status on `CM > CDSW service > Instances > Master role > Processes > stdout`.
+
+== Troubleshooting and known issues
+
+=== Clock Offset
+
+The NTPD service which is required by Kudu and the Host is not installed. For the moment, just put
+`--use-hybrid-clock=false`  in Kudu's Configuration property `Kudu Service Advanced Configuration Snippet (Safety Valve) for gflagfile` and suppressed all other warnings.
+
+=== Docker device
+
+To find out what the docker device mount point is, use `lsblk`. See below examples:
+
+See examples below:
+
+==== AWS, using a M5.2xlarge or M5.4xlarge VM:
+
+[source,shell]
+----
+$ lsblk
+NAME        MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
+nvme0n1     259:1    0  100G  0 disk
++-nvme0n1p1 259:2    0  100G  0 part /
+nvme1n1     259:0    0 1000G  0 disk
+
+$ ./setup.sh aws cdsw_template.json /dev/nvme1n1
+----
+
+==== Azure Standard D8s v3 or Standard D16s v3
+
+[source,shell]
+----
+$ lsblk
+NAME   MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
+fd0      2:0    1    4K  0 disk
+sda      8:0    0   30G  0 disk
++-sda1   8:1    0  500M  0 part /boot
++-sda2   8:2    0 29.5G  0 part /
+sdb      8:16   0   56G  0 disk
++-sdb1   8:17   0   56G  0 part /mnt/resource
+sdc      8:32   0 1000G  0 disk
+sr0     11:0    1  628K  0 rom
+
+$ ./setup.sh azure cdsw_template.json /dev/sdc
+----
+
+==== GCP n1-standard-8 or n1-standard-16
+
+[source,shell]
+----
+$ lsblk
+NAME   MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
+sda      8:0    0  100G  0 disk 
+└─sda1   8:1    0  100G  0 part /
+sdb      8:16   0 1000G  0 disk 
+
+$ ./setup.sh gcp cdsw_template.json /dev/sdb
+----

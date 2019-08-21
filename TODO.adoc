@@ -1,0 +1,9 @@
+= TODO list
+
+== Setup
+
+* Extend the Terraform automation for Azure and GCP environments
+
+== Workshop
+
+* Update first diagram to include SMM and SR.
