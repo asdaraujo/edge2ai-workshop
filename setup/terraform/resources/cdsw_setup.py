@@ -45,6 +45,13 @@ try:
     r = s.post(CDSW_API + '/authenticate', json={'login': USERNAME, 'password': PASSWORD})
     s.headers.update({'Authorization': 'Bearer ' + r.json()['auth_token']})
     
+    print('# Check if model is already running')
+    r = s.post(CDSW_ALTUS_API + '/models/list-models', json={'projectOwnerName': 'admin', 'latestModelDeployment': True, 'latestModelBuild': True})
+    models = [m for m in r.json() if m['name'] == 'IoT Prediction Model']
+    if models and models[0]['latestModelDeployment']['status'] == 'deployed':
+        print('Model is already deployed!! Skipping.')
+        exit(0)
+
     print('# Add engine')
     r = s.post(CDSW_API + '/site/engine-profiles', json={'cpu': 2, 'memory': 4})
     engine_id = r.json()['id']

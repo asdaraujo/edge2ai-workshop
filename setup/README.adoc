@@ -122,6 +122,7 @@ A private key file will also be created on the local directory for authenticatin
 . A few helper scripts are provided to help connecting to the clusters:
 
 * `./list-details.sh` - display the details of all the clusters (public DNS, public IP and private DNS).
+* `./check-services.sh` - perform a health check of all the cluster to verify if all the services are up and running.
 * `./connect-to-cluster.sh <cluster_number>` - connect to the specified cluster using SSH.
 * `./browse-cluster.sh <cluster_number>` - (MacOS only) Opens a Chrome browser with all the tabs required for the workshop. All the URLs use the cluster's public DNS name.
 * `./browse-cluster-socks.sh <cluster_number>` - (MacOS only) Same as above, but using URLs with the private DNS name, instead, and setting the browser to use a SOCKS proxy, which is spawn by the script.
