@@ -10,7 +10,6 @@
 
 * Create accompanying slide deck
 * Update first diagram to include SMM and SR.
-* Complete review and tests of labs 6-10
 
 == Issues to follow up on
 

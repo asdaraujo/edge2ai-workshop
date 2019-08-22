@@ -20,6 +20,7 @@ touch "$HOME/chrome-for-demo/First Run"
 
 "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
   --user-data-dir="$HOME/chrome-for-demo" \
+  --window-size=1184,854 \
   http://$PUBLIC_DNS:7180 \
   http://$PUBLIC_DNS:10080/efm/ui \
   http://$PUBLIC_DNS:8080/nifi/ \

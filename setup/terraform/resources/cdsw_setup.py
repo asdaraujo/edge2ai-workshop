@@ -53,7 +53,7 @@ try:
         exit(0)
 
     print('# Add engine')
-    r = s.post(CDSW_API + '/site/engine-profiles', json={'cpu': 2, 'memory': 4})
+    r = s.post(CDSW_API + '/site/engine-profiles', json={'cpu': 1, 'memory': 4})
     engine_id = r.json()['id']
     print('Engine ID: %s'% (engine_id,))
     
@@ -85,7 +85,7 @@ try:
             'timezone': 'America/Los_Angeles',
             'environment':{},
             'kernel': 'python3',
-            'cpu': 2,
+            'cpu': 1,
             'memory': 4,
             'nvidia_gpu': 0,
             'notifications': [{
@@ -122,7 +122,7 @@ try:
             'script': 'cdsw.iot_exp.py',
             'arguments': '20 20',
             'kernel': 'python3',
-            'cpu': 2,
+            'cpu': 1,
             'memory': 4,
             'project': str(project_id),
         })
@@ -166,7 +166,7 @@ try:
             'engineImageId': engine_image_id,
             'kernel': 'python3',
             'examples': [{'request': {'feature': '0, 65, 0, 137, 21.95, 83, 19.42, 111, 9.4, 6, 3.43, 4'}}],
-            'cpuMillicores': 2000,
+            'cpuMillicores': 1000,
             'memoryMb': 4096,
             'replicationPolicy': {'type': 'fixed', 'numReplicas': 1},
             'environment': {},

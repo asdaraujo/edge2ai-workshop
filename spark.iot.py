@@ -63,9 +63,11 @@ if __name__ == "__main__":
     ssc = StreamingContext(sc, 5) # 5 second window
     kvs = KafkaUtils.createStream(ssc, zk_broker, "iot", {kafka_topic:1})
 
-    # parse the kafka message into a tuple
+    # Parse the kafka message into a tuple.
+    # Discard the first 13 bytes, which are used to store a reference
+    # to the schema, which was injected by the NiFi processor
     kafka_stream = kvs.map(lambda x: x[1]) \
-                           .map(lambda l: json.loads(l)) \
+                           .map(lambda l: json.loads(l[13:])) \
                            .map(lambda p: (int(p['sensor_id']),
                                            int(p['sensor_ts']),
                                            float(p['sensor_0']),
