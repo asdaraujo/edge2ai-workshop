@@ -15,7 +15,7 @@ echo "Username: centos"
 echo ""
 printf "%-40s %-55s %-15s\n" "Cluster Name" "Public DNS Name" "Public IP"
 cat $TF_JSON_FILE | jq -r '.values[].resources[] | select(.type == "aws_instance") | "\(.values.tags.Name) \(.values.public_dns) \(.values.public_ip)"' | while read name public_dns public_ip; do
-  printf "%-40s %-55s %-15s\n" "$name" "$public_dns" "$public_ip" | tee .instance.list
-done | sed 's/\([^ ]*-\)\([0-9]*\)\( .*\)/\1\2\3 \2/' | sort -k4n | sed 's/ [0-9]*$//'
+  printf "%-40s %-55s %-15s\n" "$name" "$public_dns" "$public_ip"
+done | sed 's/\([^ ]*-\)\([0-9]*\)\( .*\)/\1\2\3 \2/' | sort -k4n | sed 's/ [0-9]*$//' | tee .instance.list
 
 KEY_FILE=$BASE_DIR/$(terraform state show "aws_key_pair.bootcamp_key_pair" -no-color | grep "^ *key_name " | awk -F\" '{print $2}').pem
