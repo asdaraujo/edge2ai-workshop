@@ -601,7 +601,7 @@ OPTIONAL              "name" : "inactive.producer.timeout.ms",
 OPTIONAL              "value" : "180000"
 OPTIONAL            }, {
 OPTIONAL              "name" : "streams.messaging.manager.schema.registry.url",
-OPTIONAL              "value" : "http://localhost:7788/api/v1"
+OPTIONAL              "value" : "http://YourPublicDns:7788/api/v1"
 OPTIONAL            }, {
 OPTIONAL              "name" : "streams.messaging.manager.storage.connector.connectURI",
 OPTIONAL              "value" : "jdbc:mysql://localhost:3306/streamsmsgmgr"

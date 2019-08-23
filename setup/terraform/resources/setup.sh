@@ -73,13 +73,14 @@ fi
 echo "Docker device: $DOCKERDEVICE"
 
 echo "-- Configure networking"
-PUBLIC_IP=`curl https://api.ipify.org/ 2>/dev/null`
-hostnamectl set-hostname `hostname -f`
-echo "`hostname -I` `hostname` edge2ai-1.dim.local" >> /etc/hosts
+PUBLIC_IP=$(curl https://api.ipify.org/ 2>/dev/null)
+PUBLIC_DNS=$(dig -x $PUBLIC_IP +short)
+hostnamectl set-hostname $(hostname -f)
+echo "$(hostname -I) $(hostname) edge2ai-1.dim.local" >> /etc/hosts
 if [ -f /etc/sysconfig/network ]; then
   sed -i "/HOSTNAME=/ d" /etc/sysconfig/network
 fi
-echo "HOSTNAME=`hostname`" >> /etc/sysconfig/network
+echo "HOSTNAME=$(hostname)" >> /etc/sysconfig/network
 
 iptables-save > $BASE_DIR/firewall.rules
 FWD_STATUS=$(systemctl is-active firewalld || true)
@@ -172,7 +173,6 @@ ln -s /opt/cloudera/cem/efm/bin/efm.sh /etc/init.d/efm
 chown -R root:root /opt/cloudera/cem/${EFM_BASE_NAME}
 rm -f /opt/cloudera/cem/efm/conf/efm.properties
 cp $BASE_DIR/efm.properties /opt/cloudera/cem/efm/conf
-sed -i "s/YourHostname/`hostname -f`/g" /opt/cloudera/cem/efm/conf/efm.properties
 
 echo "-- Install and configure MiNiFi"
 MINIFI_TARBALL=$(find /opt/cloudera/cem/ -path "*/centos7/*" -name "minifi-[0-9]*-bin.tar.gz")
@@ -186,7 +186,6 @@ chown -R root:root /opt/cloudera/cem/${MINIFI_BASE_NAME}
 chown -R root:root /opt/cloudera/cem/${MINIFITK_BASE_NAME}
 rm -f /opt/cloudera/cem/minifi/conf/bootstrap.conf
 cp $BASE_DIR/bootstrap.conf /opt/cloudera/cem/minifi/conf
-sed -i "s/YourHostname/`hostname -f`/g" /opt/cloudera/cem/minifi/conf/bootstrap.conf
 /opt/cloudera/cem/minifi/bin/minifi.sh install
 
 echo "-- Enable passwordless root login via rsa key"
@@ -195,14 +194,14 @@ mkdir -p ~/.ssh
 chmod 700 ~/.ssh
 cat $KEY_FILE.pub >> ~/.ssh/authorized_keys
 chmod 400 ~/.ssh/authorized_keys
-ssh-keyscan -H `hostname` >> ~/.ssh/known_hosts
+ssh-keyscan -H $(hostname) >> ~/.ssh/known_hosts
 sed -i 's/.*PermitRootLogin.*/PermitRootLogin without-password/' /etc/ssh/sshd_config
 systemctl restart sshd
 
 echo "-- Start CM, it takes about 2 minutes to be ready"
 systemctl start cloudera-scm-server
 
-while [ `curl -s -X GET -u "admin:admin"  http://localhost:7180/api/version` -z ] ;
+while [ $(curl -s -X GET -u "admin:admin"  http://localhost:7180/api/version) -z ] ;
     do
     echo "waiting 10s for CM to come up..";
     sleep 10;
@@ -222,9 +221,10 @@ npm install forever -g
 
 echo "-- Automate cluster creation using the CM API"
 sed -i "\
-s/YourHostname/`hostname -f`/g;\
+s/YourHostname/$(hostname -f)/g;\
 s/YourCDSWDomain/cdsw.$PUBLIC_IP.nip.io/g;\
-s/YourPrivateIP/`hostname -I | tr -d '[:space:]'`/g;\
+s/YourPrivateIP/$(hostname -I | tr -d '[:space:]')/g;\
+s/YourPublicDns/$PUBLIC_DNS/g;\
 s#YourDockerDevice#$DOCKERDEVICE#g;\
 s#ANACONDA_PARCEL_REPO#$ANACONDA_PARCEL_REPO#g;\
 s#ANACONDA_VERSION#$ANACONDA_VERSION#g;\
@@ -254,6 +254,10 @@ fi
 
 CM_REPO_URL=$(grep baseurl /etc/yum.repos.d/cloudera-manager.repo | sed 's/.*=//;s/ //g')
 python $BASE_DIR/create_cluster.py $(hostname -f) $TEMPLATE $KEY_FILE $CM_REPO_URL
+
+echo "-- Create Kafka topic (iot)"
+kafka-topics --zookeeper edge2ai-1.dim.local:2181 --create --topic iot --partitions 10 --replication-factor 1
+kafka-topics --zookeeper edge2ai-1.dim.local:2181 --describe --topic iot
 
 echo "-- Configure and start EFM"
 retries=0
