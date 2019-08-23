@@ -428,9 +428,9 @@ python mqtt.iot_simulator.py mqtt.iot.config
 +
 image::images/smm.png[width=800]
 
-. Click on the *Topics* filter and select only the *`iot`*. All the internal `__smm*` topics should now be hidden.
+. Click on the *Producers* filter and select only the *`nifi-sensor-data`* producer. This will hide all the irrelevant topics and show only the ones that producer is writing to.
 
-. You are able to see all the *producers* and *consumers* that are writing to and reading from the `iot` topic, respectively. Since we haven't implemented any consumers yet, the consumer list should be empty.
+. If you filter by *Topic* instead and select the `iot` topic, you'll be able to see all the *producers* and *consumers* that are writing to and reading from it, respectively. Since we haven't implemented any consumers yet, the consumer list should be empty.
 
 . Click on the topic to explore its details. You can see more details, metrics and the break down per partition.
 +
