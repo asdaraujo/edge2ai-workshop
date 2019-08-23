@@ -2,27 +2,37 @@
 
 This script automatically sets up a CDH cluster on the public cloud on a single VM with the following 16 services: 
 
-- MiNiFi
-- EFM
-- NiFi 
-- NiFi Registry
-- Kafka
-- Kudu 
-- Impala 
-- Hue
-- Hive 
-- Spark 
-- Oozie
-- HDFS 
-- YARN
-- ZK 
-- CDSW
+[%autowidth,cols="1a,1a,1a,1a,1a",options="header"]
+|====
+^|CEM ^|CFM ^|CSP ^|CDH ^|CDSW
+|* MiNiFi
+* EFM
+|* NiFi
+* NiFi Registry
+* NiFi CA Service`
+|* Kafka
+* Schema Registry
+* Streams Messaging Manager
+|* ZooKeeper
+* HDFS
+* YARN
+* Spark
+* Hive
+* Impala
+* Kudu
+* Hue
+* Oozie
+|* CDSW
+|====
 
 As this cluster is meant to be used for demos, experimenting, training, and workshops, it doesn't setup Kerberos and TLS.
 
 == Instructions
 
 Below are instructions for creating the cluster. You can choose between the automated setup, using Terraform, or a manual setup.
+
+* Automated setup - uses Terraform to instantiate VMs in a cloud provider and sexecute the setup scripts to prepare the environment
+* Manual setup - you insntatiate the VM with the provided specs and run the setup scripts manually.
 
 == Automated setup
 
@@ -81,12 +91,14 @@ The variables in this file are explained below:
 
 * `TF_VAR_cluster_count`: number of one-node cluster to be created
 
-* `TF_VAR_owner`: you user id. THis will be used to tag your cloud resources.
+* `TF_VAR_owner`: you user id. This will be used to tag your cloud resources.
 * `TF_VAR_aws_region`: AWS region to use
 * `TF_VAR_aws_access_key_id`: Your AWS Access Key Id
 * `TF_VAR_aws_secret_access_key`: Your AWS Secret Access Key
 
 * `TF_VAR_cluster_ami`: AMI ID to use for the one-node cluster. Ensure you pick a Centos 7 image.
++
+NOTE: This is a vanilla Centos 7 AMI. No other prerequistes are necessary. All the required software will be installed by the setup process.
 * `TF_VAR_ssh_username`: The username used to log in to the VM. Typically: `centos`
 * `TF_VAR_cluster_instance_type`: Instance type to use for the one-node cluster. Recommended: `m5.4xlarge` or later/larger.
 
@@ -131,52 +143,59 @@ Clusters numbers start from 0 (zero).
 
 == Manual setup
 
-=== Provisioning VM
+. Provision one VM for the cluster setup
 
 * Create a Centos 7 VM with at least 16 vCPUs/ 64 GB RAM. Choose the plain vanilla Centos image, not a cloudera-centos image.
++
+NOTE: This is a vanilla Centos 7 AMI. No other prerequistes are necessary. All the required software will be installed by the setup process.
 * OS disk size: at least 100 GB.
 * Docker device disk: at least 200GB SSD disk.
 ** Note: you need a fast disk more than you need a large disk: aim for a disk with 3000 IOPS. This might mean choosing a 1TB disk.
 
-=== Configuration and installation
+. Configure VM and networking
 
 * If you created the VM on Azure and need to resize the OS disk, here are the [instructions](scripts/how-to-resize-os-disk.md).
 * Add 2 inbound rules to the Security Group:
 ** to allow your IP only, for all ports.
 ** to allow the VM's own IP, for all ports.
-* ssh into the VM and clone this repo:
+
+. SSH into the VM and clone this repository:
 +
 [source,shell]
 ----
-sudo su -
-yum install -y git
+sudo yum install -y git
 git clone https://github.com/asdaraujo/edge2ai-workshop.git
-cd edge2ai-workshop/setup/scripts
-chmod +x setup.sh
 ----
-* Run the `setup.sh` script. It takes 3 arguments:
+
+. Run the `setup.sh` script. It takes 3 arguments:
+
 ** The cloud provider name: `aws`,`azure`,`gcp`.
 ** The template file.
 ** (OPTIONAL) the Docker Device disk mount point.
 
++
+--
 _Example_:
 
 [source,shell]
 ----
+cd edge2ai-workshop/setup/scripts
+chmod +x setup.sh
 ./setup.sh aws cdsw_template.json /dev/sdc
 ----
+--
 
-Wait until the script finishes, check for any error.
+. Wait until the script finishes, check for any error.
 
 == Use
 
-Once the script returns, you can open Cloudera Manager at http://<public_dns>:7180.
+* Once the script returns, you can open Cloudera Manager at http://<public_dns>:7180. The default credentials are `admin/admin`.
 
-Wait for about 10-20 mins for CDSW to be ready. You can monitor the status of CDSW by issuing the `cdsw status` command.
+* Wait for about 10-20 mins for CDSW to be ready. You can monitor the status of CDSW by issuing the `cdsw status` command.
 
-You can use `kubectl get pods -n kube-system` to check if all the pods that the role `Master` is suppose to start have really started.
+* You can use `kubectl get pods -n kube-system` to check if all the pods that the role `Master` is suppose to start have really started.
 
-You can also check the CDSW deployment status on `CM > CDSW service > Instances > Master role > Processes > stdout`.
+* You can also check the CDSW deployment status on `CM > CDSW service > Instances > Master role > Processes > stdout`.
 
 == Troubleshooting and known issues
 

@@ -47,8 +47,6 @@ You should have 2 addresses for you one-node cluster: the public DNS name and th
 . Login into *Cloudera Manager* and familiarize yourself with the services installed
 . Login into *Hue*. As you are the first user to login into Hue, you are granted admin privileges. At this point, you won't need to do anything on Hue, but by logging in, CDH has created your HDFS user and folder, which you will need for the next lab.
 
-Ensure you remember the username and password, as you will use these throughout this workshop.
-
 Below a screenshot of Chrome open with 8 tabs, one for each service.
 
 image::images/browser.png[width=800]
@@ -105,6 +103,16 @@ chown root:root /opt/cloudera/cem/minifi/lib/nifi-mqtt-nar-1.8.0.nar
 chmod 660 /opt/cloudera/cem/minifi/lib/nifi-mqtt-nar-1.8.0.nar
 ----
 
+. The MiNiFi agent configuration has _already been completed_ for you. However, before starting the MiNiFi agent, examine the contents of the configuration file, which can be found at `/opt/cloudera/cem/minifi/conf/bootstrap.conf`.
++
+You'll see the following parameters in the *MiNiFi Command & Control Configuration* section:
+
+* `nifi.c2.rest.url` - Address of the Edge Flow Manager (EFM) server's endpoint that MiNiFi agent uses to send heartbeats.
+* `nifi.c2.rest.url.ack` - Address of the Edge Flow Manager (EFM) server's endpoint that MiNiFi agent uses to acknowledge commands.
+* `nifi.c2.agent.heartbeat.period` - Heartbeat interval, in milliseconds.
+* `nifi.c2.agent.class` - Agent class that's this agent will report to the EFM server.
+* `nifi.c2.agent.identifier` - Unique Id of this MiNiFi agent-iot-1
+
 . You can now start the MiNiFi agent:
 +
 [source,shell]
@@ -116,21 +124,22 @@ systemctl start minifi
 +
 [source,shell]
 ----
-cat /opt/cloudera/cem/minifi/logs/minifi-app.log
+egrep -A1 "Processor Type|MQTT" /opt/cloudera/cem/minifi/logs/minifi-app.log
 ----
 +
 If the MQTT Processors loaded successfully you should see them listed in the "Processor Type" section of the log:
 +
 [source,shell]
 ----
-  === Processor Type ===
-  ...
-  org.apache.nifi.processors.mqtt.ConsumeMQTT
-    org.apache.nifi:nifi-mqtt-nar:1.8.0 || ./work/nar/extensions/nifi-mqtt-nar-1.8.0.nar-unpacked
-  ...
-  org.apache.nifi.processors.mqtt.PublishMQTT
-    org.apache.nifi:nifi-mqtt-nar:1.8.0 || ./work/nar/extensions/nifi-mqtt-nar-1.8.0.nar-unpacked
-  ...
+=== Processor Type ===
+org.apache.nifi.processors.standard.GenerateFlowFile
+--
+org.apache.nifi.processors.mqtt.PublishMQTT
+        org.apache.nifi:nifi-mqtt-nar:1.8.0 || ./work/nar/extensions/nifi-mqtt-nar-1.8.0.nar-unpacked
+--
+org.apache.nifi.processors.mqtt.ConsumeMQTT
+        org.apache.nifi:nifi-mqtt-nar:1.8.0 || ./work/nar/extensions/nifi-mqtt-nar-1.8.0.nar-unpacked
+--
 ----
 
 [[lab_3, Lab3]]
@@ -144,13 +153,13 @@ image::images/cem_heartbeats.png[width=800]
 
 . You can then select the **Flow Designer** tab (image:images/flow_designer_icon.png[width=30]). To build a dataflow, select the desired class (`iot-1`) from the table and click OPEN.  Alternatively, you can double-click on the desired class.
 
-. Add a _ConsumeMQTT_ Processor to the canvas, double-click it and configure it with below settings:
+. Add a _ConsumeMQTT_ Processor to the canvas, by dragging the processor icon to the canvas, selecting the _ConsumeMQTT_ processor type and clicking on the *Add* button. Once the processor is on the canvas, double-click it and configure it with below settings:
 +
 [source]
 ----
-Broker URI: tcp://edge2ai-1.dim.local:1883
-Client ID: minifi-iot
-Topic Filter: iot/#
+Broker URI:     tcp://edge2ai-1.dim.local:1883
+Client ID:      minifi-iot
+Topic Filter:   iot/#
 Max Queue Size: 60
 ----
 +
@@ -160,7 +169,7 @@ image::images/add_consumer_mqtt.png[width=800]
 +
 [source]
 ----
-URL = http://edge2ai-1.dim.local:8080/nifi
+URL: http://edge2ai-1.dim.local:8080/nifi
 ----
 +
 image::images/add_rpg.png[width=800]
@@ -177,7 +186,9 @@ image::images/add_funnel.png[width=600]
 +
 image::images/connecting.png[width=800]
 
-. Right-click on the Input Port and start it
+. Right-click on the Input Port and start it. Alternatively, click on the Input Port to select it and then press the start ("play") button on the Operate panel:
++
+image::images/operate_panel.png[width=300]
 
 . You will need the ID of the _Input Port_ to complete the connection of the _ConsumeMQTT_ processor to the RPG (NiFi). Double-click on the _Input Port_ and copy its ID.
 +
@@ -187,15 +198,18 @@ image::images/input_port_id.png[width=800]
 +
 image::images/connect_to_rpg.png[width=800]
 
-. The Flow is now complete, but before publishing it, create the Bucket in the _NiFi Registry_ so that all versions of your flows are stored for review and audit. Open the NiFi Registry at `http://<public_dns>:18080/nifi-registry`, click on the spanner icon on the top-right corner on and create a bucket called `IoT`.
+. The Flow is now complete, but before publishing it, create the Bucket in the _NiFi Registry_ so that all versions of your flows are stored for review and audit. Open the NiFi Registry at `http://<public_dns>:18080/nifi-registry`, click on the wrench/spanner icon (image:images/spanner_icon.png[width=20]) on the top-right corner on and create a bucket called `IoT`.
 +
 image::images/create_bucket.png[width=800]
 
-. You can now publish the flow for the MiNiFi agent to automatically pick up.
+. You can now publish the flow for the MiNiFi agent to automatically pick up. Click *Publish*, add a descriptive comment for your changes and click *Apply*.
 +
 image::images/publish_flow.png[width=800]
++
+image::images/cem_first_version.png[width=800]
 
-. Go back to the *NiFi Registry* Web UI and click on the *NiFi Registry* name, next to the Cloudera logo. If the flow publishing was successful, you should see the Flow version details in the NiFi Registry.
+
+. Go back to the *NiFi Registry* Web UI and click on the *NiFi Registry* name, next to the Cloudera logo. If the flow publishing was successful, you should see the flow's version details in the NiFi Registry.
 +
 image::images/flow_in_nifi_registry.png[width=800]
 
@@ -210,33 +224,35 @@ image::images/running_simulator.png[width=800]
 +
 image::images/queued_events.png[width=300]
 
+. You can stop the simulator once you confirm that the flow is working correctly.
+
 [[lab_4, Lab 4]]
 == Lab 4 - Registering our schema in Schema Registry
 
 The data produced by the temperature sensors is described by the schema in file `link:https://raw.githubusercontent.com/asdaraujo/edge2ai-workshop/master/sensor.avsc[sensor.avsc]`. In this lab we will register this schema in Schema Registry so that our flows in NiFi can refer to schema using an unified service. This will also allow us to evolve the schema in the future, if needed, keeping older versions under version control, so that existing flows and flowfiles will continue to work.
 
-. Download the following file to your local computer:
+. Go the following URL, which contains the schema definition we'll use for this lab. Keep this page open, as you'll need it soon.
 +
-[source]
-----
-https://raw.githubusercontent.com/asdaraujo/edge2ai-workshop/master/sensor.avsc
-----
+`link:https://raw.githubusercontent.com/asdaraujo/edge2ai-workshop/master/sensor.avsc[https://raw.githubusercontent.com/asdaraujo/edge2ai-workshop/master/sensor.avsc, window="_blank"]`
 
 . In the Schema Registry Web UI, click the `+` sign to register a new schema with the following properties:
 +
 [source]
 ----
-Name: SensorReading
-Description: Schema for the data generated by the IoT sensors
-Type: Avro schema provider
-Schema Group: Kafka
+Name:          SensorReading
+Description:   Schema for the data generated by the IoT sensors
+Type:          Avro schema provider
+Schema Group:  Kafka
 Compatibility: Backward
-Evolve: checked
+Evolve:        checked
 ----
 
-. Select your local copy of the `sensor.avsc` file for the *Schema Text* field and save the schema
+. Go to the page you opened in step 1 and select and copy the entire contents of that page. Go back to the Schema Registry, click on a blank area of the *Schema Text* field and paste the contents you copied.
+
 +
 image::images/register_schema.png[width=800]
+
+. Save the schema
 
 [[lab_5, Lab 5]]
 == Lab 5 - Configuring the NiFi flow and pushing data to Kafka
@@ -255,7 +271,7 @@ image::images/create_pgroup.png[width=800]
 +
 ----
 Name: NiFi Registry
-URL: http://edge2ai-1.dim.local:18080
+URL:  http://edge2ai-1.dim.local:18080
 ----
 +
 image::images/global_controller_settings.png[width=800]
@@ -270,12 +286,12 @@ image::images/sensor_flows_bucket.png[width=800]
 +
 [source]
 ----
-Registry: NiFi Registry
-Bucket: SensorFlows
+Registry:  NiFi Registry
+Bucket:    SensorFlows
 Flow Name: SensorProcessGroup
 ----
 
-. Let's also enable processors in this Process Group to use schemas stored in Schema Registry. Right-click on the Process Group, select *Configure* and navigate to the *Controller Services* tab. Click the *`+`* icon, add a *HortonworksSchemaRegistry* service, configure it with the following URL and click *Apply*.
+. Let's also enable processors in this Process Group to use schemas stored in Schema Registry. Right-click on the Process Group, select *Configure* and navigate to the *Controller Services* tab. Click the *`+`* icon and add a *HortonworksSchemaRegistry* service. After the service is added, click on the service's _cog_ icon (image:images/cog_icon.png[width=20]), go to the *Properties* tab and configure it with the following *Schema Registry URL* and click *Apply*.
 +
 [source]
 ----
@@ -284,29 +300,28 @@ URL: http://edge2ai-1.dim.local:7788/api/v1
 +
 image::images/added_hwx_sr_service.png[width=800]
 
-. Click on the _lightning bolt_ icon to *enable* the *HortonworksSchemaRegistry* Controller Service.
+. Click on the _lightning bolt_ icon (image:images/enable_icon.png[width=20]) to *enable* the *HortonworksSchemaRegistry* Controller Service.
 
-. Still on the *Controller Services* screen, let's add two additional services to handle the reading and writing of JSON records. Add the following two services:
+. Still on the *Controller Services* screen, let's add two additional services to handle the reading and writing of JSON records. Click on the image:images/plus_button.png[width=25] button and add the following two services:
 ** *`JsonTreeReader`*, with the following properties:
 +
 [source]
 ----
 Schema Access Strategy: Use 'Schema Name' Property
-Schema Registry: HortonworksSchemaRegistry
-Schema Name: SensorReading
-Schema Version: 1
+Schema Registry:        HortonworksSchemaRegistry
+Schema Name:            ${schema.name} -> already set by default!
 ----
 
 ** *`JsonRecordSetWriter`*, with the following properties:
 +
 [source]
 ----
-Schema Write Strategy: HWX Content-Encoded Schema Reference
+Schema Write Strategy:  HWX Schema Reference Attributes
 Schema Access Strategy: Inherit Record Schema
-Schema Registry: HortonworksSchemaRegistry
+Schema Registry:        HortonworksSchemaRegistry
 ----
 
-. Enable the *JsonTreeReader* and the *JsonRecordSetWriter* Controller Services you just created, by clicking on their respective _lightning bolt_ icons.
+. Enable the *JsonTreeReader* and the *JsonRecordSetWriter* Controller Services you just created, by clicking on their respective _lightning bolt_ icons (image:images/enable_icon.png[width=20]).
 +
 image::images/controller_services.png[width=800]
 
@@ -316,28 +331,66 @@ image::images/controller_services.png[width=800]
 
 . Inside the process group, add a new _Input Port_ and name it "Sensor Data"
 
+. We need to tell NiFi which schema should be used to read and write the Sensor data. For this we'll use an _UpdateAttribute_ processor to add an attribute to the FlowFile indicating the schema name.
++
+Add an _UpdateAttribute_ processor by dragging the processor icon to the canvas:
++
+image::images/add_updateattribute.png[width=800]
+
+. Double-click the _UpdateAttribute_ processor and configure it as follows:
+.. In the _SETTINGS_ tab:
++
+[source]
+----
+Name: Set Schema Name
+----
+.. In the _PROPERTIES_ tab:
+** Click on the image:images/plus_button.png[width=25] button and add the following property:
++
+[source]
+----
+Property Name:  schema.name
+Property Value: SensorReading
+----
+.. Click *Apply*
+
+. Connect the *Sensor Data* input port to the *Set Schema Name* processor.
+
 . Add a _PublishKafkaRecord_2.0_ processor and configure it as follows:
 +
 [source]
 ----
-Kafka Brokers: edge2ai-1.dim.local:9092
-Topic Name: iot
-Record Reader: JsonTreeReader
-Record Writer: JsonRecordSetWriter
+Name:             Publish to Kafka topic: iot
+Kafka Brokers:    edge2ai-1.dim.local:9092
+Topic Name:       iot
+Record Reader:    JsonTreeReader
+Record Writer:    JsonRecordSetWriter
 Use Transactions: false
 ----
++
+NOTE: Make sure you use the PublishKafkaRecord_2.0 processor and *not* the PublishKafka_2.0 one
 
-. Connect the Input Port to the PublishKafkaRecord processor.
+. While still in the _PROPERTIES_ tab of the _PublishKafkaRecord_2.0_ processor, click on the image:images/plus_button.png[width=25] button and add the following property:
++
+[source]
+----
+Property Name:  client.id
+Property Value: nifi-sensor-data
+----
++
+Later, this will help us clearly identify who is producing data into the Kafka topic.
 
-. Add a new _Funnel_ to the canvas and connect the PublishKafkaRecord processor to it. When the "Create connection" dialog appears, select "*success*" and click "Add".
+. Connect the *Set Schema Name* processor to the *Publish to Kafka topic: iot* processor.
+
+. Add a new _Funnel_ to the canvas and connect the *Publish to Kafka topic: iot* processor to it. When the "Create connection" dialog appears, select "*success*" and click *Add*.
 +
 image::images/add_kafka_success_connection.png[width=600]
 
-. Double-click the PublishKafkaRecord processor, navigate to the *Settings* tab and  check "*failure*" under the *Automatically Terminate Relationships* section to terminate here records that were not successfully sent to Kafka.
+. Add one more new _Funnel_ to the canvas and again connect the PublishKafkaRecord processor to it, but this time selecting the "*failure*" relationship and click *Add*.
 +
-image::images/terminate_failure.png[width=800]
+image::images/add_kafka_failure_connection.png[width=600]
 
-. Start the PublishKafkaRecord processor and the Input Port. Your canvas should now look like the one below:
+. Start the input port and the two processors. Your canvas should now look like the one below:
 +
 image::images/publishKafka_flow.png[width=800]
 
@@ -371,11 +424,11 @@ Now that our NiFi flow is pushing data to Kafka, it would be good to have a conf
 python mqtt.iot_simulator.py mqtt.iot.config
 ----
 
-. Go to the Stream Messaging Manager (SMM) Web UI and familiarize yourself with the options there.
+. Go to the Stream Messaging Manager (SMM) Web UI and familiarize yourself with the options there. Notice the filters (blue boxes) at the top of the screen.
 +
 image::images/smm.png[width=800]
 
-. Notice the filters at the top of the screen. Click on the *Topics* filter and select only the *`iot`*. All the internal `__smm*` topics should now be hidden.
+. Click on the *Topics* filter and select only the *`iot`*. All the internal `__smm*` topics should now be hidden.
 
 . You are able to see all the *producers* and *consumers* that are writing to and reading from the `iot` topic, respectively. Since we haven't implemented any consumers yet, the consumer list should be empty.
 
@@ -391,6 +444,12 @@ image::images/explore_partition.png[width=800]
 == Lab 7 - Use Spark to call the CDSW model endpoint and save to Kudu
 
 Spark Streaming is a processing framework for (near) real-time data. In this lab, you will use Spark to consume Kafka messages which contains the IoT data from the machine, and call the model API endpoint to predict whether, with those IoT values the machine sent, the machine is likely to break. Then save the results to Kudu for fast analytics.
+
+. Go to the Hue Web UI and login. The first user to login to a Hue installation is automatically created and granted admin privileges in Hue.
+
+. The Hue UI should open with the Impala Query Editor by default. If it doesn't, you can always find it by clicking on *Query button > Editor -> Impala*:
++
+image::images/impala_editor.png[width=800]
 
 . First, create the Kudu table. Login into Hue, and in the Impala Query, run this statement:
 +
@@ -669,7 +728,12 @@ image::images/test_model.png[width=800]
 == Resources
   
 * link:https://medium.freecodecamp.org/building-an-iiot-system-using-apache-nifi-mqtt-and-raspberry-pi-ce1d6ed565bc[Original blog by Abdelkrim Hadjidj]
- * link:https://www.cloudera.com/documentation.html[Cloudera Documentation]
+
+* This workshop was based on the following work by Fabio Ghirardello:
+** https://github.com/fabiog1901/IoT-predictive-maintenance
+** https://github.com/fabiog1901/OneNodeCDHCluster
+
+* link:https://www.cloudera.com/documentation.html[Cloudera Documentation]
 
 == Troubleshooting
 
