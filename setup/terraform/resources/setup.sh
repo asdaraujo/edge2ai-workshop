@@ -11,6 +11,30 @@ NOPROMPT=${4:-}
 BASE_DIR=$(cd $(dirname $0); pwd -P)
 KEY_FILE=$BASE_DIR/myRSAkey
 
+# Often yum connection to Cloudera repo fails and causes the instance create to fail.
+# yum timeout and retries options don't see to help in this type of failure.
+# We explicitly retry a few times to make sure the build continues when these timeouts happen.
+function yum_install() {
+  local packages=$@
+  local retries=10
+  while true; do
+    set +e
+    yum install -d1 -y $packages
+    RET=$?
+    set -e
+    if [ $RET == 0 ]; then
+      break
+    fi
+    retries=$((retries - 1))
+    if [ $retries -lt 0 ]; then
+      echo 'YUM install failed!'
+      break
+    else
+      echo 'Retrying YUM...'
+    fi
+  done
+}
+
 echo "-- Check for additional parcels"
 chmod +x $BASE_DIR/check-for-parcels.sh
 ALL_PARCELS=$($BASE_DIR/check-for-parcels.sh $NOPROMPT)
@@ -30,7 +54,7 @@ timedatectl set-timezone UTC
 echo "CentOS Linux release 7.5.1810 (Core)" > /etc/redhat-release
 
 echo "-- Install Java OpenJDK8 and other tools"
-yum install -d1 -y $JAVA_PACKAGE_NAME vim wget curl git bind-utils
+yum_install $JAVA_PACKAGE_NAME vim wget curl git bind-utils
 
 # Check input parameters
 case "$1" in
@@ -109,8 +133,8 @@ yum clean all
 rm -rf /var/cache/yum/
 yum repolist
 
-yum install -d1 -y cloudera-manager-daemons cloudera-manager-agent cloudera-manager-server
-yum install -d1 -y MariaDB-server MariaDB-client
+yum_install cloudera-manager-daemons cloudera-manager-agent cloudera-manager-server
+yum_install MariaDB-server MariaDB-client
 cat $BASE_DIR/mariadb.config > /etc/my.cnf
 
 echo "--Enable and start MariaDB"
@@ -210,13 +234,13 @@ done
 echo "-- CM has finished starting"
 
 echo "-- Install pip and the cm_client module"
-yum install -d1 -y epel-release
-yum install -d1 -y python-pip
+yum_install epel-release
+yum_install python-pip
 pip install --quiet --upgrade pip
 pip install --progress-bar off cm_client
 
 echo "-- Install stuff needed by SMM UI"
-yum install -d1 -y npm gcc-c++ make
+yum_install npm gcc-c++ make
 npm install forever -g
 
 echo "-- Automate cluster creation using the CM API"
