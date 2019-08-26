@@ -7,6 +7,14 @@ resource "aws_instance" "cluster" {
   subnet_id              = aws_subnet.subnet1.id
   vpc_security_group_ids = [aws_security_group.bootcamp_sg.id]
 
+  depends_on = [
+    aws_main_route_table_association.rtb_assoc,
+  ]
+
+  timeouts {
+    create = "10m"
+  }
+
   root_block_device {
     volume_type           = "gp2"
     volume_size           = "100"
