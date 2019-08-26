@@ -72,10 +72,14 @@ For Schema Registry (SR) and Streams Messaging Manager (SMM) installation you ha
 +
 [source,shell]
 ----
+SCHEMAREGISTRY_VERSION=
+STREAMS_MESSAGING_MANAGER_VERSION=
 CSP_PARCEL_REPO=
 SCHEMAREGISTRY_CSD_URL=
 STREAMS_MESSAGING_MANAGER_CSD_URL=
 ----
++
+NOTE: The version of the components, as indicated in the `SCHEMAREGISTRY_VERSION` and `STREAMS_MESSAGING_MANAGER_VERSION` variables, have the form: `<csd_version>.<parcel_version>`. For example, for the CSD binary `SCHEMAREGISTRY-0.8.0.jar` and parcel version `2.0.0.0-112` the Schema Registry version is `0.8.0.2.0.0.0-112`.
 
 * Alternatively, leave the properties above unset and download the CSP parcel into `edge2ai-workshop/setup/parcels/` and both CSDs into `edge2ai-workshop/setup/csds/`. Note that the setup process will upload these files to every VM it creates, so if you're launching a large nuber of VMs, expect a good amount of upload volume.
 
