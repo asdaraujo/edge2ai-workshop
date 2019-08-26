@@ -3,9 +3,9 @@ resource "aws_instance" "cluster" {
   ami                    = var.cluster_ami
   instance_type          = var.cluster_instance_type
   availability_zone      = aws_subnet.subnet1.availability_zone
-  key_name               = aws_key_pair.bootcamp_key_pair.key_name
+  key_name               = aws_key_pair.workshop_key_pair.key_name
   subnet_id              = aws_subnet.subnet1.id
-  vpc_security_group_ids = [aws_security_group.bootcamp_sg.id]
+  vpc_security_group_ids = [aws_security_group.workshop_main_sg.id]
 
   depends_on = [
     aws_main_route_table_association.rtb_assoc,

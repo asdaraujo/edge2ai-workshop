@@ -13,63 +13,14 @@ done
 source $BASE_DIR/.env
 source $BASE_DIR/common.sh
 
-# Load bootstrap scripts to the resource directory
+# Check for parcels
 chmod +x $BASE_DIR/resources/check-for-parcels.sh
 $BASE_DIR/resources/check-for-parcels.sh
-#rm -rf $BASE_DIR/resources
-#mkdir -p $BASE_DIR/resources
-#find $BASE_DIR/.. -maxdepth 1 -type f -exec cp -f {} $BASE_DIR/resources/ \;
-#cp -r $BASE_DIR/../parcels $BASE_DIR/../csds $BASE_DIR/resources/
 
 ensure_key_pair
 
 log "Launching Terraform"
 rm -f rules.tf
-terraform init
-terraform apply -auto-approve -parallelism=20
-
-PUBLIC_CIDRS=$(terraform show -json | jq -r '.values[].resources[] | select(.type == "aws_instance") | "\"\(.values.public_ip)/32\""' | tr "\n" "," | sed 's/,$//')
-SG_ID=$(terraform state show aws_security_group.bootcamp_sg -no-color | grep "^ *id " | sed 's/.* = //;s/"//g')
-cat > rules.tf <<EOF
-resource "aws_security_group_rule" "allow_cdsw_healthcheck" {
-  type              = "ingress"
-  from_port         = 80
-  to_port           = 80
-  protocol          = "tcp"
-  cidr_blocks       = [$PUBLIC_CIDRS]
-  security_group_id = aws_security_group.bootcamp_sg.id
-}
-
-resource "null_resource" "configure-cdsw" {
-  count = var.cluster_count
-  depends_on = [aws_security_group_rule.allow_cdsw_healthcheck]
-
-  connection {
-    host        = "\${element(aws_instance.cluster.*.public_ip, count.index)}"
-    type        = "ssh"
-    user        = var.ssh_username
-    private_key = file(var.ssh_private_key)
-  }
-
-  provisioner "file" {
-    source      = "resources/cdsw_setup.py"
-    destination = "/tmp/cdsw_setup.py"
-
-    connection {
-      host        = "\${element(aws_instance.cluster.*.public_ip, count.index)}"
-      type        = "ssh"
-      user        = var.ssh_username
-      private_key = file(var.ssh_private_key)
-    }
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      "python /tmp/cdsw_setup.py \$(curl ifconfig.me 2>/dev/null)"
-    ]
-  }
-}
-EOF
 terraform init
 terraform apply -auto-approve -parallelism=20
 

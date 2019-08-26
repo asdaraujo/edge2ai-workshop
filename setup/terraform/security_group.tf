@@ -1,6 +1,6 @@
-resource "aws_security_group" "bootcamp_sg" {
-  name_prefix = "${var.owner}-${var.name_prefix}-sg-"
-  description = "New Hire Bootcamp Security Group"
+resource "aws_security_group" "workshop_main_sg" {
+  name_prefix = "${var.owner}-${var.name_prefix}-main-sg-"
+  description = "Allow ingress connections from the user public IP"
   vpc_id      = (var.vpc_id != "" ? var.vpc_id : aws_vpc.vpc[0].id)
 
   ingress {
@@ -19,9 +19,18 @@ resource "aws_security_group" "bootcamp_sg" {
   }
 
   tags = {
-    Name    = "${var.owner}-${var.name_prefix}-sg"
+    Name    = "${var.owner}-${var.name_prefix}-main-sg"
     owner   = var.owner
     project = var.project
     enddate = var.enddate
   }
+}
+
+resource "aws_security_group_rule" "allow_cdsw_healthcheck" {
+  type              = "ingress"
+  from_port         = 80
+  to_port           = 80
+  protocol          = "tcp"
+  cidr_blocks       = [ for ip in aws_instance.cluster.*.public_ip: "${ip}/32" ]
+  security_group_id = aws_security_group.workshop_main_sg.id
 }
