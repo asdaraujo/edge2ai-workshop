@@ -582,15 +582,6 @@ OPTIONAL        {
 OPTIONAL          "base": true,
 OPTIONAL          "configs": [
 OPTIONAL            {
-OPTIONAL              "name" : "cm.metrics.host",
-OPTIONAL              "value" : "YourHostname"
-OPTIONAL            }, {
-OPTIONAL              "name" : "cm.metrics.password",
-OPTIONAL              "value" : "admin"
-OPTIONAL            }, {
-OPTIONAL              "name" : "cm.metrics.service.name",
-OPTIONAL              "value" : "kafka"
-OPTIONAL            }, {
 OPTIONAL              "name" : "consumer.group.refresh.interval.ms",
 OPTIONAL              "value" : "1000"
 OPTIONAL            }, {
@@ -615,22 +606,25 @@ OPTIONAL          "roleType": "STREAMS_MESSAGING_MANAGER_SERVER"
 OPTIONAL        },
 OPTIONAL        {
 OPTIONAL          "base": true,
-OPTIONAL          "configs": [
-OPTIONAL            {
-OPTIONAL              "name" : "smmui.rest.host",
-OPTIONAL              "value" : "localhost"
-OPTIONAL            }
-OPTIONAL          ],
+OPTIONAL          "configs": [],
 OPTIONAL          "refName": "streams_messaging_manager-STREAMS_MESSAGING_MANAGER_UI-BASE",
 OPTIONAL          "roleType": "STREAMS_MESSAGING_MANAGER_UI"
 OPTIONAL        }
 OPTIONAL      ],
 OPTIONAL      "serviceConfigs": [
 OPTIONAL        {
+OPTIONAL          "name" : "cm.metrics.host",
+OPTIONAL          "value" : "YourHostname"
+OPTIONAL        }, {
+OPTIONAL          "name" : "cm.metrics.password",
+OPTIONAL          "value" : "admin"
+OPTIONAL        }, {
+OPTIONAL          "name" : "cm.metrics.service.name",
+OPTIONAL          "value" : "kafka"
+OPTIONAL        }, {
 OPTIONAL          "name": "zookeeper_service",
 OPTIONAL          "ref": "zookeeper"
-OPTIONAL        },
-OPTIONAL        {
+OPTIONAL        }, {
 OPTIONAL          "name": "kafka_service",
 OPTIONAL          "ref": "kafka"
 OPTIONAL        }
