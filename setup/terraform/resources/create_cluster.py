@@ -120,6 +120,7 @@ all_hosts_api.update_config(message='Updating parameter for SMM',
                                      cm_client.ApiConfig(name='host_agent_safety_valve',
                                                          value='kafka_broker_topic_partition_metrics_for_smm_enabled=true')
                                  ])
+                           )
 
 # create the cluster using the template
 with open(TEMPLATE) as f:

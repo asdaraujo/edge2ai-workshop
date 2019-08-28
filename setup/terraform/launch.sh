@@ -20,7 +20,6 @@ $BASE_DIR/resources/check-for-parcels.sh
 ensure_key_pair
 
 log "Launching Terraform"
-rm -f rules.tf
 terraform init
 terraform apply -auto-approve -parallelism=20
 

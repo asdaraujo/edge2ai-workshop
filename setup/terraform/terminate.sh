@@ -23,7 +23,7 @@ log "Destroying instances"
 terraform destroy -auto-approve
 
 log "Cleaning up"
-rm -f rules.tf .instance.list .key.file.name
+rm -f .instance.list .key.file.name
 delete_key_pair
 
 log "Deployment destroyed successfully"
