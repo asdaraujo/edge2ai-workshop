@@ -481,6 +481,10 @@ OPTIONAL    }
             {
               "name": "nifi.remote.input.host",
               "value": "YourHostname"
+            },
+            {
+              "name": "nifi.cluster.flow.election.max.wait.time",
+              "value": "10 secs"
             }
           ],
           "refName": "nifi-NIFI_NODE-BASE",

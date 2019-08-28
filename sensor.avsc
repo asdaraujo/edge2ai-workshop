@@ -15,6 +15,28 @@
       "type": "long"
     },
     {
+      "name": "is_healthy",
+      "doc": "Flag indicating health (healthy == 1)",
+      "type": "int"
+    },
+    {
+      "name": "response",
+      "doc": "response record",
+      "type": {
+        "type": "record",
+        "name": "CDSWResponse",
+        "namespace": "com.cloudera.example",
+        "doc": "This is a CDSW Model response",
+        "fields": [
+          {
+            "name": "result",
+            "doc": "Result",
+            "type": "int"
+          }
+        ]
+      }
+    },
+    {
     "name": "sensor_0",
     "doc": "Reading #0.",
     "type": "int"

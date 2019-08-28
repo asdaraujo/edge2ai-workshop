@@ -113,6 +113,14 @@ cmd = wait(cmd)
 if not cmd.success:
     raise RuntimeError('Failed to start Management Services')
 
+# Update host-level parameter required by SMM
+all_hosts_api = cm_client.AllHostsResourceApi(api_client)
+all_hosts_api.update_config(message='Updating parameter for SMM',
+                            body=cm_client.ApiConfigList([
+                                     cm_client.ApiConfig(name='host_agent_safety_valve',
+                                                         value='kafka_broker_topic_partition_metrics_for_smm_enabled=true')
+                                 ])
+
 # create the cluster using the template
 with open(TEMPLATE) as f:
     json_str = f.read()
