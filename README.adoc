@@ -185,7 +185,7 @@ URL: http://edge2ai-1.dim.local:8080/nifi
 +
 image::images/add_rpg.png[width=800]
 
-. At this point you need to connect the ConsumerMQTT processor to the RPG. For this, you first need to add an Input Port to the remote NiFi server. Open the NiFi Web UI at `http://<public_dns>:8080/nifi/` and drag the _Input Port_ to the canvas. Call it something like "from Gateway".
+. At this point you need to connect the ConsumerMQTT processor to the RPG. For this, you first need to add an Input Port to the remote NiFi server. Open the NiFi Web UI at `\http://<public_dns>:8080/nifi/` and drag the _Input Port_ to the canvas. Call it something like "from Gateway".
 +
 image::images/add_input_port.png[width=800]
 
@@ -209,7 +209,7 @@ image::images/input_port_id.png[width=800]
 +
 image::images/connect_to_rpg.png[width=800]
 
-. The Flow is now complete, but before publishing it, create the Bucket in the _NiFi Registry_ so that all versions of your flows are stored for review and audit. Open the NiFi Registry at `http://<public_dns>:18080/nifi-registry`, click on the wrench/spanner icon (image:images/spanner_icon.png[width=20]) on the top-right corner on and create a bucket called `IoT`.
+. The Flow is now complete, but before publishing it, create the Bucket in the _NiFi Registry_ so that all versions of your flows are stored for review and audit. Open the NiFi Registry at `\http://<public_dns>:18080/nifi-registry`, click on the wrench/spanner icon (image:images/spanner_icon.png[width=20]) on the top-right corner on and create a bucket called `IoT`.
 +
 image::images/create_bucket.png[width=800]
 
@@ -242,11 +242,15 @@ image::images/queued_events.png[width=300]
 
 The data produced by the temperature sensors is described by the schema in file `link:https://raw.githubusercontent.com/asdaraujo/edge2ai-workshop/master/sensor.avsc[sensor.avsc]`. In this lab we will register this schema in Schema Registry so that our flows in NiFi can refer to schema using an unified service. This will also allow us to evolve the schema in the future, if needed, keeping older versions under version control, so that existing flows and flowfiles will continue to work.
 
-. Go the following URL, which contains the schema definition we'll use for this lab. Keep this page open, as you'll need it soon.
+. Go the following URL, which contains the schema definition we'll use for this lab. Select all contents of the page and copy it.
 +
 `link:https://raw.githubusercontent.com/asdaraujo/edge2ai-workshop/master/sensor.avsc[https://raw.githubusercontent.com/asdaraujo/edge2ai-workshop/master/sensor.avsc, window="_blank"]`
 
-. In the Schema Registry Web UI, click the `+` sign to register a new schema with the following properties:
+. In the Schema Registry Web UI, click the `+` sign to register a new schema.
+
+. Click on a blank area in the *Schema Text* field and paste the contents you copied.
+
+. Complete the schema creation by filling the following properties:
 +
 [source]
 ----
@@ -258,9 +262,6 @@ Compatibility: Backward
 Evolve:        checked
 ----
 
-. Go to the page you opened in step 1 and select and copy the entire contents of that page. Go back to the Schema Registry, click on a blank area of the *Schema Text* field and paste the contents you copied.
-
-+
 image::images/register_schema.png[width=800]
 
 . Save the schema
@@ -369,9 +370,17 @@ Property Value: SensorReading
 
 . Add a _PublishKafkaRecord_2.0_ processor and configure it as follows:
 +
+*SETTINGS* tab:
++
 [source]
 ----
 Name:                                  Publish to Kafka topic: iot
+----
++
+*PROPERTIES* tab:
++
+[source]
+----
 Kafka Brokers:                         edge2ai-1.dim.local:9092
 Topic Name:                            iot
 Record Reader:                         JsonTreeReader
@@ -458,7 +467,7 @@ image::images/troubled_sensors.png[width=800]
 
 . Stop the simulator with CTRL-C.
 
-. In the next Lab we'll deal with these measurements to avoid problems later in our data flow.
+. In the next Lab we'll eliminate with these problematic measurements to avoid problems later in our data flow.
 
 [[lab_7, Lab 7]]
 == Lab 7 - Update the edge flows to perform additional processing on the data
@@ -524,11 +533,10 @@ image::images/route_on_attribute_config.png[width=800]
 +
 image::images/reconnect_consume_mqtt.png[width=800]
 
-. Connect the _Extract sensor_0 and sensor1 values_ to the _Filter errors_ processor:
+. Connect the _Extract sensor_0 and sensor1 values_ to the _Filter errors_ processor. When the *Create Connection* dialog appear, select "*matched*" and click *Create*.
 +
 image::images/connect_extract_to_route.png[width-800]
 
-. When the *Create Connection* dialog appear, select "*matched*" and click *Create*.
 +
 image::images/create_connection.png[width=800]
 
@@ -561,6 +569,8 @@ image::images/terminate_errors.png[width=800]
 
 . Start the simulator again.
 
+. Go to the NiFi Web UI and confirm that the data is flowing without errors within the *Process Sensor Data* process group. Refresh a few times and check that the numbers are changing.
+
 . Use the *EXPLORE* feature on the SMM Web UI to confirm that the bogus readings have been filtered out.
 
 . Stop the simulator once you have verified the data.
@@ -578,9 +588,9 @@ When the sensor data was sent to Kafka using the _PublishKafkaRecord_ processor,
 
 To do this, though, we need to configure a different _JsonTreeReader_ that will use the schema properties in the header, instead of the `${schema.name}` attribute, as we did before.
 
-We'll also a new _RestLookupService_ controller service to perform the calls to the CDSW model API endpoint.
+We'll also add a new _RestLookupService_ controller service to perform the calls to the CDSW model API endpoint.
 
-. On the *Operate* panel, click on the _cog_ icon (image:images/cog_icon.png[width=25]) to access the *Process Sensor Data* process group's configuration page.
+. If you're not in the *Process Sensor Data* process group, double-click on it to expand it. On the *Operate* panel (left-hand side), click on the _cog_ icon (image:images/cog_icon.png[width=25]) to access the *Process Sensor Data* process group's configuration page.
 +
 image::images/operate_panel_cog.png[width=300]
 
@@ -694,7 +704,7 @@ request.method: toString('post', 'UTF-8')
 
 . Click *Apply* to save the changes to the *Predict machine health* processor.
 
-. Connect the *Consume Kafka iot messages* to the *Predict machine health* one. When prompted, check the *success* relationship for this connection.
+. Connect the *Consume Kafka iot messages* processor to the *Predict machine health* one. When prompted, check the *success* relationship for this connection.
 
 . Connect the *Predict machine health* to the same _Funnel_ you had created above. When prompted, check the *failure* relationship for this connection.
 
@@ -725,7 +735,7 @@ Replacement Value Strategy: Record Path Value
 /is_healthy: /response/result
 ----
 
-. Connect the *Predict machine health* to the *Update health flag* one. When prompted, check the *success* relationship for this connection.
+. Connect the *Predict machine health* processor to the *Update health flag* one. When prompted, check the *success* relationship for this connection.
 
 . Connect the *Update health flag* to the same _Funnel_ you had created above. When prompted, check the *failure* relationship for this connection.
 
@@ -749,6 +759,8 @@ Table Name:       impala::default.sensors
 Record Reader:    JsonTreeReader - With schema identifier
 ----
 
+. Connect the *Update health flag* processor to the *Write to Kudu* one. When prompted, check the *success* relationship for this connection.
+
 . Connect the *Write to Kudu* to the same _Funnel_ you had created above. When prompted, check the *failure* relationship for this connection.
 
 . Double-click on the *Write to Kudu* processor, go to the *SETTINGS* tab, check the "*success*" relationship in the *AUTOMATICALLY TERMINATED RELATIONSHIPS* section. Click *Apply*.
@@ -767,12 +779,55 @@ image::images/model_access_key.png[width=800]
 +
 [source]
 ----
-cdsw.access.key: <key copied from CDSW>
+Variable Name:  cdsw.access.key
+Variable Value: <key copied from CDSW>
 ----
++
+image::images/access_key_variable.png[width=800]
 
 . Click *Apply*
 
+==== Create the Kudu table
+
+. Go to the Hue Web UI and login. The first user to login to a Hue installation is automatically created and granted admin privileges in Hue.
+
+. The Hue UI should open with the Impala Query Editor by default. If it doesn't, you can always find it by clicking on *Query button > Editor -> Impala*:
++
+image::images/impala_editor.png[width=800]
+
+. First, create the Kudu table. Login into Hue, and in the Impala Query, run this statement:
++
+[source,sql]
+----
+CREATE TABLE sensors
+(
+ sensor_id INT,
+ sensor_ts TIMESTAMP,
+ sensor_0 DOUBLE,
+ sensor_1 DOUBLE,
+ sensor_2 DOUBLE,
+ sensor_3 DOUBLE,
+ sensor_4 DOUBLE,
+ sensor_5 DOUBLE,
+ sensor_6 DOUBLE,
+ sensor_7 DOUBLE,
+ sensor_8 DOUBLE,
+ sensor_9 DOUBLE,
+ sensor_10 DOUBLE,
+ sensor_11 DOUBLE,
+ is_healthy INT,
+ PRIMARY KEY (sensor_ID, sensor_ts)
+)
+PARTITION BY HASH PARTITIONS 16
+STORED AS KUDU
+TBLPROPERTIES ('kudu.num_tablet_replicas' = '1');
+----
++
+image::images/create_table.png[width=800]
+
 ==== Running the flow
+
+We're ready not to run and test our flow. Follow the steps below:
 
 . Start all the processors in your flow.
 
@@ -795,6 +850,10 @@ image::images/kudu_success.png[width=800]
 NOTE: This lab is optional, since it does the same processing we performed in Lab 8 but using Spark instead of NiFi. If you want to run this lab, stop the flow created in Lab 8 first, to avoid duplicated data being sent into Kudu. Otherwise, just skip to *Lab 10*
 
 Spark Streaming is a processing framework for (near) real-time data. In this lab, you will use Spark to consume Kafka messages which contains the IoT data from the machine, and call the model API endpoint to predict whether, with those IoT values the machine sent, the machine is likely to break. Then save the results to Kudu for fast analytics.
+
+==== Create the Kudu table
+
+NOTE: If you already executed this step in the previous lab, please skip the table creation here.
 
 . Go to the Hue Web UI and login. The first user to login to a Hue installation is automatically created and granted admin privileges in Hue.
 
@@ -832,15 +891,18 @@ TBLPROPERTIES ('kudu.num_tablet_replicas' = '1');
 +
 image::images/create_table.png[width=800]
 
+==== CDSW Access Key
+
 . To configure and run the Spark Streaming job, you will need a CDSW Access Key to connect to the model endpoint that has been deployed there. To get the Access Key, go to the CDSW Web UI and click on *Models > Iot Prediction Model > Settings*. Copy the Access Key.
 +
 image::images/model_access_key.png[width=800]
+
+==== Running the Spark job
 
 . Open a second Terminal and SSH into the VM. The first is running the sensor data simulator, so you can't use it.
 +
 [source,shell]
 ----
-sudo su -
 ACCESS_KEY=<put here your cdsw model access key>
 PUBLIC_IP=$(curl https://api.ipify.org/)
 mv ~/edge2ai-workshop/spark.iot.py ~
@@ -869,14 +931,23 @@ image::images/spark_job_output.png[width=800]
 
 In this lab, you will run some SQL queries using the Impala engine. You can run a report to inform you which machines are likely to break in the near future.
 
-. Login into Hue, and run the following statement in the Impala Query:
+. Login into Hue and run the following queries in the Impala Query Editor:
 +
 [source,sql]
 ----
-select sensor_id, sensor_ts from sensors where is_healthy = 0;
+SELECT sensor_id, sensor_ts
+FROM sensors
+WHERE is_healthy = 0;
+----
++
+[source,sql]
+----
+SELECT is_healthy, count(*) as occurrences
+FROM sensors
+GROUP BY is_healthy;
 ----
 
-. Run a few times a SQL statement to count all rows in the table to confirm the latest inserts are always picked up by Impala. This allows you to build real-time reports for fast action.
+. Run a few times the SQL statements and verify that the number of occurrences are increasing as the data is ingested by either NiFi or the Spark job. This allows you to build real-time reports for fast action.
 +
 image::images/table_select.png[width=800]
 
