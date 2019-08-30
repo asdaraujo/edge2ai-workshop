@@ -39,6 +39,13 @@ Below are instructions for creating the cluster. You can choose between the auto
 This setup uses link:https://www.terraform.io/[Terraform] to spin up the VMs and execute the required setup scripts.
 
 . Install Terraform
+.. Check if Terraform is installed and version is 0.12.3 or later
++
+[source,shell]
+----
+terraform version
+----
+.. If Terraform is not installed or the version is lower, install a later version:
 +
 [source,shell]
 ----
@@ -53,7 +60,10 @@ export PATH=$PWD/bin:$PATH
 +
 [source,shell]
 ----
+# Install YUM, skip if you already have it
 sudo yum install -y git
+
+# Clone the repo
 git clone https://github.com/asdaraujo/edge2ai-workshop.git
 ----
 
@@ -152,9 +162,12 @@ Clusters numbers start from 0 (zero).
 * Create a Centos 7 VM with at least 16 vCPUs/ 64 GB RAM. Choose the plain vanilla Centos image, not a cloudera-centos image.
 +
 NOTE: This is a vanilla Centos 7 AMI. No other prerequistes are necessary. All the required software will be installed by the setup process.
-* OS disk size: at least 100 GB.
-* Docker device disk: at least 200GB SSD disk.
-** Note: you need a fast disk more than you need a large disk: aim for a disk with 3000 IOPS. This might mean choosing a 1TB disk.
+* OS disk size: at least *100 GB*.
+* Docker device disk: at least *200 GB* SSD disk.
++
+NOTE: You need a fast disk for the *Docker volume*. Aim for a disk with 3000 IOPS. This might mean choosing a 1TB disk.
++
+IMPORTANT: Ensure that you allocate disks with the sizes specified above, or larger. Otherwise, you may run out of space during the workshop.
 
 . Configure VM and networking
 
@@ -163,15 +176,49 @@ NOTE: This is a vanilla Centos 7 AMI. No other prerequistes are necessary. All t
 ** to allow your IP only, for all ports.
 ** to allow the VM's own IP, for all ports.
 
-. SSH into the VM and clone this repository:
+. SSH into the VM, clone this repository and `cd` to the scripts directory:
 +
 [source,shell]
 ----
+# Install YUM, skip if you already have it
 sudo yum install -y git
+
+# Clone the repo
 git clone https://github.com/asdaraujo/edge2ai-workshop.git
+
+# Go to the scripts directory
+cd edge2ai-workshop/setup/scripts
 ----
 
+. Review software versions and edit them as needed. All the versions and locations of the software used for the setup are defined in the `edge2ai-workshop/setup/scripts/env.sh` file. If this file does not exist, create it with the command below:
++
+[source,shell]
+----
+cp env.sh.template env.sh
+----
++
+IMPORTANT: Most of the software locations are already pre-defined in the template. For a few of the required software, though, there's currently no public repository available. Make sure you follow the instructions below to install these components.
++
+For Schema Registry (SR) and Streams Messaging Manager (SMM) installation you have two options:
+
+* If If you have an URL link to a location where the CSP parcel and SR/SMM CSDs can be downloaded from, configure the corresponding properties in the `env.sh` file:
++
+[source,shell]
+----
+SCHEMAREGISTRY_VERSION=
+STREAMS_MESSAGING_MANAGER_VERSION=
+CSP_PARCEL_REPO=
+SCHEMAREGISTRY_CSD_URL=
+STREAMS_MESSAGING_MANAGER_CSD_URL=
+----
++
+NOTE: The version of the components, as indicated in the `SCHEMAREGISTRY_VERSION` and `STREAMS_MESSAGING_MANAGER_VERSION` variables, have the form: `<csd_version>.<parcel_version>`. For example, for the CSD binary `SCHEMAREGISTRY-0.8.0.jar` and parcel version `2.0.0.0-112` the Schema Registry version is `0.8.0.2.0.0.0-112`.
+
+* Alternatively, leave the properties above unset and download the CSP parcel into `edge2ai-workshop/setup/parcels/` and both CSDs into `edge2ai-workshop/setup/csds/`. Note that the setup process will upload these files to every VM it creates, so if you're launching a large nuber of VMs, expect a good amount of upload volume.
+
 . Run the `setup.sh` script. It takes 3 arguments:
++
+IMPORTANT: The script current implementation only supports AWS deployments. Azure and GCP will be added in the future.
 
 ** The cloud provider name: `aws`,`azure`,`gcp`.
 ** The template file.
@@ -183,7 +230,6 @@ _Example_:
 
 [source,shell]
 ----
-cd edge2ai-workshop/setup/scripts
 chmod +x setup.sh
 ./setup.sh aws cdsw_template.json /dev/sdc
 ----
