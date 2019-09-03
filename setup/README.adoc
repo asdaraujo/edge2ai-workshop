@@ -31,8 +31,8 @@ As this cluster is meant to be used for demos, experimenting, training, and work
 
 Below are instructions for creating the cluster. You can choose between the automated setup, using Terraform, or a manual setup.
 
-* Automated setup - uses Terraform to instantiate VMs in a cloud provider and sexecute the setup scripts to prepare the environment
-* Manual setup - you insntatiate the VM with the provided specs and run the setup scripts manually.
+* Automated setup - uses Terraform to instantiate VMs in a cloud provider and execute the setup scripts to prepare the environment
+* Manual setup - you instantiate the VM with the provided specs and run the setup scripts manually.
 
 == Automated setup
 
@@ -98,7 +98,7 @@ NOTE: The version of the components, as indicated in the `SCHEMAREGISTRY_VERSION
 [source,shell]
 ----
 cp edge2ai-workshop/setup/terraform/.env.template edge2ai-workshop/setup/terraform/.env
-chown 400 edge2ai-workshop/setup/terraform/.env
+chmod 400 edge2ai-workshop/setup/terraform/.env
 ----
 +
 The variables in this file are explained below:
