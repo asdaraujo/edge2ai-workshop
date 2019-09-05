@@ -5,7 +5,7 @@ trap "rm -f $TF_JSON_FILE" 0
 
 terraform show -json > $TF_JSON_FILE
 
-KEY_FILE=$(cat $TF_JSON_FILE | terraform show -json | jq -r '.values[].resources[] | select(.address == "aws_key_pair.bootcamp_key_pair").values.key_name').pem
+KEY_FILE=$(cat $TF_JSON_FILE | terraform show -json | jq -r '.values[].resources[] | select(.address == "aws_key_pair.workshop_key_pair").values.key_name').pem
 echo $KEY_FILE > .key.file.name
 echo "Key file: $KEY_FILE"
 echo "Key contents:"
