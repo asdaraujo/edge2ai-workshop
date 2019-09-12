@@ -10,12 +10,24 @@ variable "ssh_public_key" {
   description = "SSH public key to connect to AWS instances"
 }
 
+variable "web_ssh_private_key" {
+  description = "SSH private key to connect to the Web Server AWS instances"
+}
+
+variable "web_ssh_public_key" {
+  description = "SSH public key to connect to the Web Server AWS instances"
+}
+
 variable "my_public_ip" {
   description = "Public IP address of the local network"
 }
 
 variable "key_name" {
   description = "Name of the SSH Key in AWS"
+}
+
+variable "web_key_name" {
+  description = "Name of the SSH Key for the Web Server in AWS"
 }
 
 variable "owner" {

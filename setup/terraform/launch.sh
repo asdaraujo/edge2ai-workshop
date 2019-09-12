@@ -17,7 +17,7 @@ source $BASE_DIR/common.sh
 chmod +x $BASE_DIR/resources/check-for-parcels.sh
 $BASE_DIR/resources/check-for-parcels.sh
 
-ensure_key_pair
+ensure_key_pairs
 
 log "Launching Terraform"
 terraform init
@@ -32,5 +32,9 @@ echo "Instances:"
 echo ""
 echo "Health checks:"
 ./check-services.sh
+
+echo ""
+echo "Uploading instance details to Web Server:"
+./upload-instance-details.sh
 
 ) 2>&1 | tee $BASE_DIR/logs/setup.log.$(date +%Y%m%d%H%M%S)

@@ -56,6 +56,17 @@ unzip -d ./bin/ terraform_0.12.6_linux_amd64.zip
 export PATH=$PWD/bin:$PATH
 ----
 
+. Install `jq`
+.. If you are using a Mac, you can install `jq` using Homebrew:
++
+[source,shell]
+----
+brew update
+brew install jq
+----
+
+.. Otherwise, see download and install instructions link:https://stedolan.github.io/jq/download/[here]. Make sure `jq` is in your PATH after it's installed.
+
 . Clone this repository
 +
 [source,shell]

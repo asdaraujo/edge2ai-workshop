@@ -1,5 +1,7 @@
 #!/bin/bash
 
+trap "rm -f .cdsw .cem .cj .cm .hue .model .nifi .nifireg .schreg .smm" 0
+
 printf "%-30s %-30s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %s\n" "instance" "ip address" "CM" "CEM" "NIFI" "NREG" "SREG" "SMM" "HUE" "CDSW" "Model Status"
 terraform show -json | jq -r '.values.root_module.resources[] | select(.type == "aws_instance") | "\(.address)[\(.index)] \(.values.public_ip)"' | while read instance ip; do
   CDSW_API="http://cdsw.$ip.nip.io/api/v1"
@@ -17,3 +19,4 @@ terraform show -json | jq -r '.values.root_module.resources[] | select(.type == 
   wait
   printf "%-30s %-30s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %s\n" "$instance" "$ip" "$(cat .cm)" "$(cat .cem)" "$(cat .nifi)" "$(cat .nifireg)" "$(cat .schreg)" "$(cat .smm)" "$(cat .hue)" "$(cat .cdsw)" "$(cat .model)"
 done | sort -t\[ -k2n
+

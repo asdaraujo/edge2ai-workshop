@@ -1,0 +1,18 @@
+[MESSAGES CONTROL]
+disable=
+    too-few-public-methods
+
+[BASIC]
+good-names=
+    app,
+    db,
+    migrate,
+    login,
+    bootstrap,
+    file_handler,
+    auth
+
+[TYPECHECK]
+generated-members=
+    db,
+    app.logger

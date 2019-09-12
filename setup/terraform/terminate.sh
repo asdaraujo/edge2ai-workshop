@@ -23,8 +23,8 @@ log "Destroying instances"
 terraform destroy -auto-approve
 
 log "Cleaning up"
-rm -f .instance.list .key.file.name
-delete_key_pair
+rm -f .instance.list .key.file.name .instance.web .web.key.file.name
+delete_key_pairs
 
 log "Deployment destroyed successfully"
 ) 2>&1 | tee $BASE_DIR/logs/terminate.log.$(date +%Y%m%d%H%M%S)

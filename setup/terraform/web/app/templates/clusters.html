@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block app_content %}
+    <table class="table table-hover">
+        <tr>
+            <th>Id</th>
+            <th>IP Address</th>
+            <th>SSH User</th>
+            <th>SSH Private Key</th>
+            <th>Delete?</th>
+        </tr>
+        {% for cluster in clusters %}
+            {% include '_cluster.html' %}
+        {% endfor %}
+    </table>
+{% endblock %}

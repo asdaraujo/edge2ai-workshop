@@ -1,0 +1,11 @@
+        <tr>
+            <td>{{ cluster.id }}</td>
+            <td>{{ cluster.ip_address }}</td>
+            <td>{{ cluster.ssh_user }}</td>
+            <td style="font-family: monospace; white-space: pre">{{ cluster.ssh_private_key }}</td>
+            <td>
+                <form action="/clusters" method="post">
+                    <input class="btn btn-primary" id="delete-{{ cluster.id }}" name="{{ cluster.id }}" type="submit" value="Delete">
+                </form>
+            </td>
+        </tr>

@@ -1,3 +1,4 @@
+*tfstate*
 .cdsw
 .cem
 .cj
@@ -5,6 +6,7 @@
 .env
 .hue
 .instance.list
+.instance.web
 .key.file.name
 .model
 .nifi
@@ -13,6 +15,10 @@
 .smm
 .terraform/
 .tf.json*
+.web.key.file.name
+app.db
 rules.tf
 terraform.tfstate
 terraform.tfstate.backup
+web/logs/
+web/migrations/

@@ -1,0 +1,16 @@
+        <tr>
+            <td width="50px">
+                <img src="{{ user.avatar(50) }}" />
+            </td>
+            <td>{{ user.id }}</td>
+            <td>{{ user.email }}</td>
+            <td>{{ user.full_name }}</td>
+            <td>{{ user.company }}</td>
+            <td>{{ user.is_admin }}</td>
+            <td>{{ user.cluster_id }}</td>
+            <td>
+                <form action="/users" method="post">
+                    <input class="btn btn-primary" id="delete-{{ user.id }}" name="{{ user.id }}" type="submit" value="Delete">
+                </form>
+            </td>
+        </tr>

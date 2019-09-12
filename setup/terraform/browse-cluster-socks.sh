@@ -5,6 +5,8 @@ BASE_DIR=$(cd $(dirname $0); pwd -L)
 CLUSTER_ID=$1
 PROXY_PORT=8157
 
+. $BASE_DIR/.env
+
 if [ ! -f .key.file.name -o ! -f .instance.list ]; then
   $BASE_DIR/list-details.sh > /dev/null
 fi
@@ -13,7 +15,7 @@ PUBLIC_IP=$(awk '$1 ~ /-'$CLUSTER_ID'$/{print $3}' .instance.list)
 PRIVATE_DNS=$(awk '$1 ~ /-'$CLUSTER_ID'$/{print $4}' .instance.list)
 KEY_FILE=$BASE_DIR/$(cat $BASE_DIR/.key.file.name)
 
-ssh -o StrictHostKeyChecking=no -i $KEY_FILE -CND $PROXY_PORT centos@$PUBLIC_DNS &
+ssh -o StrictHostKeyChecking=no -i $KEY_FILE -CND $PROXY_PORT $TF_VAR_ssh_username@$PUBLIC_DNS &
 CHILD_PID=$!
 
 trap "kill $CHILD_PID" 0

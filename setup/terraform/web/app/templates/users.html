@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block app_content %}
+    <table class="table table-hover">
+        <tr>
+            <th width="50px"/>
+            <th>Id</th>
+            <th>Email</th>
+            <th>Full name</th>
+            <th>Company</th>
+            <th>Is admin?</th>
+            <th>Cluster ID</th>
+            <th>Delete?</th>
+        </tr>
+        {% for user in users %}
+            {% include '_user.html' %}
+        {% endfor %}
+    </table>
+{% endblock %}

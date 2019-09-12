@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block styles %}
+{{super()}}
+<style>
+    .title { margin-bottom: 0 }
+    .subtitle { margin-top: 0 }
+    .table-header { width: 1%; white-space: nowrap; text-align: right; }
+    .table-cell { width: 1%; white-space: nowrap; text-align: left; }
+    .table-nonfluid { width: auto !important; }
+</style>
+{% endblock %}
+
+{% block app_content %}
+<table class="table table-hover">
+    <tr valign="top">
+        <td width="90px"><img src="{{ user.avatar(90) }}"></td>
+        <td>
+            <h1 class="title">{{ user.full_name }}</h1>
+            <h3 class="subtitle">{{ user.company }}</h3>
+        </td>
+    </tr>
+</table>
+<hr>
+{% if user.cluster %}
+<div class="row">
+    <div class="col col-md-1"></div>
+    <div class="col col-md-6">
+    <table class="table table-hover table-nonfluid">
+        <tr valign="top">
+            <th class="table-header">Cloudera Manager</th>
+            <td class="table-cell"><a href="http://{{ user.cluster.ip_address }}:7180/" target="_blank">http://{{ user.cluster.ip_address }}:7180/</a></td>
+        </tr>
+        <tr valign="top">
+            <th class="table-header">Edge Flow <Manager> </Manager></th>
+            <td class="table-cell"><a href="http://{{ user.cluster.ip_address }}:10080/efm/ui/" target="_blank">http://{{ user.cluster.ip_address }}:10080/efm/ui/</a></td>
+        </tr>
+        <tr valign="top">
+            <th class="table-header">NiFi</th>
+            <td class="table-cell"><a href="http://{{ user.cluster.ip_address }}:8080/nifi/" target="_blank">http://{{ user.cluster.ip_address }}:8080/nifi/</a></td>
+        </tr>
+        <tr valign="top">
+            <th class="table-header">NiFi Registry</th>
+            <td class="table-cell"><a href="http://{{ user.cluster.ip_address }}:18080/nifi-registry/" target="_blank">http://{{ user.cluster.ip_address }}:18080/nifi-registry/</a></td>
+        </tr>
+        <tr valign="top">
+            <th class="table-header">Schema Registry</th>
+            <td class="table-cell"><a href="http://{{ user.cluster.ip_address }}:7788/" target="_blank">http://{{ user.cluster.ip_address }}:7788/</a></td>
+        </tr>
+        <tr valign="top">
+            <th class="table-header">SMM</th>
+            <td class="table-cell"><a href="http://{{ user.cluster.ip_address }}:9991/" target="_blank">http://{{ user.cluster.ip_address }}:9991/</a></td>
+        </tr>
+        <tr valign="top">
+            <th class="table-header">Hue</th>
+            <td class="table-cell"><a href="http://{{ user.cluster.ip_address }}:8888/" target="_blank">http://{{ user.cluster.ip_address }}:8888/</a></td>
+        </tr>
+        <tr valign="top">
+            <th class="table-header">Cloudera Data Science Workbench</th>
+            <td class="table-cell"><a href="http://cdsw.{{ user.cluster.ip_address }}.nip.io/" target="_blank">http://cdsw.{{ user.cluster.ip_address }}.nip.io/</a></td>
+        </tr>
+    </table>
+    </div>
+    <div class="col col-md-1"></div>
+    <div class="col col-md-2">
+        <h4>SSH Connection</h4>
+
+        <p style="font-weight: bold; margin-bottom: 0">Download key:</p>
+        <a href="{{ url_for('download_page', cluster_id=user.cluster.id) }}" target="blank"><button class='btn btn-primary'>Download SSH Key</button></a>
+
+        <p style="font-weight: bold; margin: 25px 0 0 0">And then run:</p>
+        <p style="font-family: monospace; white-space: nowrap; margin-bottom: 0">chmod 400 workshop.pem</p>
+        <p style="font-family: monospace; white-space: nowrap">ssh -i workshop.pem {{ user.cluster.ssh_user }}@{{ user.cluster.ip_address }} </p>
+    </div>
+    <div class="col col-md-1"></div>
+</div>
+{% else %}
+<div style="text-align: center">
+    <h4>No clusters available</h4>
+</div>
+{% endif %}
+<hr>
+{% endblock %}
+

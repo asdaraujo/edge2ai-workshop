@@ -61,3 +61,55 @@ resource "aws_instance" "cluster" {
   }
 }
 
+resource "aws_instance" "web" {
+  ami                    = var.cluster_ami
+  instance_type          = "t2.medium"
+  availability_zone      = aws_subnet.subnet1.availability_zone
+  key_name               = aws_key_pair.workshop_web_key_pair.key_name
+  subnet_id              = aws_subnet.subnet1.id
+  vpc_security_group_ids = [aws_security_group.workshop_main_sg.id]
+
+  depends_on = [
+    aws_main_route_table_association.rtb_assoc,
+  ]
+
+  root_block_device {
+    volume_type           = "gp2"
+    volume_size           = "8"
+    delete_on_termination = true
+  }
+
+  tags = {
+    Name    = "${var.owner}-${var.name_prefix}-web"
+    owner   = var.owner
+    project = var.project
+    enddate = var.enddate
+  }
+
+  provisioner "file" {
+    source      = "web"
+    destination = "/home/${var.ssh_username}/web"
+
+    connection {
+      host        = coalesce(self.public_ip, self.private_ip)
+      type        = "ssh"
+      user        = var.ssh_username
+      private_key = file(var.web_ssh_private_key)
+    }
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "cd web/",
+      "bash ./start-web.sh",
+    ]
+
+    connection {
+      host        = coalesce(self.public_ip, self.private_ip)
+      type        = "ssh"
+      user        = var.ssh_username
+      private_key = file(var.web_ssh_private_key)
+    }
+  }
+}
+
