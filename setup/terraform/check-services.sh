@@ -1,11 +1,12 @@
 #!/bin/bash
 
-trap "rm -f .cdsw .cem .cj .cm .hue .model .nifi .nifireg .schreg .smm" 0
+trap "rm -f .cdsw .cem .cj .cm .hue .model .nifi .nifireg .schreg .smm .web" 0
 
-printf "%-30s %-30s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %s\n" "instance" "ip address" "CM" "CEM" "NIFI" "NREG" "SREG" "SMM" "HUE" "CDSW" "Model Status"
+printf "%-30s %-30s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %s\n" "instance" "ip address" "WEB" "CM" "CEM" "NIFI" "NREG" "SREG" "SMM" "HUE" "CDSW" "Model Status"
 terraform show -json | jq -r '.values.root_module.resources[] | select(.type == "aws_instance") | "\(.address)[\(.index)] \(.values.public_ip)"' | while read instance ip; do
   CDSW_API="http://cdsw.$ip.nip.io/api/v1"
   CDSW_ALTUS_API="http://cdsw.$ip.nip.io/api/altus-ds-1"
+  (curl -L http://$ip/api/ping 2>/dev/null | grep 'Pong!' > /dev/null 2>&1 && echo Ok) > .web &
   (curl -L http://$ip:7180/cmf/login 2>/dev/null | grep "<title>Cloudera Manager</title>" > /dev/null 2>&1 && echo Ok) > .cm &
   (curl -L http://$ip:10080/efm/ui/ 2>/dev/null | grep "<title>CEM</title>" > /dev/null 2>&1 && echo Ok) > .cem &
   (curl -L http://$ip:8080/nifi/ 2>/dev/null | grep "<title>NiFi</title>" > /dev/null 2>&1 && echo Ok) > .nifi &
@@ -17,6 +18,5 @@ terraform show -json | jq -r '.values.root_module.resources[] | select(.type == 
   (token=$(curl -X POST --cookie-jar .cj --cookie .cj -H "Content-Type: application/json" --data '{"_local":false,"login":"admin","password":"supersecret1"}' "$CDSW_API/authenticate" 2>/dev/null | jq -r '.auth_token') && \
    curl -X POST --cookie-jar .cj --cookie .cj -H "Content-Type: application/json" -H "Authorization: Bearer $token" --data '{"projectOwnerName":"admin","latestModelDeployment":true,"latestModelBuild":true}' "$CDSW_ALTUS_API/models/list-models" 2>/dev/null | jq -r '.[].latestModelDeployment | select(.model.name == "IoT Prediction Model").status' 2>/dev/null) > .model &
   wait
-  printf "%-30s %-30s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %s\n" "$instance" "$ip" "$(cat .cm)" "$(cat .cem)" "$(cat .nifi)" "$(cat .nifireg)" "$(cat .schreg)" "$(cat .smm)" "$(cat .hue)" "$(cat .cdsw)" "$(cat .model)"
-done | sort -t\[ -k2n
-
+  printf "%-30s %-30s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %s\n" "$instance" "$ip" "$(cat .web)" "$(cat .cm)" "$(cat .cem)" "$(cat .nifi)" "$(cat .nifireg)" "$(cat .schreg)" "$(cat .smm)" "$(cat .hue)" "$(cat .cdsw)" "$(cat .model)"
+done | sort -t\[ -k1,1r -k2,2n

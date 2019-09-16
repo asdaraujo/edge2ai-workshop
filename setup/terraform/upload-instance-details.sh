@@ -3,22 +3,49 @@ set -u
 set -e
 BASE_DIR=$(cd $(dirname $0); pwd -L)
 
+function syntax() {
+  echo "Syntax: $0 [web_ip_adress] [admin_email] [admin_password] [admin_full_name]"
+}
+
 . $BASE_DIR/.env
 
-WEB_IP_ADDRESS=$( awk '{print $3}' $BASE_DIR/.instance.web )
+WEB_IP_ADDRESS=${1:-}
+ADMIN_EMAIL=${2:-$TF_VAR_web_server_admin_email}
+ADMIN_PWD=${3:-$TF_VAR_web_server_admin_password}
+ADMIN_NAME=${4:-$TF_VAR_owner}
+
+if [ ! -s $BASE_DIR/.key.file.name ]; then
+  echo "ERROR: File $BASE_DIR/.key.file.name does not exist."
+  exit 1
+fi
+
+if [ ! -s $BASE_DIR/.instance.list ]; then
+  echo "ERROR: File $BASE_DIR/.instance.list does not exist."
+  exit 1
+fi
+
+if [ "$WEB_IP_ADDRESS" == "" ]; then
+  if [ -s $BASE_DIR/.instance.web ]; then
+    WEB_IP_ADDRESS=$( awk '{print $3}' $BASE_DIR/.instance.web )
+  else
+    echo "ERROR: File $BASE_DIR/.instance.web doesn't exist and WEB Server IP address wasn't specified."
+    syntax
+    exit 1
+  fi
+fi
 
 curl -k -H "Content-Type: application/json" -X POST \
   -d '{
-       "email":"'"$TF_VAR_web_server_admin_email"'",
-       "full_name": "'"$TF_VAR_owner"'",
+       "email":"'"$ADMIN_EMAIL"'",
+       "full_name": "'"$ADMIN_NAME"'",
        "company": "",
-       "password": "'"$TF_VAR_web_server_admin_password"'"
+       "password": "'"$ADMIN_PWD"'"
       }' \
   "http://${WEB_IP_ADDRESS}/api/admins" 2>/dev/null
 
 for public_ip in $(awk '{print $3}' $BASE_DIR/.instance.list); do
   curl -k -H "Content-Type: application/json" -X POST \
-    -u "${TF_VAR_web_server_admin_email}:${TF_VAR_web_server_admin_password}" \
+    -u "${ADMIN_EMAIL}:${ADMIN_PWD}" \
     -d '{
          "ip_address":"'"${public_ip}"'",
          "ssh_user": "'"$TF_VAR_ssh_username"'",

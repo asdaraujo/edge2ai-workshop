@@ -4,7 +4,7 @@ set -e
 BASE_DIR=$(cd $(dirname $0); pwd -L)
 
 TF_JSON_FILE=.tf.json.$$
-#trap "rm -f $TF_JSON_FILE" 0
+trap "rm -f $TF_JSON_FILE" 0
 
 . $BASE_DIR/.env
 

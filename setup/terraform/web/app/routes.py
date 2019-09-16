@@ -207,3 +207,9 @@ def add_cluster():
             if code == 1062: # duplicated cluster
                 return jsonify({'success': False, 'message': msg}), 400
         raise exc
+
+@app.route('/api/ping', methods=['GET'])
+def ping():
+    """Respond to a ping
+    """
+    return jsonify({'success': True, 'message': 'Pong!'})

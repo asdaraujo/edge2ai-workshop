@@ -1,6 +1,12 @@
 #!/bin/bash
 set -u
 set -e
+
+if [ $# != 1 ]; then
+  echo "Syntax: $0 [cluster_number]"
+  exit 1
+fi
+
 BASE_DIR=$(cd $(dirname $0); pwd -L)
 CLUSTER_ID=$1
 
