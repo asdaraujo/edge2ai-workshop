@@ -53,7 +53,6 @@ EOF
 # Install stuff
 yum_install epel-release
 yum_install python36-pip python36 supervisor nginx MariaDB-server MariaDB-client
-sudo $(type -p pip3) install --quiet --upgrade pip virtualenv
 
 # Start MariaDB
 sudo bash -c "
@@ -118,6 +117,7 @@ EOF
 # Prepare virtualenv
 python3 -m venv $BASE_DIR/env
 source $BASE_DIR/env/bin/activate
+pip install --quiet --upgrade pip virtualenv
 pip install --progress-bar off -r $BASE_DIR/requirements.txt
 pip install --progress-bar off gunicorn pymysql
 

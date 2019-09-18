@@ -46,10 +46,26 @@ resource "aws_instance" "cluster" {
     }
   }
 
+  provisioner "file" {
+    source      = "smm"
+    destination = "/tmp/smm"
+
+    connection {
+      host        = coalesce(self.public_ip, self.private_ip)
+      type        = "ssh"
+      user        = var.ssh_username
+      private_key = file(var.ssh_private_key)
+    }
+  }
+
   provisioner "remote-exec" {
     inline = [
       "chmod +x /tmp/resources/*sh",
       "sudo bash -x /tmp/resources/setup.sh aws /tmp/resources/cdsw_template.json \"\" noprompt",
+      "sudo mkdir -p /opt/dataloader/",
+      "sudo cp /tmp/smm/* /opt/dataloader/",
+      "sudo chmod 755 /opt/dataloader/*.sh",
+      "sudo bash -x /opt/dataloader/smm-generator.sh setup",
     ]
 
     connection {
