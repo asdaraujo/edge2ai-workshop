@@ -268,19 +268,27 @@ chmod +x setup.sh
 sudo /opt/dataloader/smm-generator.sh start
 ----
 ==== Run for all clusters.
-1. Got to the terminal window where you lanched workshop setup
-2. Following options are available.
+* Got to the terminal window where you lanched workshop setup
+* Following options are available.
 [source,shell]
 ----
 ./run-on-all-clusters.sh "sudo /opt/dataloader/smm-generator.sh start"
 ----
-3. You can stop by running
+* You can stop by running
+[source,shell]
 ----
 ./run-on-all-clusters.sh "sudo /opt/dataloader/smm-generator.sh stop"
 ----
-4. You can check status using
+* You can check status using
+[source,shell]
 ----
 ./run-on-all-clusters.sh "sudo /opt/dataloader/smm-generator.sh status"
+----
+
+== Merge newly created cluster information into an existing web-app.
+[source,shell]
+----
+./upload-instance-details.sh 1.2.3.4
 ----
 == Troubleshooting and known issues
 
