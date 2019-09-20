@@ -272,6 +272,10 @@ sudo /opt/dataloader/smm-generator.sh start
 * Following options are available.
 [source,shell]
 ----
+./run-on-all-clusters.sh "sudo /opt/dataloader/smm-generator.sh setup"
+----
+[source,shell]
+----
 ./run-on-all-clusters.sh "sudo /opt/dataloader/smm-generator.sh start"
 ----
 * You can stop by running
