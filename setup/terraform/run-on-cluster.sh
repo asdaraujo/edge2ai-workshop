@@ -1,25 +1,24 @@
 #!/bin/bash
-set -u
-set -e
+set -o errexit
+set -o nounset
+BASE_DIR=$(cd $(dirname $0); pwd -L)
+. $BASE_DIR/common.sh
 
-if [ $# -lt 2 ]; then
-  echo "Syntax: $0 <cluster_number> command"
+if [ $# -lt 3 ]; then
+  echo "Syntax: $0 <namespace> <cluster_number> command"
+  show_namespaces
   exit 1
 fi
+NAMESPACE=$1
+CLUSTER_ID=$2
+load_env $NAMESPACE
 
-BASE_DIR=$(cd $(dirname $0); pwd -L)
 LOG_DIR=$BASE_DIR/logs
 LOG_FILE=$LOG_DIR/command.$(date +%s).log
 
-CLUSTER_ID=$1
+PUBLIC_DNS=$(public_dns $CLUSTER_ID)
 
-if [ ! -f .key.file.name -o ! -f .instance.list ]; then
-  $BASE_DIR/list-details.sh > /dev/null
-fi
-PUBLIC_DNS=$(awk '$1 ~ /-'$CLUSTER_ID'$/{print $2}' .instance.list)
-KEY_FILE=$BASE_DIR/$(cat $BASE_DIR/.key.file.name)
-
-shift
+shift 2
 cmd=("$@")
-ssh -o StrictHostKeyChecking=no -i $KEY_FILE centos@$PUBLIC_DNS "${cmd[@]}" | tee $LOG_FILE
+ssh -o StrictHostKeyChecking=no -i $TF_VAR_ssh_private_key $TF_VAR_ssh_username@$PUBLIC_DNS "${cmd[@]}" | tee $LOG_FILE
 echo "Log file: $LOG_FILE"

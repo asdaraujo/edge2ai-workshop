@@ -1,19 +1,21 @@
 #!/bin/bash
-set -u
-set -e
+set -o errexit
+set -o nounset
+BASE_DIR=$(cd $(dirname $0); pwd -L)
+. $BASE_DIR/common.sh
 
-if [ $# != 1 ]; then
-  echo "Syntax: $0 <cluster_number>"
+if [ $# != 2 ]; then
+  echo "Syntax: $0 <namespace> <cluster_number>"
+  show_namespaces
+  exit 1
+fi
+NAMESPACE=$1
+CLUSTER_ID=$2
+load_env $NAMESPACE
+
+if [ ! -s $TF_VAR_ssh_private_key ]; then
+  echo "Private key not found: $TF_VAR_ssh_private_key"
   exit 1
 fi
 
-BASE_DIR=$(cd $(dirname $0); pwd -L)
-CLUSTER_ID=$1
-
-if [ ! -f .key.file.name -o ! -f .instance.list ]; then
-  $BASE_DIR/list-details.sh > /dev/null
-fi
-PUBLIC_DNS=$(awk '$1 ~ /-'$CLUSTER_ID'$/{print $2}' .instance.list)
-KEY_FILE=$BASE_DIR/$(cat $BASE_DIR/.key.file.name)
-
-ssh -o StrictHostKeyChecking=no -i $KEY_FILE centos@$PUBLIC_DNS
+ssh -o StrictHostKeyChecking=no -i $TF_VAR_ssh_private_key $TF_VAR_ssh_username@$(public_dns $CLUSTER_ID)

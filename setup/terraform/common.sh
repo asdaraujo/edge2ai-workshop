@@ -1,16 +1,63 @@
 #!/bin/bash
 
-export TF_VAR_key_name="${TF_VAR_name_prefix}-$(echo -n "$TF_VAR_owner" | base64)"
-export TF_VAR_web_key_name="${TF_VAR_name_prefix}-$(echo -n "$TF_VAR_owner" | base64)-web"
-
-export TF_VAR_ssh_private_key=${TF_VAR_key_name}.pem
-export TF_VAR_ssh_public_key=${TF_VAR_key_name}.pem.pub
-export TF_VAR_web_ssh_private_key=${TF_VAR_web_key_name}.pem
-export TF_VAR_web_ssh_public_key=${TF_VAR_web_key_name}.pem.pub
-export TF_VAR_my_public_ip=$(curl -sL ifconfig.me || curl -sL ipapi.co/ip || curl -sL icanhazip.com)
-
 function log() {
   echo "[$(date)] [$(basename $0): $BASH_LINENO] : $*"
+}
+
+function check_env_files() {
+  if [ -f $BASE_DIR/.env.default ]; then
+    echo 'ERROR: An enviroment file cannot be called ".env.default". Please renamed it to ".env".'
+    exit 1
+  fi
+}
+
+function load_env() {
+  local namespace=$1
+  local env_file=$BASE_DIR/.env.$namespace
+  if [ "$namespace" == "default" ]; then
+    env_file=$BASE_DIR/.env
+  fi
+
+  check_env_files
+
+  if [ ! -f $env_file ]; then
+    echo ""
+    echo "The namespace [$namespace] has not been configured."
+    echo "1. Create the environment by copying the environment template:"
+    echo "     cp .env.template .env.<namespace_name>"
+    echo "2. Review and configure .env.<namespace_name> appropriately."
+    echo ""
+    exit 1
+  fi
+  source $env_file
+  NAMESPACE=$namespace
+  NAMESPACE_DIR=$BASE_DIR/namespaces/$namespace
+  INSTANCE_LIST_FILE=$NAMESPACE_DIR/.instance.list
+  WEB_INSTANCE_LIST_FILE=$NAMESPACE_DIR/.instance.web
+  export TF_VAR_name_prefix=$(echo "$namespace" | tr "A-Z" "a-z")
+  export TF_VAR_key_name="${TF_VAR_name_prefix}-$(echo -n "$TF_VAR_owner" | base64)"
+  export TF_VAR_web_key_name="${TF_VAR_name_prefix}-$(echo -n "$TF_VAR_owner" | base64)-web"
+
+  export TF_VAR_ssh_private_key=$NAMESPACE_DIR/${TF_VAR_key_name}.pem
+  export TF_VAR_ssh_public_key=$NAMESPACE_DIR/${TF_VAR_key_name}.pem.pub
+  export TF_VAR_web_ssh_private_key=$NAMESPACE_DIR/${TF_VAR_web_key_name}.pem
+  export TF_VAR_web_ssh_public_key=$NAMESPACE_DIR/${TF_VAR_web_key_name}.pem.pub
+  export TF_VAR_my_public_ip=$(curl -sL ifconfig.me || curl -sL ipapi.co/ip || curl -sL icanhazip.com)
+}
+
+function show_namespaces() {
+  check_env_files
+
+  local namespaces=$(ls -1d $BASE_DIR/.env* | egrep "/\.env($|\.)" | fgrep -v .env.template | \
+                       sed 's/\.env\.//;s/\/\.env$/\/default/')
+  if [ "$namespaces" == "" ]; then
+    echo -e "\n  No namespaces are currently defined!\n"
+  else
+    echo -e "\nNamespaces:"
+    for namespace in $namespaces; do
+      echo "  - $(basename $namespace)"
+    done
+  fi
 }
 
 function ensure_key_pair() {
@@ -38,8 +85,8 @@ function delete_key_pair() {
   local pub_key=$3
   if [ -f ${priv_key} ]; then
     log "Deleting key pair [${key_name}]"
-    mv -f ${priv_key} .${priv_key}.OLD.$(date +%s) || true
-    mv -f ${pub_key} .${pub_key}.OLD.$(date +%s) || true
+    mv -f ${priv_key} ${priv_key}.OLD.$(date +%s) || true
+    mv -f ${pub_key} ${pub_key}.OLD.$(date +%s) || true
   fi
 }
 
@@ -52,6 +99,30 @@ function delete_key_pairs() {
     local pub_key=$1; shift
     delete_key_pair $key_name $priv_key $pub_key
   done
+}
+
+function ensure_instance_list() {
+  if [ ! -s $INSTANCE_LIST_FILE ]; then
+    $BASE_DIR/list-details.sh $NAMESPACE > /dev/null
+  fi
+}
+
+function public_dns() {
+  local cluster_number=$1
+  ensure_instance_list $NAMESPACE
+  awk '$1 ~ /-'$cluster_number'$/{print $2}' $INSTANCE_LIST_FILE
+}
+
+function public_ip() {
+  local cluster_number=$1
+  ensure_instance_list $NAMESPACE
+  awk '$1 ~ /-'$cluster_number'$/{print $3}' $INSTANCE_LIST_FILE
+}
+
+function private_ip() {
+  local cluster_number=$1
+  ensure_instance_list $NAMESPACE
+  awk '$1 ~ /-'$cluster_number'$/{print $4}' $INSTANCE_LIST_FILE
 }
 
 function check_for_jq() {
@@ -68,3 +139,7 @@ function check_for_jq() {
 }
 
 check_for_jq
+
+for sig in {0..31}; do
+  trap 'RET=$?; if [ $RET != 0 ]; then echo -e "\n   FAILED!!! (signal: '$sig', exit code: $RET)\n"; fi' $sig
+done

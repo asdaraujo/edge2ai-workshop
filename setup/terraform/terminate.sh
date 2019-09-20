@@ -1,10 +1,19 @@
 #!/bin/bash
 BASE_DIR=$(cd $(dirname $0); pwd -L)
+source $BASE_DIR/common.sh
 mkdir -p $BASE_DIR/logs
 (
 set -e
 set -u
 set -o pipefail
+
+if [ $# != 1 ]; then
+  echo "Syntax: $0 <namespace>"
+  show_namespaces
+  exit 1
+fi
+NAMESPACE=$1
+load_env $NAMESPACE
 
 echo "WARNING: if you continue all the instances for the bootcamp environment will be destroyed!!"
 echo -en "\nIf you are certain that you want to destroy the environment, type YES: "
@@ -16,14 +25,11 @@ if [ "$confirm" != "YES" ]; then
   exit
 fi
 
-source $BASE_DIR/.env
-source $BASE_DIR/common.sh
-
 log "Destroying instances"
-terraform destroy -auto-approve
+terraform destroy -auto-approve -state=$NAMESPACE_DIR/terraform.state
 
 log "Cleaning up"
-rm -f .instance.list .key.file.name .instance.web .web.key.file.name
+rm -f $NAMESPACE_DIR/{.instance.list,.instance.web}
 delete_key_pairs
 
 log "Deployment destroyed successfully"

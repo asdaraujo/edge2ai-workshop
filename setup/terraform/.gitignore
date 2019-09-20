@@ -4,6 +4,7 @@
 .cj
 .cm
 .env
+.env.*
 .hue
 .instance.list
 .instance.web
@@ -17,6 +18,7 @@
 .tf.json*
 .web.key.file.name
 app.db
+namespaces/
 rules.tf
 terraform.tfstate
 terraform.tfstate.backup

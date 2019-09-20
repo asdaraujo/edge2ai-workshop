@@ -34,6 +34,12 @@ Below are instructions for creating the cluster. You can choose between the auto
 * Automated setup - uses Terraform to instantiate VMs in a cloud provider and execute the setup scripts to prepare the environment
 * Manual setup - you instantiate the VM with the provided specs and run the setup scripts manually.
 
+== Namespaces
+
+The automated setup scripts support the concept of *namespaces*. All the resources of a single deployment are associated with a single namespace. By creating multiple namespaces, one can manage multiple independent deployments without them interfering with each other.
+
+A namespace is defined by simply creating a configuration file called `.env.<namespace>`, where `<namespace>` is a string that identifies the namespace uniquely. The namespace identifier cannot contain spaces or special characters.
+
 == Automated setup
 
 This setup uses link:https://www.terraform.io/[Terraform] to spin up the VMs and execute the required setup scripts.
@@ -108,9 +114,11 @@ NOTE: The version of the components, as indicated in the `SCHEMAREGISTRY_VERSION
 +
 [source,shell]
 ----
-cp edge2ai-workshop/setup/terraform/.env.template edge2ai-workshop/setup/terraform/.env
-chmod 400 edge2ai-workshop/setup/terraform/.env
+cp edge2ai-workshop/setup/terraform/.env.template edge2ai-workshop/setup/terraform/.env.<namespace>
+chmod 400 edge2ai-workshop/setup/terraform/.env.<namespace>
 ----
++
+where `<namespace>` is an arbitrary name for your environment namespace.
 +
 The variables in this file are explained below:
 +
@@ -143,7 +151,6 @@ NOTE: This is a vanilla Centos 7 AMI. No other prerequistes are necessary. All t
 
 '''
 
-* `TF_VAR_name_prefix`: Prefix for all your VM resource names
 * `TF_VAR_project`: Project name. This is used for instance tagging.
 * `TF_VAR_enddate`: End date in MMDDYYYY format. This is used for instance tagging. Some Cloudera environment use this to automatically kill "expired" instances.
 --
@@ -154,8 +161,11 @@ NOTE: This is a vanilla Centos 7 AMI. No other prerequistes are necessary. All t
 ----
 cd edge2ai-workshop/setup/terraform/
 terraform init # this only has to be executed once after cloning the repo
-./launch.sh
+./launch.sh <namespace>
 ----
++
+where `<namespace>` is the name of one of your namespaces.
+
 +
 At the end of the script execution it will list the following information for all the clusters. This information should be provided to the workshop attendees:
 
@@ -170,21 +180,29 @@ A private key file will also be created on the local directory for authenticatin
 [source,shell]
 ----
 # cd edge2ai-workshop/setup/terraform/
-./terminate.sh
+./terminate.sh <namespace>
 ----
++
+where `<namespace>` is the name of one of your namespaces.
 
 . A few helper scripts are provided to help connecting to the clusters:
 
-* `./list-details.sh` - display the details of all the clusters (public DNS, public IP and private DNS).
-* `./check-services.sh` - perform a health check of all the cluster to verify if all the services are up and running.
-* `./connect-to-cluster.sh <cluster_number>` - connect to the specified cluster using SSH.
-* `./browse-cluster.sh <cluster_number>` - (MacOS only) Opens a Chrome browser with all the tabs required for the workshop. All the URLs use the cluster's public DNS name.
-* `./browse-cluster-socks.sh <cluster_number>` - (MacOS only) Same as above, but using URLs with the private DNS name, instead, and setting the browser to use a SOCKS proxy, which is spawn by the script.
-* `./run-on-cluster.sh <cluster_number> '<command>'` - run a command on the specified cluster.
-* `./run-on-all-clusters.sh '<command>'` - run a command on all clusters.
-* `./upload-instance-details.sh [web_ip_adress] [admin_email] [admin_password] [admin_full_name]` - upload all the instances' details to the web server. If no parameters are specified it will use the default web server for the current deployment, otherwise will upload to the specified webserver. Note that this script is automatically executed upon launch for the current web server.
+* `./list-details.sh <namespace>` - display the details of all the clusters (public DNS, public IP and private DNS).
+* `./check-services.sh <namespace>` - perform a health check of all the cluster to verify if all the services are up and running.
+* `./connect-to-cluster.sh <namespace> <cluster_number>` - connect to the specified cluster using SSH.
+* `./browse-cluster.sh <namespace> <cluster_number>` - (MacOS only) Opens a Chrome browser with all the tabs required for the workshop. All the URLs use the cluster's public DNS name.
+* `./browse-cluster-socks.sh <namespace> <cluster_number>` - (MacOS only) Same as above, but using URLs with the private DNS name, instead, and setting the browser to use a SOCKS proxy, which is spawn by the script.
+* `./run-on-cluster.sh <namespace> <cluster_number> '<command>'` - run a command on the specified cluster.
+* `./run-on-all-clusters.sh <namespace> '<command>'` - run a command on all clusters.
+* `./upload-instance-details.sh <namespace> [web_ip_adress] [admin_email] [admin_password] [admin_full_name]` - upload all the instances' details to the web server. If no parameters are specified it will use the default web server for the current deployment, otherwise will upload to the specified webserver. Note that this script is automatically executed upon launch for the current web server.
 
 Clusters numbers start from 0 (zero).
+
+== Namespaces
+
+The automated setup scripts support the concept of *namespaces*. All the resources of a single deployment are associated with a single namespace. By creating multiple namespaces, one can manage multiple independent deployment without them interfering with each other.
+
+A namespace is defined by simply creating a configuration file called `.env.<namespace>`, where `<namespace>` is a string that identifies the namespace uniquely. The namespace identifier cannot contain spaces or special characters.
 
 == Manual setup
 
@@ -292,7 +310,7 @@ To complete the setup for the SMM Truck Demo, follow the steps below:
 +
 [source,shell]
 ----
-./run-on-all-clusters.sh "sudo /opt/dataloader/smm-generator.sh setup"
+./run-on-all-clusters.sh <namespace> "sudo /opt/dataloader/smm-generator.sh setup"
 ----
 +
 --
@@ -309,21 +327,21 @@ After the setup is complete, you can start/stop the consumer and producers as ma
 +
 [source,shell]
 ----
-./run-on-all-clusters.sh "sudo /opt/dataloader/smm-generator.sh start"
+./run-on-all-clusters.sh <namespace> "sudo /opt/dataloader/smm-generator.sh start"
 ----
 
 * To stop all the consumers and producers:
 +
 [source,shell]
 ----
-./run-on-all-clusters.sh "sudo /opt/dataloader/smm-generator.sh stop"
+./run-on-all-clusters.sh <namespace> "sudo /opt/dataloader/smm-generator.sh stop"
 ----
 
 * You can check the producer and consumer status using:
 +
 [source,shell]
 ----
-./run-on-all-clusters.sh "sudo /opt/dataloader/smm-generator.sh status"
+./run-on-all-clusters.sh <namespace> "sudo /opt/dataloader/smm-generator.sh status"
 ----
 +
 --

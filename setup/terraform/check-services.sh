@@ -1,9 +1,20 @@
 #!/bin/bash
+set -o nounset
+BASE_DIR=$(cd $(dirname $0); pwd -L)
+. $BASE_DIR/common.sh
 
 trap "rm -f .cdsw .cem .cj .cm .hue .model .nifi .nifireg .schreg .smm .web" 0
 
+if [ $# != 1 ]; then
+  echo "Syntax: $0 <namespace>"
+  show_namespaces
+  exit 1
+fi
+NAMESPACE=$1
+load_env $NAMESPACE
+
 printf "%-30s %-30s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %s\n" "instance" "ip address" "WEB" "CM" "CEM" "NIFI" "NREG" "SREG" "SMM" "HUE" "CDSW" "Model Status"
-terraform show -json | jq -r '.values.root_module.resources[] | select(.type == "aws_instance") | "\(.address)[\(.index)] \(.values.public_ip)"' | while read instance ip; do
+terraform show -json $NAMESPACE_DIR/terraform.state | jq -r '.values.root_module.resources[] | select(.type == "aws_instance") | "\(.address)[\(.index)] \(.values.public_ip)"' | while read instance ip; do
   CDSW_API="http://cdsw.$ip.nip.io/api/v1"
   CDSW_ALTUS_API="http://cdsw.$ip.nip.io/api/altus-ds-1"
   (curl -L http://$ip/api/ping 2>/dev/null | grep 'Pong!' > /dev/null 2>&1 && echo Ok) > .web &
