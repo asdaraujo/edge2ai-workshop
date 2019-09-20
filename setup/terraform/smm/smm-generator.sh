@@ -7,8 +7,9 @@ BASE_DIR=$(cd $(dirname $0); pwd -P)
 DATALOADER_DIR=/opt/dataloader
 LOG_DIR=$DATALOADER_DIR/logs
 DEP_FILE=$BASE_DIR/deployment.json
-
+FLOW_TEMPLATE=$DATALOADER_DIR/IOT-Trucking-Fleet-Data-Flow-For-SMM.xml
 SIMULATOR_JAR=$DATALOADER_DIR/stream-simulator.jar
+
 # Producer settings
 ROUTES_LOCATION=$DATALOADER_DIR/routes/midwest
 SECURE_MODE=NONSECURE
@@ -77,7 +78,6 @@ function create_dirs_download_content() {
   curl -k -L https://s3.eu-west-2.amazonaws.com/whoville/v1/routesHDF32Oct2018.tar.gz > $DATALOADER_DIR/routes.tar.gz
   curl -k -L https://s3.eu-west-2.amazonaws.com/whoville/v1/stream-simulator_hdf32Oct2018.jar > $DATALOADER_DIR/stream-simulator.jar
   curl -k -L https://s3.eu-west-2.amazonaws.com/whoville/v1/smm-consumers_hdf32Oct2018.jar > $DATALOADER_DIR/smm-consumers.jar
-  curl -k -L https://raw.githubusercontent.com/georgevetticaden/sam-trucking-data-utils/hdf-3-2/src/main/resources/nifi-flows/3.2/smm/IOT-Trucking-Fleet-Data-Flow-For-SMM.xml > $DATALOADER_DIR/IOT-Trucking-Fleet-Data-Flow-For-SMM.xml
 
   tar -C $DATALOADER_DIR/ -xvf $DATALOADER_DIR/routes.tar.gz
 }
@@ -318,6 +318,88 @@ function process_status() {
   ps -ef | grep -v grep | egrep -o "LoggerAvroEventConsumer|LoggerStringEventConsumer|SMMSimulationRunnerTruckFleetApp|SMMSimulationRunnerSingleDriverApp" | sort | uniq -c
 }
 
+function import_nifi_flow() {
+  local flow_xml=$DATALOADER_DIR/customized-flow.xml
+  local import_script=$DATALOADER_DIR/import-flow.py
+
+  # replace template placeholders
+  sed "s/HOSTNAME/$(hostname -f)/g" $FLOW_TEMPLATE > $flow_xml
+
+  # create import script
+  cat > $import_script <<'EOF'
+#!/usr/bin/python3
+# Script configured for NO TLS
+# Script will run on a random node once on destination cluster.
+import logging
+import time
+import socket
+import sys
+import nipyapi
+
+flow_xml = sys.argv[1]
+
+logger = logging.getLogger('post_create_cluster.py')
+fhandler = logging.FileHandler(filename='/root/post_create_cluster.log', mode='a')
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+fhandler.setFormatter(formatter)
+logger.addHandler(fhandler)
+logger.setLevel(logging.INFO)
+
+# Connect to NiFi etc
+hostname = socket.gethostname()
+logger.info("Connecting to NiFi on " + hostname)
+nipyapi.utils.set_endpoint('http://' + hostname + ':8080/nifi-api')
+
+# Add Template to NiFi
+while True:
+    try:
+        root_pg_id = nipyapi.canvas.get_root_pg_id()
+        logger.info("Deploying NiFi Template")
+        template = nipyapi.templates.upload_template(pg_id=root_pg_id,template_file=flow_xml)
+        r = nipyapi.templates.deploy_template(root_pg_id, template.id)
+        pg_id = r.flow.process_groups[0].id
+        break
+    except nipyapi.nifi.rest.ApiException as e:
+        if e.status != 409: # Cluster is still in the process of voting on the appropriate Data Flow.
+            logger.error("NiFi connection failed with status %s" % (e.status,))
+            raise
+        logger.info("NiFi not ready yet")
+        time.sleep(15)
+
+# get parents PG
+pg_flow = nipyapi.canvas.get_process_group('IOT Trucking Fleet - Data Flow')
+print("Parent Flow ID is: " + pg_flow.id)
+
+# start controller services
+pass_cnt = 1
+while True:
+    is_done = True
+    print("=== Pass %d ========" % (pass_cnt,))
+    cont_services = nipyapi.nifi.FlowApi().get_controller_services_from_group(pg_flow.id)
+    for cse in cont_services.controller_services:
+        cs = 'CS: %s (id: %s, status: %s, validation: %s)' % (cse.component.name, cse.id, cse.status.run_status, cse.status.validation_status)
+        if cse.status.run_status == 'ENABLED':
+            print('STARTED  ' + cs)
+            continue
+        is_done = False
+        if cse.status.run_status == 'DISABLED' and cse.status.validation_status == 'VALID':
+            print('Starting ' + cs)
+            nipyapi.canvas.schedule_controller(cse, True, True)
+        else:
+            print('WAIT     ' + cs)
+    if is_done:
+        break
+    pass_cnt += 1
+    time.sleep(10)
+
+logger.info("Done!")
+# Done
+EOF
+
+  pip install requests nipyapi
+  python $import_script $flow_xml
+}
+
 ## MAIN ##
 ACTION=${1:-}
 if [ "$ACTION" == "setup" ]; then
@@ -326,6 +408,7 @@ if [ "$ACTION" == "setup" ]; then
   set_log_rotation
   create_kafka_topics
   register_schemas
+  import_nifi_flow
 elif [ "$ACTION" == "start" ]; then
   deploy_producers
   deploy_consumers

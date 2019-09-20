@@ -60,12 +60,13 @@ resource "aws_instance" "cluster" {
 
   provisioner "remote-exec" {
     inline = [
+      "set -u",
+      "set -e",
       "chmod +x /tmp/resources/*sh",
       "sudo bash -x /tmp/resources/setup.sh aws /tmp/resources/cdsw_template.json \"\" noprompt",
       "sudo mkdir -p /opt/dataloader/",
       "sudo cp /tmp/smm/* /opt/dataloader/",
       "sudo chmod 755 /opt/dataloader/*.sh",
-      "sudo bash -x /opt/dataloader/smm-generator.sh setup",
     ]
 
     connection {
