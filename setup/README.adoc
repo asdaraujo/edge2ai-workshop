@@ -260,14 +260,14 @@ chmod +x setup.sh
 
 == Other setup scripts
 === SMM post setup:
-====Run for a single node
+==== Run for a single node
 1. SSH to the cluster master node
 2. Runn smm-generator
 [source,shell]
 ----
 sudo /opt/dataloader/smm-generator.sh start
 ----
-====Run for all clusters.
+==== Run for all clusters.
 1. Got to the terminal window where you lanched workshop setup
 2. Following options are available.
 [source,shell]
