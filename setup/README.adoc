@@ -116,7 +116,10 @@ The variables in this file are explained below:
 
 * `TF_VAR_cluster_count`: number of one-node cluster to be created
 
-* `TF_VAR_owner`: you user id. This will be used to tag your cloud resources.
+* `TF_VAR_owner`: your user id. This will be used to tag your cloud resources.
+* `TF_VAR_web_server_admin_email`: email used by the Web Server admin. This will only be used to identify the admin upon logging in to the Web Server.
+* `TF_VAR_web_server_admin_password`: Web Server admin password.
+
 * `TF_VAR_aws_region`: AWS region to use
 * `TF_VAR_aws_access_key_id`: Your AWS Access Key Id
 * `TF_VAR_aws_secret_access_key`: Your AWS Secret Access Key
@@ -163,6 +166,9 @@ A private key file will also be created on the local directory for authenticatin
 * `./connect-to-cluster.sh <cluster_number>` - connect to the specified cluster using SSH.
 * `./browse-cluster.sh <cluster_number>` - (MacOS only) Opens a Chrome browser with all the tabs required for the workshop. All the URLs use the cluster's public DNS name.
 * `./browse-cluster-socks.sh <cluster_number>` - (MacOS only) Same as above, but using URLs with the private DNS name, instead, and setting the browser to use a SOCKS proxy, which is spawn by the script.
+* `./run-on-cluster.sh <cluster_number> '<command>'` - run a command on the specified cluster.
+* `./run-on-all-clusters.sh '<command>'` - run a command on all clusters.
+* `./upload-instance-details.sh [web_ip_adress] [admin_email] [admin_password] [admin_full_name]` - upload all the instances' details to the web server. If no parameters are specified it will use the default web server for the current deployment, otherwise will upload to the specified webserver. Note that this script is automatically executed upon launch for the current web server.
 
 Clusters numbers start from 0 (zero).
 
@@ -259,37 +265,78 @@ chmod +x setup.sh
 * You can also check the CDSW deployment status on `CM > CDSW service > Instances > Master role > Processes > stdout`.
 
 == Other setup scripts
-=== SMM post setup:
-==== Run for a single node
-1. SSH to the cluster master node
-2. Runn smm-generator
+
+=== SMM Truck Demo
+The scripts necessary to run the SMM Truck Demo are deployed to the cluster instances upon launch but are *not* executed.
+
+To complete the setup for the SMM Truck Demo, follow the steps below:
+
+==== Run for all clusters.
+
+* Go to the terminal window where you launched the workshop (under the `setup/terraform` directory)
+* Run the SMM Truck Demo setup (only needed once):
++
 [source,shell]
 ----
-sudo /opt/dataloader/smm-generator.sh start
+./run-on-all-clusters.sh "sudo /opt/dataloader/smm-generator.sh setup"
 ----
-==== Run for all clusters.
-* Got to the terminal window where you lanched workshop setup
-* Following options are available.
++
+--
+The setup will:
+
+* Deploy all the necessary scripts and files
+* Load the NiFi flows used in the demo
+* Start all the NiFi Controller Services
+--
+
+After the setup is complete, you can start/stop the consumer and producers as many times as needed:
+
+* To start all the consumers and producers:
++
 [source,shell]
 ----
 ./run-on-all-clusters.sh "sudo /opt/dataloader/smm-generator.sh start"
 ----
-* You can stop by running
+
+* To stop all the consumers and producers:
++
 [source,shell]
 ----
 ./run-on-all-clusters.sh "sudo /opt/dataloader/smm-generator.sh stop"
 ----
-* You can check status using
+
+* You can check the producer and consumer status using:
++
 [source,shell]
 ----
 ./run-on-all-clusters.sh "sudo /opt/dataloader/smm-generator.sh status"
 ----
++
+--
+After a successful start there should be 43 clients running: 13 consumers and 30 producers. There are 2 different types of consumers and 2 of producers. The status command shows the number of running consumers and producers by type, as shown below:
 
-== Merge newly created cluster information into an existing web-app.
-[source,shell]
+[source,python]
 ----
-./upload-instance-details.sh 1.2.3.4
+      3 LoggerAvroEventConsumer
+     10 LoggerStringEventConsumer
+      9 SMMSimulationRunnerSingleDriverApp
+     21 SMMSimulationRunnerTruckFleetApp
 ----
+
+--
+
+==== Run for a single node
+
+You can also run the commands above for a single instance.
+
+1. SSH to the cluster instance
+2. Run the commands as per below:
+
+* *Setup*: `sudo /opt/dataloader/smm-generator.sh setup`
+* *Start*: `sudo /opt/dataloader/smm-generator.sh start`
+* *Stop*: `sudo /opt/dataloader/smm-generator.sh stop`
+* *Status*: `sudo /opt/dataloader/smm-generator.sh status`
+
 == Troubleshooting and known issues
 
 === Clock Offset

@@ -5,7 +5,7 @@ set -u
 set -e
 
 if [ $# != 1 ]; then
-  echo "Syntax: $0 [cluster_number]"
+  echo "Syntax: $0 <cluster_number>"
   exit 1
 fi
 
