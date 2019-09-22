@@ -20,7 +20,8 @@ cmd=("$@")
 for line in $(awk '{print $1":"$3}' .instance.list); do
   cluster_name=$(echo "$line" | awk -F: '{print $1}')
   public_ip=$(echo "$line" | awk -F: '{print $2}')
-  ssh -q -o StrictHostKeyChecking=no -i $KEY_FILE centos@$public_ip "${cmd[@]}" 2>&1 | sed "s/^/$cluster_name: /" | tee -a $LOG_FILE &
+  cluster_name="$(echo -e "\033[0m\033[1m${cluster_name}:\033[0m") "
+  ssh -q -o StrictHostKeyChecking=no -i $KEY_FILE centos@$public_ip "${cmd[@]}" 2>&1 | sed "s/^/${cluster_name}/"
 done
 
 wait

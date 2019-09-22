@@ -1,5 +1,5 @@
 resource "null_resource" "configure-cdsw" {
-  count = var.cluster_count
+  count = var.deploy_cdsw_model ? var.cluster_count : 0
   depends_on = [aws_security_group_rule.allow_cdsw_healthcheck]
 
   connection {

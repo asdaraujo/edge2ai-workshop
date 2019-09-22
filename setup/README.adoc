@@ -113,16 +113,27 @@ chmod 400 edge2ai-workshop/setup/terraform/.env
 ----
 +
 The variables in this file are explained below:
-
++
+--
 * `TF_VAR_cluster_count`: number of one-node cluster to be created
+
+'''
 
 * `TF_VAR_owner`: your user id. This will be used to tag your cloud resources.
 * `TF_VAR_web_server_admin_email`: email used by the Web Server admin. This will only be used to identify the admin upon logging in to the Web Server.
 * `TF_VAR_web_server_admin_password`: Web Server admin password.
 
+'''
+
 * `TF_VAR_aws_region`: AWS region to use
 * `TF_VAR_aws_access_key_id`: Your AWS Access Key Id
 * `TF_VAR_aws_secret_access_key`: Your AWS Secret Access Key
+
+'''
+
+* `TF_VAR_deploy_cdsw_model`: Whether or not to deploy the CDSW model. If set to `false` CDSW will be installed but the workshop model will *not* be deployment. Default is `true`, which causes the model to be deployed.
+
+'''
 
 * `TF_VAR_cluster_ami`: AMI ID to use for the one-node cluster. Ensure you pick a Centos 7 image.
 +
@@ -130,9 +141,12 @@ NOTE: This is a vanilla Centos 7 AMI. No other prerequistes are necessary. All t
 * `TF_VAR_ssh_username`: The username used to log in to the VM. Typically: `centos`
 * `TF_VAR_cluster_instance_type`: Instance type to use for the one-node cluster. Recommended: `m5.4xlarge` or later/larger.
 
+'''
+
 * `TF_VAR_name_prefix`: Prefix for all your VM resource names
 * `TF_VAR_project`: Project name. This is used for instance tagging.
 * `TF_VAR_enddate`: End date in MMDDYYYY format. This is used for instance tagging. Some Cloudera environment use this to automatically kill "expired" instances.
+--
 
 . Launch your environment
 +

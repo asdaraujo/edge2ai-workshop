@@ -62,11 +62,11 @@ resource "aws_instance" "cluster" {
     inline = [
       "set -u",
       "set -e",
-      "chmod +x /tmp/resources/*sh",
-      "sudo bash -x /tmp/resources/setup.sh aws /tmp/resources/cdsw_template.json \"\" noprompt",
       "sudo mkdir -p /opt/dataloader/",
       "sudo cp /tmp/smm/* /opt/dataloader/",
       "sudo chmod 755 /opt/dataloader/*.sh",
+      "chmod +x /tmp/resources/*sh",
+      "sudo bash -x /tmp/resources/setup.sh aws /tmp/resources/cdsw_template.json \"\" noprompt",
     ]
 
     connection {

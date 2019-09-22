@@ -2,6 +2,12 @@ variable "cluster_count" {
   description = "Number of clusters to create"
 }
 
+variable "deploy_cdsw_model" {
+  description = "Whether to deploy the CDSW model during launch or not"
+  type        = bool
+  default     = true
+}
+
 variable "ssh_private_key" {
   description = "SSH private key to connect to AWS instances"
 }

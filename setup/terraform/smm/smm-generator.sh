@@ -84,12 +84,27 @@ function create_dirs_download_content() {
 
 function set_log_rotation() {
   # Set Logrotation
-  cat >> /etc/logrotate.conf << EOF
-$LOG_DIR/*.log {
-    hourly
-    rotate 3
+  if [ -f /etc/cron.daily/logrotate ]; then
+    mv /etc/cron.daily/logrotate /etc/cron.hourly/
+  fi
+  cat > /etc/logrotate.d/dataloader << EOF
+$LOG_DIR/*.log
+$LOG_DIR/smm-ref-app
+{
+    rotate 2
     compress
-    size 250M
+    size 10M
+    dateext
+    dateformat -%s
+    sharedscripts
+    postrotate
+        STATUS=\$(/opt/dataloader/smm-generator.sh status)
+        if [ "\$STATUS" != "" ]; then
+          /opt/dataloader/smm-generator.sh stop || true
+          /opt/dataloader/smm-generator.sh start || true
+          /opt/dataloader/smm-generator.sh status || true
+        fi
+    endscript
 }
 EOF
 }
@@ -136,23 +151,27 @@ function create_truck() {
   elif [ "$app_class" == "single_driver" ]; then
     app_class=hortonworks.hdf.sam.refapp.trucking.simulator.app.smm.SMMSimulationRunnerSingleDriverApp
   fi
-  nohup java -Xms256m -Xmx2g -cp \
-    "$SIMULATOR_JAR" \
-    "$app_class" \
-    -1 \
-    hortonworks.hdf.sam.refapp.trucking.simulator.impl.domain.transport.Truck \
-    hortonworks.hdf.sam.refapp.trucking.simulator.impl.collectors.smm.kafka.SMMTruckEventCSVGenerator \
-    1 \
-    "$ROUTES_LOCATION" \
-    "$wait_time" \
-    "$(get_brokers)" \
-    ALL_STREAMS \
-    "$SECURE_MODE" \
-    "$client_producer_id" \
-    "$topic" \
-    "$driver_id" \
-    "$route_name" \
-    "$route_id" &> $log_file &
+  echo "  Producer ID: $client_producer_id, type: ${app_class##*.}"
+  (
+    cd $LOG_DIR
+    nohup java -Xms256m -Xmx2g -cp \
+      "$SIMULATOR_JAR" \
+      "$app_class" \
+      -1 \
+      hortonworks.hdf.sam.refapp.trucking.simulator.impl.domain.transport.Truck \
+      hortonworks.hdf.sam.refapp.trucking.simulator.impl.collectors.smm.kafka.SMMTruckEventCSVGenerator \
+      1 \
+      "$ROUTES_LOCATION" \
+      "$wait_time" \
+      "$(get_brokers)" \
+      ALL_STREAMS \
+      "$SECURE_MODE" \
+      "$client_producer_id" \
+      "$topic" \
+      "$driver_id" \
+      "$route_name" \
+      "$route_id" &>> $log_file &
+  )
   sleep 1
 }
 
@@ -162,7 +181,6 @@ function create_europe_trucks() {
     local clientProducerId='minifi-eu-i'$i
     local logFile=$LOG_DIR/eu${i}.log
     local waitTime=$((i*2000))
-    echo $clientProducerId
     create_truck truck_fleet $clientProducerId gateway-europe-raw-sensors $waitTime $logFile
   done
 }
@@ -173,13 +191,12 @@ function create_all_geo_critical_event_producers() {
     local clientProducerId='geo-critical-event-collector-i'$i
     local logFile=$LOG_DIR/geo-critical-event${i}.log
     local waitTime=$((i*1000))
-    echo $clientProducerId
     create_truck truck_fleet $clientProducerId syndicate-all-geo-critical-events $waitTime $logFile
   done
 }
 
 function create_micro_service_producers() {
-  echo "----------------- Starting Mirco Service Producers  ----------------- "
+  echo "----------------- Starting Micro Service Producers  ----------------- "
   local topics=(route-planning load-optimization fuel-logistics supply-chain predictive-alerts energy-mgmt audit-events compliance adjudication approval syndicate-oil syndicate-battery syndicate-transmission)
   local apps=(route load-optimizer fuel supply-chain predictive energy audit compliance adjudication approval micro-service-oil micro-service-batter micro-service-transmissiony)
   i=0
@@ -229,16 +246,20 @@ function create_string_consumer() {
   local group_id=$2
   local client_id=$3
   local log_file=$4
-  nohup java -Xms256m -Xmx2g -cp  \
-    $SMM_PRODUCERS_CONSUMERS_SIMULATOR_JAR \
-    hortonworks.hdf.smm.refapp.consumer.impl.LoggerStringEventConsumer \
-    --bootstrap.servers $(get_brokers) \
-    --schema.registry.url $(get_sr_addr) \
-    --security.protocol $SECURITY_PROTOCOL \
-    --topics "$topics" \
-    --groupId "$group_id" \
-    --clientId "$client_id" \
-    --auto.offset.reset latest &>  "$log_file" &
+  echo "  Consumer Group ID: $group_id, type: LoggerStringEventConsumer"
+  (
+    cd $LOG_DIR
+    nohup java -Xms256m -Xmx2g -cp  \
+      $SMM_PRODUCERS_CONSUMERS_SIMULATOR_JAR \
+      hortonworks.hdf.smm.refapp.consumer.impl.LoggerStringEventConsumer \
+      --bootstrap.servers $(get_brokers) \
+      --schema.registry.url $(get_sr_addr) \
+      --security.protocol $SECURITY_PROTOCOL \
+      --topics "$topics" \
+      --groupId "$group_id" \
+      --clientId "$client_id" \
+      --auto.offset.reset latest &>> "$log_file" &
+  )
   sleep 1
 }
 
@@ -247,16 +268,20 @@ function create_avro_consumer() {
   local group_id=$2
   local client_id=$3
   local log_file=$4
-  nohup java -Xms256m -Xmx2g -cp  \
-    $SMM_PRODUCERS_CONSUMERS_SIMULATOR_JAR \
-    hortonworks.hdf.smm.refapp.consumer.impl.LoggerAvroEventConsumer \
-    --bootstrap.servers $(get_brokers) \
-    --schema.registry.url $(get_sr_addr) \
-    --security.protocol $SECURITY_PROTOCOL \
-    --topics "$topics" \
-    --groupId "$group_id" \
-    --clientId "$client_id" \
-    --auto.offset.reset latest &>  "$log_file" &
+  echo "  Consumer Group ID: $group_id, type: LoggerAvroEventConsumer"
+  (
+    cd $LOG_DIR
+    nohup java -Xms256m -Xmx2g -cp  \
+      $SMM_PRODUCERS_CONSUMERS_SIMULATOR_JAR \
+      hortonworks.hdf.smm.refapp.consumer.impl.LoggerAvroEventConsumer \
+      --bootstrap.servers $(get_brokers) \
+      --schema.registry.url $(get_sr_addr) \
+      --security.protocol $SECURITY_PROTOCOL \
+      --topics "$topics" \
+      --groupId "$group_id" \
+      --clientId "$client_id" \
+      --auto.offset.reset latest &>> "$log_file" &
+  )
   sleep 1
 }
 
@@ -300,9 +325,11 @@ function create_micro_service_consumers() {
 
 function deploy_consumers() {
   echo "Running Consumer Deployment Functions"
+  echo "----------------- Starting Avro Consumers  ----------------- "
   create_kafka_streams_consumer_for_truck_geo_avro
   create_spark_streaming_consumer_for_truck_geo_avro
   create_flink_streaming_consumer_for_truck_geo_avro
+  echo "----------------- Starting Micro Service Consumers  ----------------- "
   create_micro_service_consumers
   echo "Finished Consumer Deployment Functions"
 }
