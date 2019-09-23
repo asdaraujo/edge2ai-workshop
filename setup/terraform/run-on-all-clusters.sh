@@ -24,7 +24,7 @@ for line in $(awk '{print $1":"$3}' .instance.list); do
   bold="$(echo -e "\033[0m\033[1m")"
   normal="$(echo -e "\033[0m")"
   ssh -q -o StrictHostKeyChecking=no -i $KEY_FILE centos@$public_ip "${cmd[@]}" 2>&1 | \
-    sed "s/^/${cluster_name}/" | tee $LOG_FILE | sed "s/^[^:]*:/${bold}&${normal}/"
+    sed "s/^/${cluster_name}/" | tee $LOG_FILE | sed "s/^[^:]*:/${bold}&${normal}/" &
 done
 
 wait
