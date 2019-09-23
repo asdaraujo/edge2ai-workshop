@@ -261,7 +261,7 @@ Schema Group:  Kafka
 Compatibility: Backward
 Evolve:        checked
 ----
-
++
 image::images/register_schema.png[width=800]
 
 . Save the schema
