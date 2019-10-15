@@ -127,7 +127,7 @@ image::images/engines.png[width=800]
 
 === STEP 2: Create the project
 
-    . Return to the main page and click on *New Project*, using this GitHub project as the source: `https://github.com/asdaraujo/edge2ai-workshop`
+    . Return to the main page and click on *New Project*, using this GitHub project as the source: `https://github.com/tspannhw/edge2ai-workshop`
 +
 image::images/create_project.png[width=800]
 
@@ -301,43 +301,3 @@ image::images/test_model.png[width=800]
 . With these input parameters, the model returns `0`, which means that the machine is likely to break.
 
 
-== Resources
-  
-* link:https://medium.freecodecamp.org/building-an-iiot-system-using-apache-nifi-mqtt-and-raspberry-pi-ce1d6ed565bc[Original blog by Abdelkrim Hadjidj]
-
-* This workshop was based on the following work by Fabio Ghirardello:
-** https://github.com/fabiog1901/IoT-predictive-maintenance
-** https://github.com/fabiog1901/OneNodeCDHCluster
-
-* link:https://www.cloudera.com/documentation.html[Cloudera Documentation]
-
-== Troubleshooting
-
-==== *CEM doesn't pick up new NARs*
-
-. Delete the agent manifest manually using the EFM API:
-
-. Verify each class has the same agent manifest ID:
-+
-[source]
-----
-http://hostname:10080/efm/api/agent-classes
-[{"name":"iot1","agentManifests":["agent-manifest-id"]},{"name":"iot4","agentManifests":["agent-manifest-id"]}]
-----
-
-. Confirm the manifest doesn't have the NAR you installed
-+
-[source]
-----
-http://hostname:10080/efm/api/agent-manifests?class=iot4
-[{"identifier":"agent-manifest-id","agentType":"minifi-java","version":"1","buildInfo":{"timestamp":1556628651811,"compiler":"JDK 8"},"bundles":[{"group":"default","artifact":"system","version":"unversioned","componentManifest":{"controllerServices":[],"processors":
-----
-
-. Call the API endpoint:
-+
-[source]
-----
-http://hostname:10080/efm/swagger/
-----
-
-. Hit the `DELETE - Delete the agent manifest specified by id` button, and in the id field, enter `agent-manifest-id`

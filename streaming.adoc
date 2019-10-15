@@ -1,102 +1,45 @@
 [[lab_1, Lab 1]]
-== Lab 1 - Gateway host: setup machine sensors simulator and MQTT broker
+== Lab 1 - Apache NiFi: setup machine sensors simulator 
 
-In this lab you will run a simple Python script that simulates IoT sensor data from some hypothetical machines, and send the data to a MQTT broker (link:https://mosquitto.org/[mosquitto]). The gateway host is connected to many and different type of sensors, but they generally all share the same transport protocol, `mqtt`.
+In this lab you will run a simple Python script that simulates IoT sensor data from some hypothetical machines, and send the data to a MQTT broker (link:https://mosquitto.org/[mosquitto]). The gateway host is connected to many and different type of sensors, but they generally all share the same transport protocol, "mqtt". You will go to Apache NiFi and add a Processor (ExecuteProcess) to the canvas.   You will then right-click and set the properties shown below to run our Python simulate script.
 
-. SSH into the VM, then install required libs and start the MQTT broker:
-+
-[source,shell]
-----
-sudo su -
-yum install -y mosquitto
-pip install paho-mqtt
-systemctl enable mosquitto
-systemctl start mosquitto
-exit # takes you back to the centos user's shell
-----
+**Command**:   python
 
-. *Still on the VM window*, clone this repo, then run the simulator to send sensor data to the MQTT broker:
-+
-[source,shell]
-----
-cd ~
-git clone https://github.com/ahadjidj/edge2ai-workshop.git
-mv edge2ai-workshop/mqtt.* ~
-python mqtt.iot_simulator.py mqtt.iot.config
-----
+**Command Arguments: **  /opt/demo/simulate.py
 
-. You should see an output similar to the below:
-+
-[source,shell]
-----
-iot: {"sensor_id": 48, "sensor_ts": 1556758787735011, "sensor_0": 2, "sensor_1": 14, "sensor_2": 5, "sensor_3": 43, "sensor_4": 34, "sensor_5": 97, "sensor_6": 29, "sensor_7": 121, "sensor_8": 5, "sensor_9": 2, "sensor_10": 5}
-iot: {"sensor_id": 24, "sensor_ts": 1556758797738580, "sensor_0": 1, "sensor_1": 9, "sensor_2": 5, "sensor_3": 46, "sensor_4": 39, "sensor_5": 87, "sensor_6": 51, "sensor_7": 142, "sensor_8": 47, "sensor_9": 4, "sensor_10": 8}
-iot: {"sensor_id": 70, "sensor_ts": 1556758807751841, "sensor_0": 2, "sensor_1": 1, "sensor_2": 1, "sensor_3": 48, "sensor_4": 8, "sensor_5": 70, "sensor_6": 15, "sensor_7": 103, "sensor_8": 22, "sensor_9": 1, "sensor_10": 2}
-----
+image::images/simulate1.png[width=800]
 
-. You can stop the simulator now, with Ctrl+C.
 
-[[lab_2, Lab 2]]
-== Lab 2 - Gateway host: configure and run MiNiFi
 
-MiNiFi is installed in the gateway host. In this lab you will configure and run MiNiFi to read from the MQTT broker and forward to the NiFi cluster, but it's only in the next lab that you will provide the flow to execute.
+image::images/simulate2.png[width=800]
 
-. Download the NiFi MQTT Processor to read from the broker:
-+
-[source,shell]
-----
-sudo su -
-cd ~
-wget http://central.maven.org/maven2/org/apache/nifi/nifi-mqtt-nar/1.8.0/nifi-mqtt-nar-1.8.0.nar -P /opt/cloudera/cem/minifi/lib
-chown root:root /opt/cloudera/cem/minifi/lib/nifi-mqtt-nar-1.8.0.nar
-chmod 660 /opt/cloudera/cem/minifi/lib/nifi-mqtt-nar-1.8.0.nar
-----
+In the Scheduling Tab, set to Run Schedule:    1 sec
 
-. The MiNiFi agent configuration has _already been completed_ for you. However, before starting the MiNiFi agent, examine the contents of the configuration file, which can be found at `/opt/cloudera/cem/minifi/conf/bootstrap.conf`.
-+
-You'll see the following parameters in the *MiNiFi Command & Control Configuration* section:
+You could set that to 1 sec, 30 sec, 1 min.
 
-* `nifi.c2.rest.url` - Address of the Edge Flow Manager (EFM) server's endpoint that MiNiFi agent uses to send heartbeats.
-* `nifi.c2.rest.url.ack` - Address of the Edge Flow Manager (EFM) server's endpoint that MiNiFi agent uses to acknowledge commands.
-* `nifi.c2.agent.heartbeat.period` - Heartbeat interval, in milliseconds.
-* `nifi.c2.agent.class` - Agent class that's this agent will report to the EFM server.
-* `nifi.c2.agent.identifier` - Unique Id of this MiNiFi agent-iot-1
 
-. You can now start the MiNiFi agent:
-+
-[source,shell]
-----
-systemctl start minifi
-----
+image::runSimulator1or30.png[width=800]
 
-. You might want to check the logs to confirm all is good:
-+
-[source,shell]
-----
-egrep -A1 "Processor Type|MQTT" /opt/cloudera/cem/minifi/logs/minifi-app.log
-----
-+
-If the MQTT Processors loaded successfully you should see them listed in the "Processor Type" section of the log:
-+
-[source,shell]
-----
-=== Processor Type ===
-org.apache.nifi.processors.standard.GenerateFlowFile
---
-org.apache.nifi.processors.mqtt.PublishMQTT
-        org.apache.nifi:nifi-mqtt-nar:1.8.0 || ./work/nar/extensions/nifi-mqtt-nar-1.8.0.nar-unpacked
---
-org.apache.nifi.processors.mqtt.ConsumeMQTT
-        org.apache.nifi:nifi-mqtt-nar:1.8.0 || ./work/nar/extensions/nifi-mqtt-nar-1.8.0.nar-unpacked
---
-----
 
-. Exit the root session
-+
-[source,shell]
-----
-exit
-----
+Include no extra spaces!
+
+*Tab:* Settings
+
+Automatically Terminate Relationships:   [x] Success
+
+Make sure you terminate so you can run.
+
+image::nifiTerminateRelationships.png[width=800]
+
+
+
+
+You can then right click to Start this simulator runner.  You can press stop after a few seconds and look at the provenance to see that it has run a number of times and produced results.
+
+image::NiFiViewDataProvenance.png[width=800]
+
+image::NiFiDataProvenance.png[width=800]
+
 
 [[lab_3, Lab3]]
 == Lab 3 - Configuring Edge Flow Management
@@ -106,6 +49,13 @@ Cloudera Edge Flow Management gives you a visual overview of all MiNiFi agents i
 . Open the EFM Web UI at http://<public_dns>:10080/efm/ui/. Ensure you see your minifi agent's heartbeat messages in the **Events Monitor**.
 +
 image::images/cem_heartbeats.png[width=800]
+
+
+image::efmEventDetails.png[width=800]
+
+image::efmSetCloudConfiguration.png[width=800]
+
+image::rpgCloudConfiguration.png[width=800]
 
 . You can then select the **Flow Designer** tab (image:images/flow_designer_icon.png[width=30]). To build a dataflow, select the desired class (`iot-1`) from the table and click OPEN.  Alternatively, you can double-click on the desired class.
 
@@ -169,27 +119,23 @@ image::images/cem_first_version.png[width=800]
 +
 image::images/flow_in_nifi_registry.png[width=800]
 
-. At this point, you can test the edge flow up until NiFi. Start the simulator again and confirm you can see the messages queued in NiFi.
-+
-[source]
-----
-python mqtt.iot_simulator.py mqtt.iot.config
-----
-+
-image::images/running_simulator.png[width=800]
+image::NiFiSettingsSetNiFiRegistry.png[width=800]
+
+
+. At this point, you can test the edge flow up until NiFi. Start the NiFi (ExecuteProcess) simulator again and confirm you can see the messages queued in NiFi.
 +
 image::images/queued_events.png[width=300]
 
-. You can stop the simulator once you confirm that the flow is working correctly.
+. You can stop the simulator (Stop the NiFi processor) once you confirm that the flow is working correctly.
 
 [[lab_4, Lab 4]]
 == Lab 4 - Registering our schema in Schema Registry
 
-The data produced by the temperature sensors is described by the schema in file `link:https://raw.githubusercontent.com/asdaraujo/edge2ai-workshop/master/sensor.avsc[sensor.avsc]`. In this lab we will register this schema in Schema Registry so that our flows in NiFi can refer to schema using an unified service. This will also allow us to evolve the schema in the future, if needed, keeping older versions under version control, so that existing flows and flowfiles will continue to work.
+The data produced by the temperature sensors is described by the schema in file `link:https://raw.githubusercontent.com/tspannhw/edge2ai-workshop/master/sensor.avsc[sensor.avsc]`. In this lab we will register this schema in Schema Registry so that our flows in NiFi can refer to schema using an unified service. This will also allow us to evolve the schema in the future, if needed, keeping older versions under version control, so that existing flows and flowfiles will continue to work.
 
 . Go the following URL, which contains the schema definition we'll use for this lab. Select all contents of the page and copy it.
 +
-`link:https://raw.githubusercontent.com/asdaraujo/edge2ai-workshop/master/sensor.avsc[https://raw.githubusercontent.com/asdaraujo/edge2ai-workshop/master/sensor.avsc, window="_blank"]`
+`link:https://raw.githubusercontent.com/tspannhw/edge2ai-workshop/master/sensor.avsc[https://raw.githubusercontent.com/tspannhw/edge2ai-workshop/master/sensor.avsc, window="_blank"]`
 
 . In the Schema Registry Web UI, click the `+` sign to register a new schema.
 
@@ -383,12 +329,9 @@ At this point, the messages are already in the Kafka topic. You can add more pro
 
 Now that our NiFi flow is pushing data to Kafka, it would be good to have a confirmation that everything is running as expected. In this lab you will use Streams Messaging Manager (SMM) to check and monitor Kafka.
 
-. Start the simulator again and confirm you can see the messages queued in NiFi. Leave it running.
+. Start the (NiFi ExecuteProcess) simulator again and confirm you can see the messages queued in NiFi. Leave it running.
 +
-[source]
-----
-python mqtt.iot_simulator.py mqtt.iot.config
-----
+
 
 . Go to the Stream Messaging Manager (SMM) Web UI and familiarize yourself with the options there. Notice the filters (blue boxes) at the top of the screen.
 +
@@ -776,15 +719,9 @@ We're ready not to run and test our flow. Follow the steps below:
 
 . Start all the processors in your flow.
 
-. If the simulator is not already running, start it again on your SSH window:
-+
-[source]
-----
-python mqtt.iot_simulator.py mqtt.iot.config
-----
 
 . Refresh your NiFi page and you should see messages passing through your flow. The failure queues should have no records queued up.
 +
 image::images/kudu_success.png[width=800]
 
-. On Lab 10, you will learn how to query and verify the records inserted into Kudu.
+
