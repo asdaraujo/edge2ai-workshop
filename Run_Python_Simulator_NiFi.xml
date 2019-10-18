@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<template encoding-version="1.2">
+    <description></description>
+    <groupId>8ceeba07-016d-1000-0000-000020d4fdb1</groupId>
+    <name>Run Python Simulator NiFi</name>
+    <snippet>
+        <labels>
+            <id>52f8e43b-0e9a-3df9-0000-000000000000</id>
+            <parentGroupId>3790f4bc-b7c1-3c67-0000-000000000000</parentGroupId>
+            <position>
+                <x>0.0</x>
+                <y>0.0</y>
+            </position>
+            <height>65.17413711547852</height>
+            <label>Option 2 Python Script Creates and Sends</label>
+            <style>
+                <entry>
+                    <key>font-size</key>
+                    <value>24px</value>
+                </entry>
+            </style>
+            <width>468.0970001220703</width>
+        </labels>
+        <processors>
+            <id>77b049bc-a9f4-3117-0000-000000000000</id>
+            <parentGroupId>3790f4bc-b7c1-3c67-0000-000000000000</parentGroupId>
+            <position>
+                <x>67.41286083234502</x>
+                <y>152.23882344349704</y>
+            </position>
+            <bundle>
+                <artifact>nifi-standard-nar</artifact>
+                <group>org.apache.nifi</group>
+                <version>1.9.0.1.0.1.0-12</version>
+            </bundle>
+            <config>
+                <bulletinLevel>WARN</bulletinLevel>
+                <comments></comments>
+                <concurrentlySchedulableTaskCount>1</concurrentlySchedulableTaskCount>
+                <descriptors>
+                    <entry>
+                        <key>Command</key>
+                        <value>
+                            <name>Command</name>
+                        </value>
+                    </entry>
+                    <entry>
+                        <key>Command Arguments</key>
+                        <value>
+                            <name>Command Arguments</name>
+                        </value>
+                    </entry>
+                    <entry>
+                        <key>Batch Duration</key>
+                        <value>
+                            <name>Batch Duration</name>
+                        </value>
+                    </entry>
+                    <entry>
+                        <key>Redirect Error Stream</key>
+                        <value>
+                            <name>Redirect Error Stream</name>
+                        </value>
+                    </entry>
+                    <entry>
+                        <key>Working Directory</key>
+                        <value>
+                            <name>Working Directory</name>
+                        </value>
+                    </entry>
+                    <entry>
+                        <key>Argument Delimiter</key>
+                        <value>
+                            <name>Argument Delimiter</name>
+                        </value>
+                    </entry>
+                </descriptors>
+                <executionNode>ALL</executionNode>
+                <lossTolerant>false</lossTolerant>
+                <penaltyDuration>30 sec</penaltyDuration>
+                <properties>
+                    <entry>
+                        <key>Command</key>
+                        <value>python</value>
+                    </entry>
+                    <entry>
+                        <key>Command Arguments</key>
+                        <value>/opt/demo/simulate.py</value>
+                    </entry>
+                    <entry>
+                        <key>Batch Duration</key>
+                    </entry>
+                    <entry>
+                        <key>Redirect Error Stream</key>
+                        <value>false</value>
+                    </entry>
+                    <entry>
+                        <key>Working Directory</key>
+                    </entry>
+                    <entry>
+                        <key>Argument Delimiter</key>
+                        <value> </value>
+                    </entry>
+                </properties>
+                <runDurationMillis>0</runDurationMillis>
+                <schedulingPeriod>1 sec</schedulingPeriod>
+                <schedulingStrategy>TIMER_DRIVEN</schedulingStrategy>
+                <yieldDuration>1 sec</yieldDuration>
+            </config>
+            <executionNodeRestricted>false</executionNodeRestricted>
+            <name>Generate Test Data</name>
+            <relationships>
+                <autoTerminate>true</autoTerminate>
+                <name>success</name>
+            </relationships>
+            <state>STOPPED</state>
+            <style/>
+            <type>org.apache.nifi.processors.standard.ExecuteProcess</type>
+        </processors>
+    </snippet>
+    <timestamp>10/18/2019 17:02:24 UTC</timestamp>
+</template>
