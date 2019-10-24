@@ -1,0 +1,343 @@
+[[lab_9, Lab 9]]
+== Lab 9 - Use Spark to call the CDSW model endpoint and save to Kudu
+
+NOTE: This lab is optional, since it does the same processing we performed in Lab 8 but using Spark instead of NiFi. If you want to run this lab, stop the flow created in Lab 8 first, to avoid duplicated data being sent into Kudu. Otherwise, just skip to *Lab 10*
+
+Spark Streaming is a processing framework for (near) real-time data. In this lab, you will use Spark to consume Kafka messages which contains the IoT data from the machine, and call the model API endpoint to predict whether, with those IoT values the machine sent, the machine is likely to break. Then save the results to Kudu for fast analytics.
+
+==== Create the Kudu table
+
+NOTE: If you already executed this step in the previous lab, please skip the table creation here.
+
+. Go to the Hue Web UI and login. The first user to login to a Hue installation is automatically created and granted admin privileges in Hue.
+
+. The Hue UI should open with the Impala Query Editor by default. If it doesn't, you can always find it by clicking on *Query button > Editor -> Impala*:
++
+image::images/impala_editor.png[width=800]
+
+. First, create the Kudu table. Login into Hue, and in the Impala Query, run this statement:
++
+[source,sql]
+----
+CREATE TABLE sensors
+(
+ sensor_id INT,
+ sensor_ts TIMESTAMP, 
+ sensor_0 DOUBLE,
+ sensor_1 DOUBLE,
+ sensor_2 DOUBLE,
+ sensor_3 DOUBLE,
+ sensor_4 DOUBLE,
+ sensor_5 DOUBLE,
+ sensor_6 DOUBLE,
+ sensor_7 DOUBLE,
+ sensor_8 DOUBLE,
+ sensor_9 DOUBLE,
+ sensor_10 DOUBLE,
+ sensor_11 DOUBLE,
+ is_healthy INT,
+ PRIMARY KEY (sensor_ID, sensor_ts)
+)
+PARTITION BY HASH PARTITIONS 16
+STORED AS KUDU
+TBLPROPERTIES ('kudu.num_tablet_replicas' = '1');
+----
++
+image::images/create_table.png[width=800]
+
+==== CDSW Access Key
+
+. To configure and run the Spark Streaming job, you will need a CDSW Access Key to connect to the model endpoint that has been deployed there. To get the Access Key, go to the CDSW Web UI and click on *Models > Iot Prediction Model > Settings*. Copy the Access Key.
++
+image::images/model_access_key.png[width=800]
+
+==== Running the Spark job
+
+. Open a second Terminal and SSH into the VM. The first is running the sensor data simulator, so you can't use it.
++
+[source,shell]
+----
+ACCESS_KEY=<put here your cdsw model access key>
+PUBLIC_IP=$(curl https://api.ipify.org/)
+mv ~/edge2ai-workshop/spark.iot.py ~
+sed -i "s/YourHostname/$(hostname -f)/" spark.iot.py
+sed -i "s/YourCDSWDomain/cdsw.$PUBLIC_IP.nip.io/" spark.iot.py
+sed -i "s/YourAccessKey/$ACCESS_KEY/" spark.iot.py
+wget http://central.maven.org/maven2/org/apache/kudu/kudu-spark2_2.11/1.9.0/kudu-spark2_2.11-1.9.0.jar
+
+wget https://raw.githubusercontent.com/swordsmanliu/SparkStreamingHbase/master/lib/spark-core_2.11-1.5.2.logging.jar
+
+rm -rf ~/.m2 ~/.ivy2/
+spark-submit \
+  --master local[2] \
+  --jars kudu-spark2_2.11-1.9.0.jar,spark-core_2.11-1.5.2.logging.jar \
+  --packages org.apache.spark:spark-streaming-kafka_2.11:1.6.3 \
+  spark.iot.py
+----
++
+
+. Spark Streaming will flood your screen with log messages, however, at a 5 seconds interval, you should be able to spot a table: these are the messages that were consumed from Kafka and processed by Spark. You can configure Spark for a smaller time window, however, for this exercise 5 seconds is sufficient.
++
+image::images/spark_job_output.png[width=800]
+
+[[lab_10, Lab 10]]
+== Lab 10 - Fast analytics on fast data with Kudu and Impala
+
+In this lab, you will run some SQL queries using the Impala engine. You can run a report to inform you which machines are likely to break in the near future.
+
+. Login into Hue and run the following queries in the Impala Query Editor:
++
+[source,sql]
+----
+SELECT sensor_id, sensor_ts
+FROM sensors
+WHERE is_healthy = 0;
+----
++
+[source,sql]
+----
+SELECT is_healthy, count(*) as occurrences
+FROM sensors
+GROUP BY is_healthy;
+----
+
+. Run a few times the SQL statements and verify that the number of occurrences are increasing as the data is ingested by either NiFi or the Spark job. This allows you to build real-time reports for fast action.
++
+image::images/table_select.png[width=800]
+
+[[lab_11, Lab 11]]
+== Lab 11 - CDSW: Train the model
+
+In this and the following lab, you will wear the hat of a Data Scientist. You will write the model code, train it several times and finally deploy the model to Production. All within 30 minutes!
+
+=== STEP 1: Configure CDSW
+
+. Open CDSW Web UI and log in as `admin`, if you haven't yet done so.
+
+. Navigate to the CDSW **Admin** page to fine tune the environment:
+.. In the **Engines** tab, add in _Engines Profiles_ a new engine (docker image) with 2 vCPUs and 4 GB RAM, while deleting the default engine.
+.. Check if the following variable already exists under _Environmental Variables_. If not, add it:
++
+[source]
+----
+HADOOP_CONF_DIR=/etc/hadoop/conf/
+----
++
+image::images/engines.png[width=800]
+
+=== STEP 2: Create the project
+
+    . Return to the main page and click on *New Project*, using this GitHub project as the source: `https://github.com/asdaraujo/edge2ai-workshop`
++
+image::images/create_project.png[width=800]
+
+. Now that your project has been created, click on *Open Workbench* and start a Python3 session:
++
+image::images/open_workbench.png[width=800]
+
+. Once the Engine is ready, run the following command to install some required libraries:
++
+[source]
+----
+!pip3 install --upgrade pip scikit-learn
+----
+
+. The project comes with a historical dataset. Copy this dataset into HDFS:
++
+[source]
+----
+!hdfs dfs -put -f data/historical_iot.txt /user/$HADOOP_USER_NAME
+----
++
+image::images/session_prep.png[width=800]
+
+. You're now ready to run the Experiment to train the model on your historical data.
+
+. You can stop the Engine at this point.
+
+=== STEP 3: Examine `cdsw.iot_exp.py`
+
+Open the file `cdsw.iot_exp.py`. This is a python program that builds a model to predict machine failure (the likelihood that this machine is going to fail). There is a dataset available on hdfs with customer data, including a failure indicator field.
+
+The program is going to build a failure prediction model using the Random Forest algorithm. Random forests are ensembles of decision trees. Random forests are one of the most successful machine learning models for classification and regression. They combine many decision trees in order to reduce the risk of overfitting. Like decision trees, random forests handle categorical features, extend to the multiclass classification setting, do not require feature scaling, and are able to capture non-linearities and feature interactions.
+
+`spark.mllib` supports random forests for binary and multiclass classification and for regression, using both continuous and categorical features. `spark.mllib` implements random forests using the existing decision tree implementation. Please see the decision tree guide for more information on trees.
+
+The Random Forest algorithm expects a couple of parameters:
+
+* *numTrees*: Number of trees in the forest.
++
+Increasing the number of trees will decrease the variance in predictions, improving the model’s test-time accuracy. Training time increases roughly linearly in the number of trees.
+
+* *maxDepth*: Maximum depth of each tree in the forest.
++
+Increasing the depth makes the model more expressive and powerful. However, deep trees take longer to train and are also more prone to overfitting. In general, it is acceptable to train deeper trees when using random forests than when using a single decision tree. One tree is more likely to overfit than a random forest (because of the variance reduction from averaging multiple trees in the forest).
+
+In the `cdsw.iot_exp.py` program, these parameters can be passed to the program at runtime, to these python variables:
+
+[source,python]
+----
+param_numTrees = int(sys.argv[1])
+param_maxDepth = int(sys.argv[2])
+----
+
+Also note the quality indicator for the Random Forest model, are written back to the Data Science Workbench repository:
+
+[source,python]
+----
+cdsw.track_metric("auroc", auroc)
+cdsw.track_metric("ap", ap)
+----
+
+These indicators will show up later in the **Experiments** dashboard.
+
+=== STEP 4: Run the experiment for the first time
+
+. Now, run the experiment using the following parameters:
++
+[source,python]
+----
+numTrees = 20 numDepth = 20
+----
+
+. From the menu, select `Run -> Run Experiments...`. Now, in the background, the Data Science Workbench environment will spin up a new docker container, where this program will run.
++
+image::images/run_experiment.png[width=800]
+
+. Go back to the **Projects** page in CDSW, and hit the **Experiments** button.
+
+. If the Status indicates `Running`, you have to wait till the run is completed. In case the status is `Build Failed` or `Failed`   , check the log information. This is accessible by clicking on the run number of your experiments. There you can find the session log, as well as the build information.
++
+image::images/experiment_details.png[width=800]
+
+. In case your status indicates `Success`, you should be able to see the *auroc* (Area Under the Curve) model quality indicator. It might be that this value is hidden by the CDSW user interface. In that case, click on the ‘3 metrics’ links, and select the auroc field. It might be needed to de-select some other fields, since the interface can only show 3 metrics at the same time.
++
+image::images/exp_metrics.png[width=800]
+
+. In this example, `~0.8383`. Not bad, but maybe there are better hyper parameter values available.
+
+=== STEP 5: Re-run the experiment several times
+
+. Go back to the Workbench and run the experiment 2 more times and try different values for NumTrees and NumDepth. Try the following values:
++
+[source,python]
+----
+NumTrees NumDepth
+15       25
+25       20
+----
+
+. When all runs have completed successfully, check which parameters had the best quality (best predictive value). This is represented by the highest _area under the curve_: `auroc` metric.
++
+image::images/best_model.png[width=800]
+
+=== STEP 6: Save the best model to your environment
+
+. Select the run number with the best predictive value (in the example above, experiment *4*).
+
+. In the *Overview* screen of the experiment, you can see that the model, in Pickle format (`.pkl`), is captured in the file `iot_model.pkl`. Select this file and hit the **Add to Project** button. This will copy the model to your project directory.
++
+image::images/save_model.png[width=800]
++
+image::images/model_saved.png[width=800]
+
+[[lab_12, Lab 12]]
+== Lab 12 - CDSW: Deploy the model
+
+=== STEP 1: Examine the program `cdsw.iot_model.py`
+
+. Open the project you created in the previous lab and examine the file in the Workbench. This PySpark program uses the `pickle.load` mechanism to deploy models. The model is loaded from the `iot_modelf.pkl` file, which was saved in the previous lab from the experiment with the best predictive model.
++
+There program also contains the `predict` definition, which is the function that calls the model, passing the features as parameters, and will return a result variable.
+
+. Before deploying the model, try it out in the Workbench: launch a Python3 engine and run the code in file `cdsw.iot_model.py`. Then call the `predict()` method from the prompt:
++
+[source,python]
+----
+predict({"feature": "0, 65, 0, 137, 21.95, 83, 19.42, 111, 9.4, 6, 3.43, 4"})
+----
++
+image::images/predict.png[width=800]
+
+. The functions returns successfully, so we know we can now deploy the model. You can now stop the engine.
+
+=== STEP 2: Deploy the model
+
+. From the main page of your project, select the *Models* button. Select *New Model* and specify the following configuration:
++
+[source, python]
+----
+Name:          IoT Prediction Model
+Description:   IoT Prediction Model
+File:          cdsw.iot_model.py
+Function:      predict
+Example Input: {"feature": "0, 65, 0, 137, 21.95, 83, 19.42, 111, 9.4, 6, 3.43, 4"}
+Kernel:        Python 3
+Engine:        2 vCPU / 4 GB Memory
+Replicas:      1
+----
++
+image:images/create_model.png[width=800]
+
+. After all parameters are set, click on the *Deploy Model* button. Wait till the model is deployed. This can take several minutes.
+
+=== STEP 3: Test the deployed model
+
+. When your model status change to `Deployed`, click on the model name link to go to the Model's *Overview* page. From the that page, click on the *Test* button to check if the model is working.
+
+. The green circle with the `success` status indicates that our REST call to the model is working. The `1` in the response `{"result": 1}`, means that the machine from where these temperature readings were collected is _unlikely_ to experience a failure.
++
+image::images/test_model.png[width=800]
+
+. Now, lets change the input parameters and call the predict function again. Put the following values in the Input field:
++
+[source,python]
+----
+{
+  "feature": "0, 95, 0, 88, 26.62, 75, 21.05, 115, 8.65, 5, 3.32, 3"
+}
+----
+
+. With these input parameters, the model returns `0`, which means that the machine is likely to break.
+
+
+== Resources
+  
+* link:https://medium.freecodecamp.org/building-an-iiot-system-using-apache-nifi-mqtt-and-raspberry-pi-ce1d6ed565bc[Original blog by Abdelkrim Hadjidj]
+
+* This workshop was based on the following work by Fabio Ghirardello:
+** https://github.com/fabiog1901/IoT-predictive-maintenance
+** https://github.com/fabiog1901/OneNodeCDHCluster
+
+* link:https://www.cloudera.com/documentation.html[Cloudera Documentation]
+
+== Troubleshooting
+
+==== *CEM doesn't pick up new NARs*
+
+. Delete the agent manifest manually using the EFM API:
+
+. Verify each class has the same agent manifest ID:
++
+[source]
+----
+http://hostname:10080/efm/api/agent-classes
+[{"name":"iot1","agentManifests":["agent-manifest-id"]},{"name":"iot4","agentManifests":["agent-manifest-id"]}]
+----
+
+. Confirm the manifest doesn't have the NAR you installed
++
+[source]
+----
+http://hostname:10080/efm/api/agent-manifests?class=iot4
+[{"identifier":"agent-manifest-id","agentType":"minifi-java","version":"1","buildInfo":{"timestamp":1556628651811,"compiler":"JDK 8"},"bundles":[{"group":"default","artifact":"system","version":"unversioned","componentManifest":{"controllerServices":[],"processors":
+----
+
+. Call the API endpoint:
++
+[source]
+----
+http://hostname:10080/efm/swagger/
+----
+
+. Hit the `DELETE - Delete the agent manifest specified by id` button, and in the id field, enter `agent-manifest-id`
