@@ -21,9 +21,21 @@ resource "null_resource" "configure-cdsw" {
     }
   }
 
+  provisioner "file" {
+    source      = "resources/iot_model.pkl"
+    destination = "/tmp/iot_model.pkl"
+
+    connection {
+      host        = "${element(aws_instance.cluster.*.public_ip, count.index)}"
+      type        = "ssh"
+      user        = var.ssh_username
+      private_key = file(var.ssh_private_key)
+    }
+  }
+
   provisioner "remote-exec" {
     inline = [
-      "python /tmp/cdsw_setup.py $(curl ifconfig.me 2>/dev/null)"
+      "python /tmp/cdsw_setup.py $(curl ifconfig.me 2>/dev/null) /tmp/iot_model.pkl"
     ]
   }
 }

@@ -5,6 +5,7 @@ import sys
 import time
 
 PUBLIC_IP = sys.argv[1]
+MODEL_PKL_FILE = sys.argv[2]
 CDSW_API = 'http://cdsw.%s.nip.io/api/v1' % (PUBLIC_IP,)
 CDSW_ALTUS_API = 'http://cdsw.%s.nip.io/api/altus-ds-1' % (PUBLIC_IP,)
 
@@ -77,6 +78,10 @@ try:
 """
     r = s.put(CDSW_API + '/projects/admin/edge2ai-workshop/files/setup_workshop.py', files={'name': setup_script})
     
+    print('# Upload model')
+    model_pkl = open(MODEL_PKL_FILE, 'r')
+    r = s.put(CDSW_API + '/projects/admin/edge2ai-workshop/files/iot_model.pkl', files={'name': model_pkl})
+    
     print('# Create job to run the setup script')
     r = s.post(CDSW_API + '/projects/admin/edge2ai-workshop/jobs', json={
             'name': 'Setup workshop',
@@ -116,39 +121,6 @@ try:
         elif status == 'failed':
             raise RuntimeError('Job failed')
         time.sleep(10)
-    
-    print('# Run experiment')
-    r = s.post(CDSW_ALTUS_API + '/ds/run', json={
-            'script': 'cdsw.iot_exp.py',
-            'arguments': '20 20',
-            'kernel': 'python3',
-            'cpu': 1,
-            'memory': 4,
-            'project': str(project_id),
-        })
-    run_id = r.json()['id']
-    print('Experiment run ID: %s' % (run_id,))
-    
-    while True:
-        r = s.post(CDSW_ALTUS_API + '/ds/listruns', json={
-            'project': str(project_id),
-            'pageSize': 30,
-            'startingToken': 0,
-            'orderBy': 'createdAt',
-            'orderSort': 'desc',
-            'metricsOrder': ''})
-        runs = [r for r in r.json()['runs'] if r['id'] == run_id]
-        if runs:
-            status = runs[0]['status']
-            print('Experiment run %s status: %s' % (run_id, status))
-            if status == 'succeeded':
-                break
-            elif status == 'failed':
-                raise RuntimeError('Experiment failed')
-        time.sleep(10)
-    
-    print('# Promote output')
-    r = s.post(CDSW_ALTUS_API + '/ds/promoteRunOutput', json={'id': str(run_id), 'files': ["iot_model.pkl"]})
     
     print('# Get engine image to use for model')
     r = s.get(CDSW_API + '/projects/admin/edge2ai-workshop/engine-images')
