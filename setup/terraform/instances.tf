@@ -79,7 +79,7 @@ resource "aws_instance" "cluster" {
 }
 
 resource "aws_instance" "web" {
-  ami                    = var.cluster_ami
+  ami                    = var.base_ami
   instance_type          = "t2.medium"
   availability_zone      = aws_subnet.subnet1.availability_zone
   key_name               = aws_key_pair.workshop_web_key_pair.key_name

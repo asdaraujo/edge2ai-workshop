@@ -1,5 +1,7 @@
 #! /bin/bash
 
+echo "-- Commencing SingleNodeCluster Setup Script"
+
 set -e
 set -u
 
@@ -8,15 +10,17 @@ if [ "$USER" != "root" ]; then
   exit 1
 fi
 
-CLOUD_PROVIDER=$1
-TEMPLATE=$2
+CLOUD_PROVIDER=${1:-aws}
+TEMPLATE=${2:-}
 DOCKERDEVICE=${3:-}
 NOPROMPT=${4:-}
 SSH_USER=${5:-}
 SSH_PWD=${6:-}
 
 BASE_DIR=$(cd $(dirname $0); pwd -P)
-KEY_FILE=$BASE_DIR/myRSAkey
+KEY_FILE=${BASE_DIR}/myRSAkey
+
+source /tmp/env.sh
 
 # Often yum connection to Cloudera repo fails and causes the instance create to fail.
 # yum timeout and retries options don't see to help in this type of failure.
@@ -26,14 +30,14 @@ function yum_install() {
   local retries=10
   while true; do
     set +e
-    yum install -d1 -y $packages
+    yum install -d1 -y ${packages}
     RET=$?
     set -e
-    if [ $RET == 0 ]; then
+    if [[ ${RET} == 0 ]]; then
       break
     fi
     retries=$((retries - 1))
-    if [ $retries -lt 0 ]; then
+    if [[ ${retries} -lt 0 ]]; then
       echo 'YUM install failed!'
       break
     else
@@ -42,29 +46,61 @@ function yum_install() {
   done
 }
 
-echo "-- Check for additional parcels"
-chmod +x $BASE_DIR/check-for-parcels.sh
-ALL_PARCELS=$($BASE_DIR/check-for-parcels.sh $NOPROMPT)
+#########  Start Packer Installation
 
-source $BASE_DIR/env.sh
+echo "-- Testing if this is a pre-packed image by looking for existing Cloudera Manager repo"
+if [[ ! -f /etc/yum.repos.d/cloudera-manager.repo ]]; then
+  echo "-- Cloudera Manager repo not found, assuming not prepacked"
+  echo "-- Installing base dependencies"
+  yum_install ${JAVA_PACKAGE_NAME} vim wget curl git bind-utils epel-release
+  yum_install python-pip npm gcc-c++ make
+  echo "-- Install CM and MariaDB repo"
+  wget --progress=dot:giga ${CM_REPO_FILE_URL} -P /etc/yum.repos.d/
+  sed -i "s#https://archive.cloudera.com/cm6#${CM_BASE_URL}#g" /etc/yum.repos.d/cloudera-manager.repo
 
-echo "-- Configure and optimize the OS"
-echo never > /sys/kernel/mm/transparent_hugepage/enabled
-echo never > /sys/kernel/mm/transparent_hugepage/defrag
-echo "echo never > /sys/kernel/mm/transparent_hugepage/enabled" >> /etc/rc.d/rc.local
-echo "echo never > /sys/kernel/mm/transparent_hugepage/defrag" >> /etc/rc.d/rc.local
-# add tuned optimization https://www.cloudera.com/documentation/enterprise/latest/topics/cdh_admin_performance.html
-echo  "vm.swappiness = 1" >> /etc/sysctl.conf
-sysctl vm.swappiness=1
-timedatectl set-timezone UTC
-# CDSW requires Centos 7.5, so we trick it to believe it is...
-echo "CentOS Linux release 7.5.1810 (Core)" > /etc/redhat-release
+## MariaDB 10.1
+  cat - >/etc/yum.repos.d/MariaDB.repo <<EOF
+  [mariadb]
+name = MariaDB
+baseurl = http://yum.mariadb.org/10.1/centos7-amd64
+gpgkey=https://yum.mariadb.org/RPM-GPG-KEY-MariaDB
+gpgcheck=1
+EOF
 
-echo "-- Install Java OpenJDK8 and other tools"
-yum_install $JAVA_PACKAGE_NAME vim wget curl git bind-utils
+  echo "-- Running remaining binary preinstalls"
+  yum clean all
+  rm -rf /var/cache/yum/
+  yum repolist
 
-# Check input parameters
-case "$1" in
+  yum_install cloudera-manager-daemons cloudera-manager-agent cloudera-manager-server MariaDB-server MariaDB-client shellinabox
+  npm install --quiet forever -g
+  pip install --quiet --upgrade pip
+  pip install --progress-bar off cm_client
+
+  echo "-- Get and extract CEM tarball to /opt/cloudera/cem"
+  mkdir -p /opt/cloudera/cem
+  wget --progress=dot:giga ${CEM_URL} -P /opt/cloudera/cem
+  tar -zxf /opt/cloudera/cem/CEM-${CEM_VERSION}-centos7-tars-tarball.tar.gz -C /opt/cloudera/cem
+  rm -f /opt/cloudera/cem/CEM-${CEM_VERSION}-centos7-tars-tarball.tar.gz
+
+  echo "-- Preloading large Parcels to /opt/cloudera/parcel-repo"
+  mkdir -p /opt/cloudera/parcel-repo
+  for PARCEL in ${CFM_PARCEL_REPO} ${CDH_PARCEL_REPO} ${CSP_PARCEL_REPO}; do
+    wget -r -np -nd -nc --progress=dot:giga -A "parcel,sha1,sha256" ${PARCEL} -P /opt/cloudera/parcel-repo
+  done
+
+  echo "-- Configure and optimize the OS"
+  echo never > /sys/kernel/mm/transparent_hugepage/enabled
+  echo never > /sys/kernel/mm/transparent_hugepage/defrag
+  echo "echo never > /sys/kernel/mm/transparent_hugepage/enabled" >> /etc/rc.d/rc.local
+  echo "echo never > /sys/kernel/mm/transparent_hugepage/defrag" >> /etc/rc.d/rc.local
+  # add tuned optimization https://www.cloudera.com/documentation/enterprise/latest/topics/cdh_admin_performance.html
+  echo  "vm.swappiness = 1" >> /etc/sysctl.conf
+  sysctl vm.swappiness=1
+  timedatectl set-timezone UTC
+
+  echo "-- Handle cases for cloud provider customisations"
+  case "${CLOUD_PROVIDER}" in
         aws)
             echo "server 169.254.169.123 prefer iburst minpoll 4 maxpoll 4" >> /etc/chrony.conf
             systemctl restart chronyd
@@ -80,55 +116,67 @@ case "$1" in
             echo $"example: ./setup.sh azure default_template.json"
             echo $"example: ./setup.sh aws cdsw_template.json /dev/xvdb"
             exit 1
-esac
+  esac
 
-# If user doesn't specify a device, tries to detect a free one to use
-# Device must be unmounted and have at least 200G of space
-if [ "$DOCKERDEVICE" == "" ]; then
-  echo "Docker device was not specified in the command line. Will try to detect a free device to use"
-  TMP_FILE=$BASE_DIR/.device.list
-  # Find devices that are not mounted and have size greater than or equal to 200G
-  lsblk -o NAME,MOUNTPOINT,SIZE -s -p -n | awk '/^\// && NF == 2 && $2 ~ /([2-9]|[0-9][0-9])[0-9][0-9]G/' > $TMP_FILE
-  if [ $(cat $TMP_FILE | wc -l) == 0 ]; then
-    echo "ERROR: Could not find any candidate devices."
-    exit 1
-  elif [ $(cat $TMP_FILE | wc -l) -gt 1 ]; then
-    echo "ERROR: Found more than 1 possible devices to use:"
-    cat $TMP_FILE
-    exit 1
-  else
-    DOCKERDEVICE=$(awk '{print $1}' $TMP_FILE)
+  echo "-- Configure networking"
+  hostnamectl set-hostname $(hostname -f)
+  echo "$(hostname -I) $(hostname) edge2ai-1.dim.local" >> /etc/hosts
+  if [[ -f /etc/sysconfig/network ]]; then
+    sed -i "/HOSTNAME=/ d" /etc/sysconfig/network
   fi
-  rm -f $TMP_FILE
-fi
-echo "Docker device: $DOCKERDEVICE"
+  echo "HOSTNAME=$(hostname)" >> /etc/sysconfig/network
 
-echo "-- Configure networking"
-PUBLIC_IP=$(curl https://api.ipify.org/ 2>/dev/null)
-PUBLIC_DNS=$(dig -x $PUBLIC_IP +short)
-hostnamectl set-hostname $(hostname -f)
-echo "$(hostname -I) $(hostname) edge2ai-1.dim.local" >> /etc/hosts
-if [ -f /etc/sysconfig/network ]; then
-  sed -i "/HOSTNAME=/ d" /etc/sysconfig/network
-fi
-echo "HOSTNAME=$(hostname)" >> /etc/sysconfig/network
+  iptables-save > $BASE_DIR/firewall.rules
+  FWD_STATUS=$(systemctl is-active firewalld || true)
+  if [[ "${FWD_STATUS}" != "unknown" ]]; then
+    systemctl disable firewalld
+    systemctl stop firewalld
+  fi
+  setenforce 0
+  if [[ -f /etc/selinux/config ]]; then
+    sed -i 's/SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
+  fi
 
-iptables-save > $BASE_DIR/firewall.rules
-FWD_STATUS=$(systemctl is-active firewalld || true)
-if [ "$FWD_STATUS" != "unknown" ]; then
-  systemctl disable firewalld
-  systemctl stop firewalld
+  echo "-- Install JDBC connector"
+  wget --progress=dot:giga ${JDBC_CONNECTOR_URL} -P ${BASE_DIR}/
+  TAR_FILE=$(basename ${JDBC_CONNECTOR_URL})
+  BASE_NAME=${TAR_FILE%.tar.gz}
+  tar zxf ${BASE_DIR}/${TAR_FILE} -C ${BASE_DIR}/
+  mkdir -p /usr/share/java/
+  cp ${BASE_DIR}/${BASE_NAME}/${BASE_NAME}-bin.jar /usr/share/java/mysql-connector-java.jar
+
+  echo "-- Install CSDs"
+  for url in "${CSD_URLS[@]}"; do
+    echo "---- Downloading $url"
+    wget --progress=dot:giga ${url} -P /opt/cloudera/csd/
+  done
+
+  echo "-- Enable password authentication"
+  sed -i.bak 's/PasswordAuthentication *no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+
+  echo "-- Reset SSH user password"
+  echo "$SSH_PWD" | sudo passwd --stdin "$SSH_USER"
+
+  echo "-- Finished image preinstall"
+else
+  echo "-- Cloudera Manager repo already present, assuming this is a prewarmed image"
 fi
-setenforce 0
-if [ -f /etc/selinux/config ]; then
-  sed -i 's/SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
+####### Finish packer build
+
+echo "-- Checking if executing packer build"
+if [[ -v "${PACKER_BUILD-}" ]]; then
+  echo "-- Packer build detected, exiting with success"
+  sleep 2
+  exit 0
+else
+  echo "-- Packer build not detected, continuing with installation"
+  sleep 2
 fi
 
-# We need EPEL
-yum_install epel-release
 
-# Install and enable shellinabox
-yum_install -y shellinabox
+##### Start install
+
+echo "-- Generate self-signed certificate for ShellInABox with the needed SAN entries"
 # Generate self-signed certificate for ShellInABox with the needed SAN entries
 openssl req \
   -x509 \
@@ -168,57 +216,49 @@ cat key.pem cert.pem > /var/lib/shellinabox/certificate.pem
 # Enable and start ShelInABox
 systemctl enable shellinaboxd
 systemctl start shellinaboxd
-# Enable password authentication
-sed -i.bak 's/PasswordAuthentication *no/PasswordAuthentication yes/' /etc/ssh/sshd_config
-# Reset SSH user password
-echo "$SSH_PWD" | sudo passwd --stdin "$SSH_USER"
 
-echo "-- Install CM and MariaDB repo"
-wget --progress=dot:giga $CM_REPO_FILE_URL -P /etc/yum.repos.d/
+if [[ -n "${CDSW_VERSION}" ]]; then
+    echo "CDSW_VERSION is set to '${CDSW_VERSION}'"
+    # CDSW requires Centos 7.5, so we trick it to believe it is...
+    echo "CentOS Linux release 7.5.1810 (Core)" > /etc/redhat-release
+    # If user doesn't specify a device, tries to detect a free one to use
+    # Device must be unmounted and have at least 200G of space
+    if [[ "${DOCKERDEVICE}" == "" ]]; then
+      echo "Docker device was not specified in the command line. Will try to detect a free device to use"
+      TMP_FILE=${BASE_DIR}/.device.list
+      # Find devices that are not mounted and have size greater than or equal to 200G
+      lsblk -o NAME,MOUNTPOINT,SIZE -s -p -n | awk '/^\// && NF == 2 && ${TEMPLATE} ~ /([2-9]|[0-9][0-9])[0-9][0-9]G/' > ${TMP_FILE}
+      if [[ $(cat $TMP_FILE | wc -l) == 0 ]]; then
+        echo "ERROR: Could not find any candidate devices."
+        exit 1
+      elif [[ $(cat ${TMP_FILE} | wc -l) -gt 1 ]]; then
+        echo "ERROR: Found more than 1 possible devices to use:"
+        cat ${TMP_FILE}
+        exit 1
+      else
+        DOCKERDEVICE=$(awk '{print $1}' ${TMP_FILE})
+      fi
+      rm -f ${TMP_FILE}
+    fi
+    echo "Docker device: ${DOCKERDEVICE}"
+else
+    echo "CDSW_VERSION is unset, skipping CDSW installation";
+fi
 
-## MariaDB 10.1
-cat - >/etc/yum.repos.d/MariaDB.repo <<EOF
-[mariadb]
-name = MariaDB
-baseurl = http://yum.mariadb.org/10.1/centos7-amd64
-gpgkey=https://yum.mariadb.org/RPM-GPG-KEY-MariaDB
-gpgcheck=1
-EOF
-
-yum clean all
-rm -rf /var/cache/yum/
-yum repolist
-
-yum_install cloudera-manager-daemons cloudera-manager-agent cloudera-manager-server
-yum_install MariaDB-server MariaDB-client
-cat $BASE_DIR/mariadb.config > /etc/my.cnf
-
-echo "--Enable and start MariaDB"
+echo "--Configure and start MariaDB"
+echo "-- Configure MariaDB"
+cat ${BASE_DIR}/mariadb.config > /etc/my.cnf
 systemctl enable mariadb
 systemctl start mariadb
 
-echo "-- Install JDBC connector"
-wget --progress=dot:giga $JDBC_CONNECTOR_URL -P $BASE_DIR/
-TAR_FILE=$(basename $JDBC_CONNECTOR_URL)
-BASE_NAME=${TAR_FILE%.tar.gz}
-tar zxf $BASE_DIR/$TAR_FILE -C $BASE_DIR/
-mkdir -p /usr/share/java/
-cp $BASE_DIR/$BASE_NAME/${BASE_NAME}-bin.jar /usr/share/java/mysql-connector-java.jar
-
 echo "-- Create DBs required by CM"
-mysql -u root < $BASE_DIR/create_db.sql
+mysql -u root < ${BASE_DIR}/create_db.sql
 
 echo "-- Secure MariaDB"
-mysql -u root < $BASE_DIR/secure_mariadb.sql
+mysql -u root < ${BASE_DIR}/secure_mariadb.sql
 
 echo "-- Prepare CM database 'scm'"
 /opt/cloudera/cm/schema/scm_prepare_database.sh mysql scm scm cloudera
-
-echo "-- Install CSDs"
-for url in "${CSD_URLS[@]}"; do
-  echo "---- Downloading $url"
-  wget --progress=dot:giga $url -P /opt/cloudera/csd/
-done
 
 echo "-- Install additional CSDs"
 for csd in $(find $BASE_DIR/csds -name "*.jar"); do
@@ -240,12 +280,6 @@ chmod 644 $(find /opt/cloudera/csd /opt/cloudera/parcel-repo -type f)
 
 echo "-- Start CM, it takes about 2 minutes to be ready"
 systemctl start cloudera-scm-server
-
-echo "-- Get and extract CEM tarball"
-mkdir -p /opt/cloudera/cem
-wget --progress=dot:giga ${CEM_URL} -P /opt/cloudera/cem
-tar -zxf /opt/cloudera/cem/${CEM_TARBALL} -C /opt/cloudera/cem
-rm -f /opt/cloudera/cem/${CEM_TARBALL}
 
 echo "-- Install and configure EFM"
 EFM_TARBALL=$(find /opt/cloudera/cem/ -path "*/centos7/*" -name "efm-*-bin.tar.gz")
@@ -281,19 +315,13 @@ ssh-keyscan -H $(hostname) >> ~/.ssh/known_hosts
 sed -i 's/.*PermitRootLogin.*/PermitRootLogin without-password/' /etc/ssh/sshd_config
 systemctl restart sshd
 
-echo "-- Install pip and the cm_client module"
-yum_install python-pip
-pip install --quiet --upgrade pip
-pip install --progress-bar off cm_client
-
-echo "-- Install stuff needed by SMM UI"
-yum_install npm gcc-c++ make
-npm install forever -g
-
 echo "-- Automate cluster creation using the CM API"
+PUBLIC_IP=$(curl https://api.ipify.org/ 2>/dev/null)
+PUBLIC_DNS=$(dig -x ${PUBLIC_IP} +short)
+
 sed -i "\
 s/YourHostname/$(hostname -f)/g;\
-s/YourCDSWDomain/cdsw.$PUBLIC_IP.nip.io/g;\
+s/YourCDSWDomain/cdsw.${PUBLIC_IP}.nip.io/g;\
 s/YourPrivateIP/$(hostname -I | tr -d '[:space:]')/g;\
 s/YourPublicDns/$PUBLIC_DNS/g;\
 s#YourDockerDevice#$DOCKERDEVICE#g;\
@@ -311,31 +339,39 @@ s#SCHEMAREGISTRY_VERSION#$SCHEMAREGISTRY_VERSION#g;\
 s#STREAMS_MESSAGING_MANAGER_VERSION#$STREAMS_MESSAGING_MANAGER_VERSION#g;\
 " $TEMPLATE
 
-if [ "$ALL_PARCELS" == "OK" ]; then
-  sed -i "s/^OPTIONAL//" $TEMPLATE
+echo "-- Check for additional parcels"
+chmod +x ${BASE_DIR}/check-for-parcels.sh
+ALL_PARCELS=$(${BASE_DIR}/check-for-parcels.sh ${NOPROMPT})
+
+if [[ "$ALL_PARCELS" == "OK" ]]; then
+  sed -i "s/^CSPOPTION//" $TEMPLATE
 else
-  sed -i "/^OPTIONAL/ d" $TEMPLATE
+  sed -i "/^CSPOPTION/ d" $TEMPLATE
 fi
 
-if [ "$CSP_PARCEL_REPO" == "" ]; then
-  sed -i "/ADDITIONAL_REPOS/ d" $TEMPLATE
+if [[ "$CSP_PARCEL_REPO" == "" ]]; then
+  sed -i "/CSPREPO/ d" $TEMPLATE
 else
-  sed -i "s#ADDITIONAL_REPOS#,"\""$CSP_PARCEL_REPO"\""#" $TEMPLATE
+  sed -i "s#CSPREPO#,"\""$CSP_PARCEL_REPO"\""#" $TEMPLATE
+fi
+
+if [[ -n "$CDSW_VERSION" ]]; then
+      sed -i "s/^CDSWOPTION//" $TEMPLATE
+      sed -i "s#CDSWREPO#,"\""$CDSW_PARCEL_REPO"\""#" $TEMPLATE
+    else
+      sed -i "/^CDSWOPTION/ d" $TEMPLATE
+      sed -i "/CDSWREPO/ d" $TEMPLATE
 fi
 
 echo "-- Wait for CM to be ready before proceeding"
-while [ -z "$(curl -s -X GET -u "admin:admin"  http://localhost:7180/api/version)" ]; do
-  echo "waiting 10s for CM to come up..";
-  sleep 10;
+until $(curl --output /dev/null --silent --head --fail -u "admin:admin" http://localhost:7180/api/version); do
+    echo "waiting 10s for CM to come up..";
+    sleep 10;
 done
 echo "-- CM has finished starting"
 
 CM_REPO_URL=$(grep baseurl /etc/yum.repos.d/cloudera-manager.repo | sed 's/.*=//;s/ //g')
 python $BASE_DIR/create_cluster.py $(hostname -f) $TEMPLATE $KEY_FILE $CM_REPO_URL
-
-echo "-- Create Kafka topic (iot)"
-kafka-topics --zookeeper edge2ai-1.dim.local:2181 --create --topic iot --partitions 10 --replication-factor 1
-kafka-topics --zookeeper edge2ai-1.dim.local:2181 --describe --topic iot
 
 echo "-- Configure and start EFM"
 retries=0
@@ -374,4 +410,10 @@ chown root:root /opt/cloudera/cem/minifi/lib/nifi-mqtt-nar-1.8.0.nar
 chmod 660 /opt/cloudera/cem/minifi/lib/nifi-mqtt-nar-1.8.0.nar
 systemctl start minifi
 
+echo "-- Create Kafka topic (iot)"
+kafka-topics --zookeeper edge2ai-1.dim.local:2181 --create --topic iot --partitions 10 --replication-factor 1
+kafka-topics --zookeeper edge2ai-1.dim.local:2181 --describe --topic iot
+
 echo "-- At this point you can login into Cloudera Manager host on port 7180 and follow the deployment of the cluster"
+
+# Finish install

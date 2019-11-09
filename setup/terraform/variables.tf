@@ -52,6 +52,10 @@ variable "ssh_password" {
   description = "SSH password to connect to AWS instances"
 }
 
+variable "base_ami" {
+  description = "AWS AMI for the Web Service"
+}
+
 variable "cluster_ami" {
   description = "AWS AMI for the CDH cluster"
 }
