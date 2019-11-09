@@ -25,6 +25,8 @@ This script automatically sets up a CDH cluster on the public cloud on a single 
 |* CDSW
 |====
 
+TODO: Update Readme for Packer
+
 As this cluster is meant to be used for demos, experimenting, training, and workshops, it doesn't setup Kerberos and TLS.
 
 == Instructions
