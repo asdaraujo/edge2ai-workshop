@@ -410,9 +410,11 @@ chown root:root /opt/cloudera/cem/minifi/lib/nifi-mqtt-nar-1.8.0.nar
 chmod 660 /opt/cloudera/cem/minifi/lib/nifi-mqtt-nar-1.8.0.nar
 systemctl start minifi
 
-echo "-- Create Kafka topic (iot)"
-kafka-topics --zookeeper edge2ai-1.dim.local:2181 --create --topic iot --partitions 10 --replication-factor 1
-kafka-topics --zookeeper edge2ai-1.dim.local:2181 --describe --topic iot
+# TODO: Implement Ranger DB and Setup in template
+# TODO: Fix kafka topic creation once Ranger security is setup
+#echo "-- Create Kafka topic (iot)"
+#kafka-topics --zookeeper edge2ai-1.dim.local:2181 --create --topic iot --partitions 10 --replication-factor 1
+#kafka-topics --zookeeper edge2ai-1.dim.local:2181 --describe --topic iot
 
 echo "-- At this point you can login into Cloudera Manager host on port 7180 and follow the deployment of the cluster"
 
