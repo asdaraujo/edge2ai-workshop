@@ -85,9 +85,7 @@ EOF
 
   echo "-- Preloading large Parcels to /opt/cloudera/parcel-repo"
   mkdir -p /opt/cloudera/parcel-repo
-  for PARCEL in ${CFM_PARCEL_REPO} ${CDH_PARCEL_REPO} ${CSP_PARCEL_REPO}; do
-    wget -r -np -nd -nc --progress=dot:giga -A "parcel,sha1,sha256" ${PARCEL} -P /opt/cloudera/parcel-repo
-  done
+  wget -r -np -nd -nc --progress=dot:giga -A "parcel,sha1,sha256" ${CDH_PARCEL_REPO} -P /opt/cloudera/parcel-repo
 
   echo "-- Configure and optimize the OS"
   echo never > /sys/kernel/mm/transparent_hugepage/enabled
@@ -164,7 +162,7 @@ fi
 ####### Finish packer build
 
 echo "-- Checking if executing packer build"
-if [[ -v "${PACKER_BUILD-}" ]]; then
+if [[ ! -z ${PACKER_BUILD+x} ]]; then
   echo "-- Packer build detected, exiting with success"
   sleep 2
   exit 0
