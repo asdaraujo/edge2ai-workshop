@@ -2,27 +2,118 @@
 
 == Introduction
 
-In this hands-on workshop, you will build a full OT to IT workflow for an **IoT Predictive Maintenance** use case. Below is the architecture diagram, showing all the components you will setup over the next 12 lab exercises. While the diagram divides the components according to their location (factory, regional or datacenter level) in this workshop all such components will reside in one single host.
+In this hands-on workshop, you will build a full OT to IT workflow for an **IoT Predictive Maintenance** use case. Below is the architecture diagram, showing all the components you will setup over the lab exercises. While the diagram divides the components according to their location (factory, regional or datacenter level) in this workshop all such components will reside in one single host.
 
 image::images/iot-architecture.png[width=800]
 
-== Troubleshooting
+=== Before you start
 
 * Everything is Case-Sensitive. 
-
-==== *MiNiFi Not Sending Messages *
-
-* Make sure you pick S2S not RAW in Cloud Connection to NiFi
-* Make sure No Spaces Before or After Destination ID, URL, Names, Topics, Brokers, Etc... 
-* Make sure No Spaces Anywhere
-* Everything is Case-Sensitive.   It's IoT, not iot.
-* Use User=Admin for CDSW and HUE
-* You must have HDFS User Created via HUE, Go there First
 * Check all your connections and spellings
+* If you hit any problems like, for example, *MiNiFi Not Sending Messages*, check for clues in the <<troubleshooting>> section below.
+
+=== Pre-requisites
+
+* Laptop with a supported OS (Windows 7 not supported).
+* A modern browser like Google Chrome or Firefox (IE not supported).
+
+=== Connecting to your cluster
+
+You instructor will give access to a registration link where you can request a cluster. You should have 2 addresses for you one-node cluster: the public DNS name and the public IP address. With those addresses you can test the following connectivity to your cluster:
+
+. Ensure you can connect to the following service using your browser:
++
+[%autowidth,options="header"]
+|===
+|Service|URL|Credentials
+|Cloudera Manager|http://<public_dns>:7180/|`admin/admin`
+|Edge Flow Manager|http://<public_dns>:10080/efm/ui/|
+|NiFi|http://<public_dns>:8080/nifi/|
+|NiFi Registry|http://<public_dns>:18080/nifi-registry/|
+|Schema Registry|http://<public_dns>:7788/|
+|SMM|http://<public_dns>:9991/|
+|Hue|http://<public_dns>:8888/|`admin/admin`
+|CDSW|http://cdsw.<public_IP>.nip.io/|`admin/supersecret1`
+|===
+. Login into *Cloudera Manager* and familiarize yourself with the services installed
+. Login into *Hue*. As you are the first user to login into Hue, you are granted admin privileges. At this point, you won't need to do anything on Hue, but by logging in, CDH has created your HDFS user and folder, which you will need for the next lab.
+
+Below a screenshot of Chrome open with 8 tabs, one for each service.
+
+image::images/browser.png[width=800]
+
+=== (Optional) SSH access
+
+This access is not required for the workshop labs. You can skip this section.
+
+SSH access is only required if you need to troubleshoot issues or want to poke around your clusters. The procedure to connect via SSH depends on the type of computer you're using:
+
+==== SSH into the cluster from Linux/Macos
+
+From the registration link, download the PEM key required to access to your cluster with SSH. Run the following command:
+
+----
+chmod 400 workshop.pem
+ssh -i workshop.pem centos@you-ip-address
+----
+
+==== SSH into the cluster from Windows
+
+From the registration link, download the PEM key required to access to your cluster with SSH. We will use link:https://www.putty.org/[PuTTY] to connect to the cluster. However, Putty doesn't accept PEM key. Follow these instructions to convert your PEM key into a PPK key and connect to the cluster
+
+Convert your key with *PuTTYgen*:
+
+. Use PuTTYgen to convert .PEM file to .PPK file.
+. Start PuTTYgen and select “Load”
+. Select your .PEM file.
+. Putty will convert the .PEM format to .PPK format.
+. Select “Save Private Key” A passphrase is not required but can be used if additional security is required.
+
+Connect with *PuTTY*:
+
+. Launch PuTTY and enter the host IP address.
+. Navigate to Connection/SSH/Auth
+. Click “Browse” and select the .PPK file you exported from PuTTYgen.
+. Click “Open.”
+
+== Labs
+
+Time to start working and see some interesting stuff!
+Pick your lab and let's get started!
+
+* link:streaming.adoc[From Edge to Streams Processing]
+* link:spark_analytics.adoc[Spark and Fast Analytics with Kudu]
+* link:datascience.adoc[CDSW Experiments and Models]
+
+== Resources
+  
+* link:https://medium.freecodecamp.org/building-an-iiot-system-using-apache-nifi-mqtt-and-raspberry-pi-ce1d6ed565bc[Original blog by Abdelkrim Hadjidj]
+
+* This workshop is based on the following work by Fabio Ghirardello:
+** https://github.com/fabiog1901/IoT-predictive-maintenance
+** https://github.com/fabiog1901/OneNodeCDHCluster
+
+* link:https://www.cloudera.com/documentation.html[Cloudera Documentation]
+
+[[troubleshooting, Troubleshooting]]
+== Troubleshooting
+
+==== General
+
+* *Everything is Case-Sensitive*.
+* Check all your connections and spellings
+
+==== MiNiFi Not Sending Messages
+
+* Make sure you pick HTTP, not RAW, in Cloud Connection to NiFi
+* Make sure there are *no spaces before or after* Destination ID, URL, Names, Topics, Brokers, etc...
+* Make sure there are *no spaces anywhere*!
+* Everything is *Case-Sensitive*. For example, the bucket name in NiFi Registry is `IoT`, not `iot`.
 * Check /opt/cloudera/cem/minifi/logs/minifi-app.log if you can't find an issue
+* You must have HDFS User Created via HUE, Go there First
 
 
-==== *CEM doesn't pick up new NARs*
+==== CEM doesn't pick up new NARs
 
 . Delete the agent manifest manually using the EFM API:
 
@@ -50,91 +141,4 @@ http://hostname:10080/efm/swagger/
 ----
 
 . Hit the `DELETE - Delete the agent manifest specified by id` button, and in the id field, enter `agent-manifest-id
-
-
-===== Labs summary:
-
-* *Lab 1* - On the Apache NiFi, run a simulator to send IoT sensors data to the MQTT broker.
-
-* *Lab 3* - Create the MiNiFi flow on the Edge Flow Manager and publish it for the MiNiFi agent to start sending data to the NiFi cluster.
-* *Lab 4* - On Schema Registry, register the schema describing the data generated by the IoT sensors.
-* *Lab 5* - On the NiFi cluster, prepare the data and send it to the **Kafka** cluster.
-* *Lab 6* - On the *Streams Messaging Manager (SMM)* Web UI, monitor the Kafka cluster and confirm data is being ingested correctly.
-* *Lab 7* - Use the Edge Flow Manager to update existing edge flows and perform additional processing on the edge
-* *Lab 8* - Use NiFi to process each record, calling the **Model endpoint** and save results to **Kudu**.
-
-
-===== Pre-requisites
-
-* Laptop with a supported OS (Windows 7 not supported).
-* A modern browser like Google Chrome or Firefox (IE not supported).
-
-== Connecting to your cluster
-
-You instructor will give access to a registration link where you can request a cluster. You should have 2 addresses for you one-node cluster: the public DNS name and the public IP address. With those addresses you can test the following connectivity to your cluster:
-
-. Ensure you can connect to the following service using your browser:
-+
-[%autowidth,options="header"]
-|===
-|Service|URL|Credentials
-|Cloudera Manager|http://<public_dns>:7180/|`admin/admin`
-|Edge Flow Manager|http://<public_dns>:10080/efm/ui/|
-|NiFi|http://<public_dns>:8080/nifi/|
-|NiFi Registry|http://<public_dns>:18080/nifi-registry/|
-|Schema Registry|http://<public_dns>:7788/|
-|SMM|http://<public_dns>:9991/|
-|Hue|http://<public_dns>:8888/|
-|CDSW|http://cdsw.<public_IP>.nip.io/|`admin/supersecret1`
-|===
-. Login into *Cloudera Manager* and familiarize yourself with the services installed
-. Login into *Hue*. As you are the first user to login into Hue, you are granted admin privileges. At this point, you won't need to do anything on Hue, but by logging in, CDH has created your HDFS user and folder, which you will need for the next lab.
-
-Below a screenshot of Chrome open with 8 tabs, one for each service.
-
-image::images/browser.png[width=800]
-
-=== Ensure you can SSH into the cluster from Linux/Macos
-
-From the registration link, download the PEM key required to access to your cluster with SSH. Run the following command:
-
-----
-chmod 400 workshop.pem
-ssh -i workshop.pem centos@you-ip-address
-----
-
-=== Ensure you can SSH into the cluster from Windows
-
-From the registration link, download the PEM key required to access to your cluster with SSH. We will use Putty to connect to the cluster. However, Putty doesn't accept PEM key. Follow these instructions to convert your PEM key into a PPK key and connect to the cluster
-
-Convert your key with Puttygen:
-
-. Use puttygen to convert .PEM file to .PPK file.
-. Start puttygen and select “Load”
-. Select your .PEM file.
-. Putty will convert the .PEM format to .PPK format.
-. Select “Save Private Key” A passphrase is not required but can be used if additional security is required.
-
-Connect with Putty:
-
-. Launch Putty and enter the host IP address.
-. Navigate to Connection/SSH/Auth
-. Click “Browse” and select the .PPK file you exported from puttygen.
-. Click “Open.”
-
-== Labs
-* From Edge to Streams Processing (Lab 1 to Lab 8) : https://github.com/ahadjidj/edge2ai-workshop/blob/master/streaming.adoc
-* Analytics and Data Science (Lab 9 to Lab 12) : https://github.com/ahadjidj/edge2ai-workshop/blob/master/datascience.adoc
-
-== Resources
-  
-* link:https://medium.freecodecamp.org/building-an-iiot-system-using-apache-nifi-mqtt-and-raspberry-pi-ce1d6ed565bc[Original blog by Abdelkrim Hadjidj]
-* This workshop was based on the following work by Andre Araujo:
-** https://github.com/asdaraujo/edge2ai-workshop
-
-* That workshop was based on the following work by Fabio Ghirardello:
-** https://github.com/fabiog1901/IoT-predictive-maintenance
-** https://github.com/fabiog1901/OneNodeCDHCluster
-
-* link:https://www.cloudera.com/documentation.html[Cloudera Documentation]
 
