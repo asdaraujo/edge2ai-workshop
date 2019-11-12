@@ -1,4 +1,4 @@
-import json, configparser, sys, requests
+import json, configparser, socket, sys, requests
 from pyspark import SparkContext
 from pyspark import SparkConf
 from pyspark.streaming import StreamingContext
@@ -8,10 +8,14 @@ from pyspark.sql import SQLContext
 from uuid import uuid1
 from pyspark.sql.types import *
 
-zk_broker = "YourHostname:2181"
+access_key = sys.argv[1]
+host_name = socket.getfqdn()
+public_ip = requests.get('http://ifconfig.me').text
+
+zk_broker = host_name + ":2181"
 kafka_topic = "iot"
 group_id = "iot-sensor-consumer"
-kudu_master = "YourHostname"
+kudu_master = host_name
 kudu_table = "impala::default.sensors"
 
 # define the table schema
@@ -43,8 +47,8 @@ def getPrediction(p):
               p['sensor_3'], p['sensor_4'], p['sensor_5'], p['sensor_6'],p['sensor_7'],p['sensor_8'],
               p['sensor_9'], p['sensor_10'], p['sensor_11'])
 
-    return requests.post('http://YourCDSWDomain/api/altus-ds-1/models/call-model',
-                       data='{"accessKey":"YourAccessKey", "request":{"feature":"' + feature + '"}}',
+    return requests.post('http://cdsw.' + public_ip + '.nip.io/api/altus-ds-1/models/call-model',
+                       data='{"accessKey":"' + access_key + '", "request":{"feature":"' + feature + '"}}',
                        headers={'Content-Type': 'application/json'}).json()['response']['result']
 
 
