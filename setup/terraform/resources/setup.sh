@@ -312,12 +312,10 @@ pip install paho-mqtt
 systemctl enable mosquitto
 systemctl start mosquitto
 
-# Simulator
-cd ~
-git clone https://github.com/asdaraujo/edge2ai-workshop.git
+# Copy demo files to a public directory
 mkdir -p /opt/demo
-cp ~/edge2ai-workshop/simulate.py /opt/demo/
-cp ~/edge2ai-workshop/spark.iot.py /opt/demo/
+cp $BASE_DIR/simulate.py /opt/demo/
+cp $BASE_DIR/spark.iot.py /opt/demo/
 chmod -R 775 /opt/demo
 
 # MiNiFi Install
