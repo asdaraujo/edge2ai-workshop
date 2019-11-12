@@ -3,6 +3,11 @@
 set -e
 set -u
 
+if [ "$USER" != "root" ]; then
+  echo "ERROR: This script ($0) must be executed by root"
+  exit 1
+fi
+
 CLOUD_PROVIDER=$1
 TEMPLATE=$2
 DOCKERDEVICE=${3:-}
@@ -302,24 +307,24 @@ while true; do
 done
 
 echo "-- Configure and start Minifi"
-sudo yum install -y mosquitto
-sudo pip install paho-mqtt
-sudo systemctl enable mosquitto
-sudo systemctl start mosquitto
+yum install -y mosquitto
+pip install paho-mqtt
+systemctl enable mosquitto
+systemctl start mosquitto
 
 # Simulator
-sudo cd ~
-sudo git clone https://github.com/tspannhw/edge2ai-workshop.git
-sudo cp edge2ai-workshop/mqtt.* ~
-sudo mkdir /opt/demo
-sudo cp edge2ai-workshop/simulate.py /opt/demo/
-sudo chmod -R 775 /opt/demo
+cd ~
+git clone https://github.com/asdaraujo/edge2ai-workshop.git
+mkdir -p /opt/demo
+cp ~/edge2ai-workshop/simulate.py /opt/demo/
+cp ~/edge2ai-workshop/spark.iot.py /opt/demo/
+chmod -R 775 /opt/demo
 
 # MiNiFi Install
-sudo cd ~
-sudo wget http://central.maven.org/maven2/org/apache/nifi/nifi-mqtt-nar/1.8.0/nifi-mqtt-nar-1.8.0.nar -P /opt/cloudera/cem/minifi/lib
-sudo chown root:root /opt/cloudera/cem/minifi/lib/nifi-mqtt-nar-1.8.0.nar
-sudo chmod 660 /opt/cloudera/cem/minifi/lib/nifi-mqtt-nar-1.8.0.nar
-sudo systemctl start minifi
+cd ~
+wget http://central.maven.org/maven2/org/apache/nifi/nifi-mqtt-nar/1.8.0/nifi-mqtt-nar-1.8.0.nar -P /opt/cloudera/cem/minifi/lib
+chown root:root /opt/cloudera/cem/minifi/lib/nifi-mqtt-nar-1.8.0.nar
+chmod 660 /opt/cloudera/cem/minifi/lib/nifi-mqtt-nar-1.8.0.nar
+systemctl start minifi
 
 echo "-- At this point you can login into Cloudera Manager host on port 7180 and follow the deployment of the cluster"
