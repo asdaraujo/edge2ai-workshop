@@ -35,7 +35,10 @@ resource "null_resource" "configure-cdsw" {
 
   provisioner "remote-exec" {
     inline = [
-      "python /tmp/cdsw_setup.py $(curl ifconfig.me 2>/dev/null) /tmp/iot_model.pkl"
+      "set -x",
+      "set -e",
+      "nohup python -u /tmp/cdsw_setup.py $(curl ifconfig.me 2>/dev/null) /tmp/iot_model.pkl > /tmp/cdsw_setup.log 2>&1 &",
+      "sleep 1 # don't remove - needed for the nohup to work",
     ]
   }
 }

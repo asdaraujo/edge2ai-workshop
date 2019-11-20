@@ -238,6 +238,9 @@ echo "-- Set CSDs and parcel repo permissions"
 chown -R cloudera-scm:cloudera-scm /opt/cloudera/csd /opt/cloudera/parcel-repo
 chmod 644 $(find /opt/cloudera/csd /opt/cloudera/parcel-repo -type f)
 
+echo "-- Start CM, it takes about 2 minutes to be ready"
+systemctl start cloudera-scm-server
+
 echo "-- Get and extract CEM tarball"
 mkdir -p /opt/cloudera/cem
 wget --progress=dot:giga ${CEM_URL} -P /opt/cloudera/cem
@@ -277,17 +280,6 @@ chmod 400 ~/.ssh/authorized_keys
 ssh-keyscan -H $(hostname) >> ~/.ssh/known_hosts
 sed -i 's/.*PermitRootLogin.*/PermitRootLogin without-password/' /etc/ssh/sshd_config
 systemctl restart sshd
-
-echo "-- Start CM, it takes about 2 minutes to be ready"
-systemctl start cloudera-scm-server
-
-while [ $(curl -s -X GET -u "admin:admin"  http://localhost:7180/api/version) -z ] ;
-    do
-    echo "waiting 10s for CM to come up..";
-    sleep 10;
-done
-
-echo "-- CM has finished starting"
 
 echo "-- Install pip and the cm_client module"
 yum_install python-pip
@@ -330,6 +322,13 @@ if [ "$CSP_PARCEL_REPO" == "" ]; then
 else
   sed -i "s#ADDITIONAL_REPOS#,"\""$CSP_PARCEL_REPO"\""#" $TEMPLATE
 fi
+
+echo "-- Wait for CM to be ready before proceeding"
+while [ -z "$(curl -s -X GET -u "admin:admin"  http://localhost:7180/api/version)" ]; do
+  echo "waiting 10s for CM to come up..";
+  sleep 10;
+done
+echo "-- CM has finished starting"
 
 CM_REPO_URL=$(grep baseurl /etc/yum.repos.d/cloudera-manager.repo | sed 's/.*=//;s/ //g')
 python $BASE_DIR/create_cluster.py $(hostname -f) $TEMPLATE $KEY_FILE $CM_REPO_URL
