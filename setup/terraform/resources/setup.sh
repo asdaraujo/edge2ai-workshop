@@ -12,6 +12,8 @@ CLOUD_PROVIDER=$1
 TEMPLATE=$2
 DOCKERDEVICE=${3:-}
 NOPROMPT=${4:-}
+SSH_USER=${5:-}
+SSH_PWD=${6:-}
 
 BASE_DIR=$(cd $(dirname $0); pwd -P)
 KEY_FILE=$BASE_DIR/myRSAkey
@@ -121,6 +123,55 @@ setenforce 0
 if [ -f /etc/selinux/config ]; then
   sed -i 's/SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
 fi
+
+# We need EPEL
+yum_install epel-release
+
+# Install and enable shellinabox
+yum_install -y shellinabox
+# Generate self-signed certificate for ShellInABox with the needed SAN entries
+openssl req \
+  -x509 \
+  -nodes \
+  -newkey 2048 \
+  -keyout key.pem \
+  -out cert.pem \
+  -days 365 \
+  -subj "/C=US/ST=California/L=San Francisco/O=Cloudera/OU=Data in Motion/CN=$(hostname -f)" \
+  -extensions 'v3_user_req' \
+  -config <( cat <<EOF
+[ req ]
+default_bits = 2048
+default_md = sha256
+distinguished_name = req_distinguished_name
+req_extensions = v3_user_req
+string_mask = utf8only
+
+[ req_distinguished_name ]
+countryName_default = XX
+countryName_min = 2
+countryName_max = 2
+localityName_default = Default City
+0.organizationName_default = Default Company Ltd
+commonName_max = 64
+emailAddress_max = 64
+
+[ v3_user_req ]
+basicConstraints = CA:FALSE
+subjectKeyIdentifier = hash
+keyUsage = digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth, clientAuth
+subjectAltName = DNS:$(hostname -f),IP:$(hostname -I),IP:$(curl http://169.254.169.254/latest/meta-data/public-ipv4)
+EOF
+)
+cat key.pem cert.pem > /var/lib/shellinabox/certificate.pem
+# Enable and start ShelInABox
+systemctl enable shellinaboxd
+systemctl start shellinaboxd
+# Enable password authentication
+sed -i.bak 's/PasswordAuthentication *no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+# Reset SSH user password
+echo "$SSH_PWD" | sudo passwd --stdin "$SSH_USER"
 
 echo "-- Install CM and MariaDB repo"
 wget --progress=dot:giga $CM_REPO_FILE_URL -P /etc/yum.repos.d/
@@ -239,7 +290,6 @@ done
 echo "-- CM has finished starting"
 
 echo "-- Install pip and the cm_client module"
-yum_install epel-release
 yum_install python-pip
 pip install --quiet --upgrade pip
 pip install --progress-bar off cm_client

@@ -56,6 +56,7 @@ for public_ip in $(awk '{print $3}' $INSTANCE_LIST_FILE); do
     -d '{
          "ip_address":"'"${public_ip}"'",
          "ssh_user": "'"$TF_VAR_ssh_username"'",
+         "ssh_password": "'"$TF_VAR_ssh_password"'",
          "ssh_private_key": "'"$(cat $TF_VAR_ssh_private_key | tr "\n" "#" | sed 's/#/\\n/g')"'"}' \
     "http://${WEB_IP_ADDRESS}/api/clusters" 2>/dev/null
 done

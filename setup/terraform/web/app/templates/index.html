@@ -32,8 +32,12 @@
             <td class="table-cell"><a href="http://{{ user.cluster.ip_address }}:7180/" target="_blank">http://{{ user.cluster.ip_address }}:7180/</a></td>
         </tr>
         <tr valign="top">
-            <th class="table-header">Edge Flow <Manager> </Manager></th>
+            <th class="table-header">Edge Flow Manager</th>
             <td class="table-cell"><a href="http://{{ user.cluster.ip_address }}:10080/efm/ui/" target="_blank">http://{{ user.cluster.ip_address }}:10080/efm/ui/</a></td>
+        </tr>
+        <tr valign="top">
+            <th class="table-header">Flink</th>
+            <td class="table-cell"><a href="http://{{ user.cluster.ip_address }}:8082/" target="_blank">http://{{ user.cluster.ip_address }}:8082/</a></td>
         </tr>
         <tr valign="top">
             <th class="table-header">NiFi</th>
@@ -64,6 +68,14 @@
     <div class="col col-md-1"></div>
     <div class="col col-md-2">
         <h4>SSH Connection</h4>
+
+        <p style="font-weight: bold; margin-bottom: 0; white-space: nowrap">Just click <a href="https://{{ user.cluster.ip_address }}:4200" target="_blank">here</a> to open a SSH session</p>
+        <ul>
+          <li style="margin-bottom: 0; white-space: nowrap">Username: <span style="font-family: monospace">{{ user.cluster.ssh_user }}</span></li>
+          <li style="margin-bottom: 0; white-space: nowrap">Password: <span style="font-family: monospace">{{ user.cluster.ssh_password }}</span></li>
+        </ul>
+        <p style="font-weight: bold; margin-bottom: 0; white-space: nowrap">If you prefer to use another SSH client, use the info below:</p>
+        <p>
 
         <p style="font-weight: bold; margin-bottom: 0">Download key:</p>
         <a href="{{ url_for('download_page', cluster_id=user.cluster.id) }}" target="blank"><button class='btn btn-primary'>Download SSH Key</button></a>

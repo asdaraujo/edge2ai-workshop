@@ -43,13 +43,9 @@ def login_page():
         next_page = request.args.get('next')
         if user is None:
             return redirect(url_for('register_and_login_page', next=next_page), code=307)
-        print("USERCLUSTER: %s" % (user.cluster,))
         if not user.cluster:
-            print("HERE")
             cluster_ids = [u.cluster_id for u in User.query.all() if u.cluster_id]
-            print("CLUSTERIDS: %s" % (cluster_ids,))
             user.cluster = Cluster.query.filter(~Cluster.id.in_(cluster_ids)).first()
-            print("USERCLUSTER: %s" % (user.cluster,))
             db.session.commit()
         if user.is_admin:
             return redirect(url_for('password_page', next=next_page), code=307)
@@ -71,9 +67,7 @@ def password_page():
     if 'password_submit' in request.form and form.validate_on_submit():
         next_page = request.args.get('next')
         user = User.query.filter_by(email=request.form['email']).first()
-        print("USER: %s" % (user,))
         if user is None or not user.check_password(form.password.data):
-            print("INVALID")
             flash('Invalid username or password.')
             return redirect(url_for('login_page'))
         login_user(user)
@@ -191,12 +185,15 @@ def add_cluster():
     """
     has_ip_address = 'ip_address' in request.json and isinstance(request.json['ip_address'], str)
     has_ssh_user = 'ssh_user' in request.json and isinstance(request.json['ssh_user'], str)
+    has_ssh_pwd = 'ssh_password' in request.json and isinstance(request.json['ssh_password'], str)
     has_ssh_pk = 'ssh_private_key' in request.json and \
                  isinstance(request.json['ssh_private_key'], str)
-    if not request.json or not has_ip_address or not has_ssh_user or not has_ssh_pk:
+    if not request.json or not has_ip_address or not has_ssh_user or not has_ssh_pwd \
+       or not has_ssh_pk:
         return jsonify({'success': False, 'message': 'No JSON payload or payload is invalid'}), 400
     try:
         cluster = Cluster(ip_address=request.json['ip_address'], ssh_user=request.json['ssh_user'],
+                          ssh_password=request.json['ssh_password'],
                           ssh_private_key=request.json['ssh_private_key'])
         db.session.add(cluster)
         db.session.commit()

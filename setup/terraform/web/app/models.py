@@ -43,6 +43,7 @@ class Cluster(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     ip_address = db.Column(db.String(15), unique=True)
     ssh_user = db.Column(db.String(32))
+    ssh_password = db.Column(db.String(64))
     ssh_private_key = db.Column(db.String(4096))
     user = db.relationship('User', backref='cluster', lazy='dynamic')
 

@@ -48,6 +48,10 @@ variable "ssh_username" {
   description = "SSH username to connect to AWS instances"
 }
 
+variable "ssh_password" {
+  description = "SSH password to connect to AWS instances"
+}
+
 variable "cluster_ami" {
   description = "AWS AMI for the CDH cluster"
 }
