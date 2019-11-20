@@ -8,14 +8,15 @@
       "refName": "HostTemplate-0-from-YourHostname",
       "roleConfigGroupsRefNames": [
 CDSWOPTION         "cdsw-CDSW_APPLICATION-BASE",
-CDSWOPTION        ,"cdsw-CDSW_DOCKER-BASE",
-CDSWOPTION        ,"cdsw-CDSW_MASTER-BASE",
+CDSWOPTION        "cdsw-CDSW_DOCKER-BASE",
+CDSWOPTION        "cdsw-CDSW_MASTER-BASE",
         "hdfs-BALANCER-BASE"
         ,"hdfs-DATANODE-BASE"
         ,"hdfs-NAMENODE-BASE"
         ,"hdfs-SECONDARYNAMENODE-BASE"
         ,"hive-GATEWAY-BASE"
         ,"hive-HIVEMETASTORE-BASE"
+CDH7OPTION        ,"hive-HIVESERVER2-BASE"
         ,"hue-HUE_LOAD_BALANCER-BASE"
         ,"hue-HUE_SERVER-BASE"
         ,"impala-CATALOGSERVER-BASE"
@@ -123,7 +124,7 @@ CSPOPTION      }
     }
 CDSWOPTION    ,{
 CDSWOPTION      "product": "CDSW",
-CDSWOPTION      "version": "CDSW_VERSION",
+CDSWOPTION      "version": "CDSW_VERSION"
 CDSWOPTION    }
     ,{
       "product": "CFM",
@@ -407,6 +408,11 @@ CSPOPTION    }
           "refName": "hive-GATEWAY-BASE",
           "roleType": "GATEWAY"
         },
+CDH7OPTION        {
+CDH7OPTION          "base": true,
+CDH7OPTION          "refName": "hive-HIVESERVER2-BASE",
+CDH7OPTION          "roleType": "HIVESERVER2"
+CDH7OPTION        },
         {
           "base": true,
           "refName": "hive-HIVEMETASTORE-BASE",
@@ -501,55 +507,55 @@ CSPOPTION    }
 CDSWOPTION    ,{
 CDSWOPTION      "refName": "cdsw",
 CDSWOPTION      "roleConfigGroups": [
-CDSWOPTION,        {
+CDSWOPTION        {
 CDSWOPTION          "base": true,
 CDSWOPTION          "refName": "cdsw-CDSW_APPLICATION-BASE",
-CDSWOPTION          "roleType": "CDSW_APPLICATION",
+CDSWOPTION          "roleType": "CDSW_APPLICATION"
 CDSWOPTION        },
-CDSWOPTION,        {
+CDSWOPTION        {
 CDSWOPTION          "base": true,
 CDSWOPTION          "refName": "cdsw-CDSW_MASTER-BASE",
-CDSWOPTION          "roleType": "CDSW_MASTER",
+CDSWOPTION          "roleType": "CDSW_MASTER"
 CDSWOPTION        },
-CDSWOPTION,        {
+CDSWOPTION        {
 CDSWOPTION          "base": true,
 CDSWOPTION          "configs": [
-CDSWOPTION,            {
+CDSWOPTION            {
 CDSWOPTION              "name": "cdsw.docker.devices.config",
-CDSWOPTION              "value": "YourDockerDevice",
+CDSWOPTION              "value": "YourDockerDevice"
 CDSWOPTION            }
 CDSWOPTION          ],
 CDSWOPTION          "refName": "cdsw-CDSW_DOCKER-BASE",
-CDSWOPTION          "roleType": "CDSW_DOCKER",
+CDSWOPTION          "roleType": "CDSW_DOCKER"
 CDSWOPTION        }
 CDSWOPTION      ],
 CDSWOPTION      "serviceConfigs": [
-CDSWOPTION,        {
+CDSWOPTION        {
 CDSWOPTION          "name": "yarn_service",
-CDSWOPTION          "ref": "yarn",
+CDSWOPTION          "ref": "yarn"
 CDSWOPTION        },
-CDSWOPTION,        {
+CDSWOPTION        {
 CDSWOPTION          "name": "hdfs_service",
-CDSWOPTION          "ref": "hdfs",
+CDSWOPTION          "ref": "hdfs"
 CDSWOPTION        },
-CDSWOPTION,        {
+CDSWOPTION        {
 CDSWOPTION          "name": "hive_service",
-CDSWOPTION          "ref": "hive",
+CDSWOPTION          "ref": "hive"
 CDSWOPTION        },
-CDSWOPTION,        {
+CDSWOPTION        {
 CDSWOPTION          "name": "spark_on_yarn_service",
-CDSWOPTION          "ref": "spark_on_yarn",
+CDSWOPTION          "ref": "spark_on_yarn"
 CDSWOPTION        },
-CDSWOPTION,        {
+CDSWOPTION        {
 CDSWOPTION          "name": "cdsw.domain.config",
-CDSWOPTION          "value": "YourCDSWDomain",
+CDSWOPTION          "value": "YourCDSWDomain"
 CDSWOPTION        },
-CDSWOPTION,        {
+CDSWOPTION        {
 CDSWOPTION          "name": "cdsw.master.ip.config",
-CDSWOPTION          "value": "YourPrivateIP",
+CDSWOPTION          "value": "YourPrivateIP"
 CDSWOPTION        }
 CDSWOPTION      ],
-CDSWOPTION      "serviceType": "CDSW",
+CDSWOPTION      "serviceType": "CDSW"
 CDSWOPTION    }
 CSPOPTION   ,{
 CSPOPTION      "refName": "schemaregistry",
@@ -617,6 +623,9 @@ CSPOPTION          "value" : "YourHostname"
 CSPOPTION        }, {
 CSPOPTION          "name" : "cm.metrics.password",
 CSPOPTION          "value" : "admin"
+CDH7OPTION        }, {
+CDH7OPTION          "name" : "cm.metrics.service.name",
+CDH7OPTION          "value" : "kafka"
 CSPOPTION        }, {
 CSPOPTION          "name": "zookeeper_service",
 CSPOPTION          "ref": "zookeeper"

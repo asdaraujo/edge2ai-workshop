@@ -85,7 +85,8 @@ EOF
 
   echo "-- Preloading large Parcels to /opt/cloudera/parcel-repo"
   mkdir -p /opt/cloudera/parcel-repo
-  wget -r -np -nd -nc --progress=dot:giga -A "parcel,sha1,sha256" ${CDH_PARCEL_REPO} -P /opt/cloudera/parcel-repo
+#  wget -r -np -nd -nc --progress=dot:giga -A "parcel,sha1,sha256" ${CDH_PARCEL_REPO} -P /opt/cloudera/parcel-repo
+  wget -r -np -nd -nc --progress=dot:giga -A "*el7.parcel*" "${CDH_PARCEL_REPO}" -P /opt/cloudera/parcel-repo
 
   echo "-- Configure and optimize the OS"
   echo never > /sys/kernel/mm/transparent_hugepage/enabled
@@ -118,7 +119,6 @@ EOF
 
   echo "-- Configure networking"
   hostnamectl set-hostname $(hostname -f)
-  echo "$(hostname -I) $(hostname) edge2ai-1.dim.local" >> /etc/hosts
   if [[ -f /etc/sysconfig/network ]]; then
     sed -i "/HOSTNAME=/ d" /etc/sysconfig/network
   fi
@@ -173,6 +173,8 @@ fi
 
 
 ##### Start install
+echo "-- Set /etc/hosts"
+echo "$(hostname -I) $(hostname) edge2ai-1.dim.local" >> /etc/hosts
 
 echo "-- Generate self-signed certificate for ShellInABox with the needed SAN entries"
 # Generate self-signed certificate for ShellInABox with the needed SAN entries
@@ -225,7 +227,7 @@ if [[ -n "${CDSW_VERSION}" ]]; then
       echo "Docker device was not specified in the command line. Will try to detect a free device to use"
       TMP_FILE=${BASE_DIR}/.device.list
       # Find devices that are not mounted and have size greater than or equal to 200G
-      lsblk -o NAME,MOUNTPOINT,SIZE -s -p -n | awk '/^\// && NF == 2 && ${TEMPLATE} ~ /([2-9]|[0-9][0-9])[0-9][0-9]G/' > ${TMP_FILE}
+      lsblk -o NAME,MOUNTPOINT,SIZE -s -p -n | awk '/^\// && NF == 2 && $TEMPLATE ~ /([2-9]|[0-9][0-9])[0-9][0-9]G/' > "${TMP_FILE}"
       if [[ $(cat $TMP_FILE | wc -l) == 0 ]]; then
         echo "ERROR: Could not find any candidate devices."
         exit 1
@@ -351,6 +353,12 @@ if [[ "$CSP_PARCEL_REPO" == "" ]]; then
   sed -i "/CSPREPO/ d" $TEMPLATE
 else
   sed -i "s#CSPREPO#,"\""$CSP_PARCEL_REPO"\""#" $TEMPLATE
+fi
+
+if [[ "${CDH_VERSION:0:1}" == 7 ]]; then
+  sed -i "/^CDH7OPTION/ d" $TEMPLATE
+else
+  sed -i "s/^CDH7OPTION//" $TEMPLATE
 fi
 
 if [[ -n "$CDSW_VERSION" ]]; then
