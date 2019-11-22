@@ -20,7 +20,10 @@ SSH_PWD=${6:-}
 BASE_DIR=$(cd $(dirname $0); pwd -P)
 KEY_FILE=${BASE_DIR}/myRSAkey
 
-source /tmp/env.sh
+PUBLIC_IP=$(curl https://api.ipify.org/ 2>/dev/null)
+PUBLIC_DNS=$(dig -x ${PUBLIC_IP} +short)
+
+source $BASE_DIR/env.sh
 
 # Often yum connection to Cloudera repo fails and causes the instance create to fail.
 # yum timeout and retries options don't see to help in this type of failure.
@@ -39,7 +42,7 @@ function yum_install() {
     retries=$((retries - 1))
     if [[ ${retries} -lt 0 ]]; then
       echo 'YUM install failed!'
-      break
+      exit 1
     else
       echo 'Retrying YUM...'
     fi
@@ -54,11 +57,12 @@ if [[ ! -f /etc/yum.repos.d/cloudera-manager.repo ]]; then
   echo "-- Installing base dependencies"
   yum_install ${JAVA_PACKAGE_NAME} vim wget curl git bind-utils epel-release
   yum_install python-pip npm gcc-c++ make
-  echo "-- Install CM and MariaDB repo"
-  wget --progress=dot:giga ${CM_REPO_FILE_URL} -P /etc/yum.repos.d/
-  sed -i "s#https://archive.cloudera.com/cm6#${CM_BASE_URL}#g" /etc/yum.repos.d/cloudera-manager.repo
 
-## MariaDB 10.1
+  echo "-- Install CM yum repo"
+  wget --progress=dot:giga ${CM_REPO_FILE_URL} -P /etc/yum.repos.d/
+  sed -i -E "s#https?://[^/]*#${CM_BASE_URL}#g" /etc/yum.repos.d/cloudera-manager.repo
+
+  echo "-- Install MariaDB yum repo"
   cat - >/etc/yum.repos.d/MariaDB.repo <<EOF
   [mariadb]
 name = MariaDB
@@ -72,10 +76,11 @@ EOF
   rm -rf /var/cache/yum/
   yum repolist
 
-  yum_install cloudera-manager-daemons cloudera-manager-agent cloudera-manager-server MariaDB-server MariaDB-client shellinabox
+  yum_install cloudera-manager-daemons cloudera-manager-agent cloudera-manager-server \
+              MariaDB-server MariaDB-client shellinabox mosquitto jq
   npm install --quiet forever -g
   pip install --quiet --upgrade pip
-  pip install --progress-bar off cm_client
+  pip install --progress-bar off cm_client paho-mqtt
 
   echo "-- Get and extract CEM tarball to /opt/cloudera/cem"
   mkdir -p /opt/cloudera/cem
@@ -83,10 +88,50 @@ EOF
   tar -zxf /opt/cloudera/cem/CEM-${CEM_VERSION}-centos7-tars-tarball.tar.gz -C /opt/cloudera/cem
   rm -f /opt/cloudera/cem/CEM-${CEM_VERSION}-centos7-tars-tarball.tar.gz
 
+  echo "-- Install and configure EFM"
+  EFM_TARBALL=$(find /opt/cloudera/cem/ -path "*/centos7/*" -name "efm-*-bin.tar.gz")
+  EFM_BASE_NAME=$(basename $EFM_TARBALL | sed 's/-bin.tar.gz//')
+  tar -zxf ${EFM_TARBALL} -C /opt/cloudera/cem
+  ln -s /opt/cloudera/cem/${EFM_BASE_NAME} /opt/cloudera/cem/efm
+  ln -s /opt/cloudera/cem/efm/bin/efm.sh /etc/init.d/efm
+  chown -R root:root /opt/cloudera/cem/${EFM_BASE_NAME}
+  rm -f /opt/cloudera/cem/efm/conf/efm.properties
+  cp $BASE_DIR/efm.properties /opt/cloudera/cem/efm/conf
+
+  echo "-- Install and configure MiNiFi"
+  MINIFI_TARBALL=$(find /opt/cloudera/cem/ -path "*/centos7/*" -name "minifi-[0-9]*-bin.tar.gz")
+  MINIFITK_TARBALL=$(find /opt/cloudera/cem/ -path "*/centos7/*" -name "minifi-toolkit-*-bin.tar.gz")
+  MINIFI_BASE_NAME=$(basename $MINIFI_TARBALL | sed 's/-bin.tar.gz//')
+  MINIFITK_BASE_NAME=$(basename $MINIFITK_TARBALL | sed 's/-bin.tar.gz//')
+  tar -zxf ${MINIFI_TARBALL} -C /opt/cloudera/cem
+  tar -zxf ${MINIFITK_TARBALL} -C /opt/cloudera/cem
+  ln -s /opt/cloudera/cem/${MINIFI_BASE_NAME} /opt/cloudera/cem/minifi
+  chown -R root:root /opt/cloudera/cem/${MINIFI_BASE_NAME}
+  chown -R root:root /opt/cloudera/cem/${MINIFITK_BASE_NAME}
+  rm -f /opt/cloudera/cem/minifi/conf/bootstrap.conf
+  cp $BASE_DIR/bootstrap.conf /opt/cloudera/cem/minifi/conf
+  /opt/cloudera/cem/minifi/bin/minifi.sh install
+
+  echo "-- Download and install MQTT Processor NAR file"
+  wget http://central.maven.org/maven2/org/apache/nifi/nifi-mqtt-nar/1.8.0/nifi-mqtt-nar-1.8.0.nar -P /opt/cloudera/cem/minifi/lib
+  chown root:root /opt/cloudera/cem/minifi/lib/nifi-mqtt-nar-1.8.0.nar
+  chmod 660 /opt/cloudera/cem/minifi/lib/nifi-mqtt-nar-1.8.0.nar
+
   echo "-- Preloading large Parcels to /opt/cloudera/parcel-repo"
-  mkdir -p /opt/cloudera/parcel-repo
-#  wget -r -np -nd -nc --progress=dot:giga -A "parcel,sha1,sha256" ${CDH_PARCEL_REPO} -P /opt/cloudera/parcel-repo
-  wget -r -np -nd -nc --progress=dot:giga -A "*el7.parcel*" "${CDH_PARCEL_REPO}" -P /opt/cloudera/parcel-repo
+  mkdir -p /opt/cloudera/parcel-repo /opt/cloudera/parcels
+  set -- "${PARCEL_URLS[@]}"
+  while [ $# -gt 0 ]; do
+    component=$1
+    version=$2
+    url=$3
+    shift 3
+    echo ">>> $component - $version - $url"
+    curl --silent "${url%%/}/manifest.json" > /tmp/manifest.json
+    parcel_name=$(jq -r '.parcels[] | select(.parcelName | contains("'"$version"'-el7.parcel")) | select(.components[] | .name == "'"$component"'").parcelName' /tmp/manifest.json)
+    hash=$(jq -r '.parcels[] | select(.parcelName | contains("'"$version"'-el7.parcel")) | select(.components[] | .name == "'"$component"'").hash' /tmp/manifest.json)
+    wget --no-clobber --progress=dot:giga "${url%%/}/${parcel_name}" -O "/opt/cloudera/parcel-repo/${parcel_name}"
+    echo "$hash" > "/opt/cloudera/parcel-repo/${parcel_name}.sha"
+  done
 
   echo "-- Configure and optimize the OS"
   echo never > /sys/kernel/mm/transparent_hugepage/enabled
@@ -116,13 +161,6 @@ EOF
             echo $"example: ./setup.sh aws cdsw_template.json /dev/xvdb"
             exit 1
   esac
-
-  echo "-- Configure networking"
-  hostnamectl set-hostname $(hostname -f)
-  if [[ -f /etc/sysconfig/network ]]; then
-    sed -i "/HOSTNAME=/ d" /etc/sysconfig/network
-  fi
-  echo "HOSTNAME=$(hostname)" >> /etc/sysconfig/network
 
   iptables-save > $BASE_DIR/firewall.rules
   FWD_STATUS=$(systemctl is-active firewalld || true)
@@ -162,7 +200,7 @@ fi
 ####### Finish packer build
 
 echo "-- Checking if executing packer build"
-if [[ ! -z ${PACKER_BUILD+x} ]]; then
+if [[ ! -z ${PACKER_BUILD} ]]; then
   echo "-- Packer build detected, exiting with success"
   sleep 2
   exit 0
@@ -174,7 +212,14 @@ fi
 
 ##### Start install
 echo "-- Set /etc/hosts"
-echo "$(hostname -I) $(hostname) edge2ai-1.dim.local" >> /etc/hosts
+echo "$(hostname -I) $(hostname -f) edge2ai-1.dim.local" >> /etc/hosts
+
+echo "-- Configure networking"
+hostnamectl set-hostname $(hostname -f)
+if [[ -f /etc/sysconfig/network ]]; then
+  sed -i "/HOSTNAME=/ d" /etc/sysconfig/network
+fi
+echo "HOSTNAME=$(hostname -f)" >> /etc/sysconfig/network
 
 echo "-- Generate self-signed certificate for ShellInABox with the needed SAN entries"
 # Generate self-signed certificate for ShellInABox with the needed SAN entries
@@ -209,7 +254,7 @@ basicConstraints = CA:FALSE
 subjectKeyIdentifier = hash
 keyUsage = digitalSignature, keyEncipherment
 extendedKeyUsage = serverAuth, clientAuth
-subjectAltName = DNS:$(hostname -f),IP:$(hostname -I),IP:$(curl http://169.254.169.254/latest/meta-data/public-ipv4)
+subjectAltName = DNS:$(hostname -f),DNS:${PUBLIC_DNS},IP:$(hostname -I),IP:${PUBLIC_IP}
 EOF
 )
 cat key.pem cert.pem > /var/lib/shellinabox/certificate.pem
@@ -275,35 +320,12 @@ for parcel in $(find $BASE_DIR/parcels -name "*.parcel"); do
 done
 
 echo "-- Set CSDs and parcel repo permissions"
+chown cloudera-scm:cloudera-scm /opt/cloudera/parcels
 chown -R cloudera-scm:cloudera-scm /opt/cloudera/csd /opt/cloudera/parcel-repo
 chmod 644 $(find /opt/cloudera/csd /opt/cloudera/parcel-repo -type f)
 
 echo "-- Start CM, it takes about 2 minutes to be ready"
 systemctl start cloudera-scm-server
-
-echo "-- Install and configure EFM"
-EFM_TARBALL=$(find /opt/cloudera/cem/ -path "*/centos7/*" -name "efm-*-bin.tar.gz")
-EFM_BASE_NAME=$(basename $EFM_TARBALL | sed 's/-bin.tar.gz//')
-tar -zxf ${EFM_TARBALL} -C /opt/cloudera/cem
-ln -s /opt/cloudera/cem/${EFM_BASE_NAME} /opt/cloudera/cem/efm
-ln -s /opt/cloudera/cem/efm/bin/efm.sh /etc/init.d/efm
-chown -R root:root /opt/cloudera/cem/${EFM_BASE_NAME}
-rm -f /opt/cloudera/cem/efm/conf/efm.properties
-cp $BASE_DIR/efm.properties /opt/cloudera/cem/efm/conf
-
-echo "-- Install and configure MiNiFi"
-MINIFI_TARBALL=$(find /opt/cloudera/cem/ -path "*/centos7/*" -name "minifi-[0-9]*-bin.tar.gz")
-MINIFITK_TARBALL=$(find /opt/cloudera/cem/ -path "*/centos7/*" -name "minifi-toolkit-*-bin.tar.gz")
-MINIFI_BASE_NAME=$(basename $MINIFI_TARBALL | sed 's/-bin.tar.gz//')
-MINIFITK_BASE_NAME=$(basename $MINIFITK_TARBALL | sed 's/-bin.tar.gz//')
-tar -zxf ${MINIFI_TARBALL} -C /opt/cloudera/cem
-tar -zxf ${MINIFITK_TARBALL} -C /opt/cloudera/cem
-ln -s /opt/cloudera/cem/${MINIFI_BASE_NAME} /opt/cloudera/cem/minifi
-chown -R root:root /opt/cloudera/cem/${MINIFI_BASE_NAME}
-chown -R root:root /opt/cloudera/cem/${MINIFITK_BASE_NAME}
-rm -f /opt/cloudera/cem/minifi/conf/bootstrap.conf
-cp $BASE_DIR/bootstrap.conf /opt/cloudera/cem/minifi/conf
-/opt/cloudera/cem/minifi/bin/minifi.sh install
 
 echo "-- Enable passwordless root login via rsa key"
 ssh-keygen -f $KEY_FILE -t rsa -N ""
@@ -316,9 +338,6 @@ sed -i 's/.*PermitRootLogin.*/PermitRootLogin without-password/' /etc/ssh/sshd_c
 systemctl restart sshd
 
 echo "-- Automate cluster creation using the CM API"
-PUBLIC_IP=$(curl https://api.ipify.org/ 2>/dev/null)
-PUBLIC_DNS=$(dig -x ${PUBLIC_IP} +short)
-
 sed -i "\
 s/YourHostname/$(hostname -f)/g;\
 s/YourCDSWDomain/cdsw.${PUBLIC_IP}.nip.io/g;\
@@ -328,15 +347,15 @@ s#YourDockerDevice#$DOCKERDEVICE#g;\
 s#ANACONDA_PARCEL_REPO#$ANACONDA_PARCEL_REPO#g;\
 s#ANACONDA_VERSION#$ANACONDA_VERSION#g;\
 s#CDH_PARCEL_REPO#$CDH_PARCEL_REPO#g;\
-s#CDH_PARCEL_VERSION#$CDH_PARCEL_VERSION#g;\
+s#CDH_BUILD#$CDH_BUILD#g;\
 s#CDH_VERSION#$CDH_VERSION#g;\
 s#CDSW_PARCEL_REPO#$CDSW_PARCEL_REPO#g;\
-s#CDSW_VERSION#$CDSW_VERSION#g;\
+s#CDSW_BUILD#$CDSW_BUILD#g;\
 s#CFM_PARCEL_REPO#$CFM_PARCEL_REPO#g;\
 s#CFM_VERSION#$CFM_VERSION#g;\
 s#CM_VERSION#$CM_VERSION#g;\
-s#SCHEMAREGISTRY_VERSION#$SCHEMAREGISTRY_VERSION#g;\
-s#STREAMS_MESSAGING_MANAGER_VERSION#$STREAMS_MESSAGING_MANAGER_VERSION#g;\
+s#SCHEMAREGISTRY_BUILD#$SCHEMAREGISTRY_BUILD#g;\
+s#STREAMS_MESSAGING_MANAGER_BUILD#$STREAMS_MESSAGING_MANAGER_BUILD#g;\
 " $TEMPLATE
 
 echo "-- Check for additional parcels"
@@ -355,13 +374,13 @@ else
   sed -i "s#CSPREPO#,"\""$CSP_PARCEL_REPO"\""#" $TEMPLATE
 fi
 
-if [[ "${CDH_VERSION:0:1}" == 7 ]]; then
+if [[ "${CDH_VERSION%%.*}" == "7" ]]; then
   sed -i "/^CDH7OPTION/ d" $TEMPLATE
 else
   sed -i "s/^CDH7OPTION//" $TEMPLATE
 fi
 
-if [[ -n "$CDSW_VERSION" ]]; then
+if [[ -n "$CDSW_BUILD" ]]; then
       sed -i "s/^CDSWOPTION//" $TEMPLATE
       sed -i "s#CDSWREPO#,"\""$CDSW_PARCEL_REPO"\""#" $TEMPLATE
     else
@@ -371,8 +390,8 @@ fi
 
 echo "-- Wait for CM to be ready before proceeding"
 until $(curl --output /dev/null --silent --head --fail -u "admin:admin" http://localhost:7180/api/version); do
-    echo "waiting 10s for CM to come up..";
-    sleep 10;
+  echo "waiting 10s for CM to come up.."
+  sleep 10
 done
 echo "-- CM has finished starting"
 
@@ -397,30 +416,24 @@ while true; do
   echo "Retrying to start EFM ($retries)"
 done
 
-echo "-- Configure and start Minifi"
-yum install -y mosquitto
-pip install paho-mqtt
+echo "-- Enable and start MQTT broker"
 systemctl enable mosquitto
 systemctl start mosquitto
 
-# Copy demo files to a public directory
+echo "-- Copy demo files to a public directory"
 mkdir -p /opt/demo
-cp $BASE_DIR/simulate.py /opt/demo/
-cp $BASE_DIR/spark.iot.py /opt/demo/
+cp -f $BASE_DIR/simulate.py /opt/demo/
+cp -f $BASE_DIR/spark.iot.py /opt/demo/
 chmod -R 775 /opt/demo
 
-# MiNiFi Install
-cd ~
-wget http://central.maven.org/maven2/org/apache/nifi/nifi-mqtt-nar/1.8.0/nifi-mqtt-nar-1.8.0.nar -P /opt/cloudera/cem/minifi/lib
-chown root:root /opt/cloudera/cem/minifi/lib/nifi-mqtt-nar-1.8.0.nar
-chmod 660 /opt/cloudera/cem/minifi/lib/nifi-mqtt-nar-1.8.0.nar
+echo "-- Start MiNiFi"
 systemctl start minifi
 
 # TODO: Implement Ranger DB and Setup in template
 # TODO: Fix kafka topic creation once Ranger security is setup
-#echo "-- Create Kafka topic (iot)"
-#kafka-topics --zookeeper edge2ai-1.dim.local:2181 --create --topic iot --partitions 10 --replication-factor 1
-#kafka-topics --zookeeper edge2ai-1.dim.local:2181 --describe --topic iot
+echo "-- Create Kafka topic (iot)"
+kafka-topics --zookeeper edge2ai-1.dim.local:2181 --create --topic iot --partitions 10 --replication-factor 1
+kafka-topics --zookeeper edge2ai-1.dim.local:2181 --describe --topic iot
 
 echo "-- At this point you can login into Cloudera Manager host on port 7180 and follow the deployment of the cluster"
 
