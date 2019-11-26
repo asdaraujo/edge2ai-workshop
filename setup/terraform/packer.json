@@ -1,0 +1,55 @@
+{
+  "variables": {
+  },
+  "builders": [{
+    "type": "amazon-ebs",
+    "access_key": "{{user `aws_access_key`}}",
+    "secret_key": "{{user `aws_secret_key`}}",
+    "region": "{{user `aws_region`}}",
+    "source_ami": "{{user `base_ami`}}",
+    "instance_type": "{{user `instance_type`}}",
+    "ssh_username": "{{user `ssh_username`}}",
+    "ami_name": "{{user `owner`}}-{{user `namespace`}}-packer-{{timestamp}}",
+    "launch_block_device_mappings": [
+        {
+          "device_name": "/dev/sda1",
+          "volume_size": 100,
+          "volume_type": "gp2",
+          "delete_on_termination": true
+        }
+      ],
+    "ami_block_device_mappings": [ {
+         "device_name": "/dev/sdf",
+         "volume_size": 200,
+         "volume_type": "gp2",
+         "delete_on_termination": true
+     }],
+    "tags": {
+      "Name": "{{user `owner`}}-{{user `namespace`}}-packer-{{timestamp}}",
+      "owner": "{{user `owner`}}",
+      "project": "{{user `project`}}",
+      "enddate": "{{user `enddate`}}",
+      "provisioner": "cloudera-workshop-scripts"
+    },
+    "run_tags": {
+      "Name": "{{user `owner`}}-{{user `namespace`}}-packer-{{timestamp}}",
+      "owner": "{{user `owner`}}",
+      "project": "{{user `project`}}",
+      "enddate": "{{user `enddate`}}",
+      "provisioner": "cloudera-workshop-scripts"
+    }
+  }],
+  "provisioners": [
+    {
+      "type": "file",
+      "source": "./resources",
+      "destination": "/tmp/packer_resources"
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sudo PACKER_BUILD=1 bash -x /tmp/packer_resources/setup.sh aws /tmp/packer_resources/cluster_template.json \"\" noprompt \"{{user `ssh_username`}}\" \"{{user `ssh_password`}}\" \"{{user `namespace`}}\""
+      ]
+    }
+  ]
+}

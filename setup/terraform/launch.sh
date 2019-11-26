@@ -55,4 +55,4 @@ echo ""
 echo "Uploading instance details to Web Server:"
 ./upload-instance-details.sh $NAMESPACE
 
-) 2>&1 | tee $BASE_DIR/logs/setup.log.$(date +%Y%m%d%H%M%S)
+) 2>&1 | tee $BASE_DIR/logs/setup.log.${1:-unknown}.$(date +%Y%m%d%H%M%S)

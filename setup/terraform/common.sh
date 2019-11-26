@@ -30,10 +30,11 @@ function load_env() {
     exit 1
   fi
   source $env_file
-  NAMESPACE=$namespace
+  export NAMESPACE=$namespace
   NAMESPACE_DIR=$BASE_DIR/namespaces/$namespace
   INSTANCE_LIST_FILE=$NAMESPACE_DIR/.instance.list
   WEB_INSTANCE_LIST_FILE=$NAMESPACE_DIR/.instance.web
+  export TF_VAR_namespace=$NAMESPACE
   export TF_VAR_name_prefix=$(echo "$namespace" | tr "A-Z" "a-z")
   export TF_VAR_key_name="${TF_VAR_name_prefix}-$(echo -n "$TF_VAR_owner" | base64)"
   export TF_VAR_web_key_name="${TF_VAR_name_prefix}-$(echo -n "$TF_VAR_owner" | base64)-web"

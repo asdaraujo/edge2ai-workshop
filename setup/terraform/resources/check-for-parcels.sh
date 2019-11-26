@@ -8,7 +8,18 @@ NOPROMPT=${1:-}
 BASE_DIR=$(cd $(dirname $0); pwd -P)
 KEY_FILE=$BASE_DIR/myRSAkey
 
-source $BASE_DIR/env.sh
+if [ -e $BASE_DIR/stack.$NAMESPACE.sh ]; then
+  source $BASE_DIR/stack.${NAMESPACE}.sh
+elif [ -e $BASE_DIR/stack.sh ]; then
+  source $BASE_DIR/stack.sh
+elif [ -e $BASE_DIR/env.sh ]; then
+  echo 'ERROR: The legacy "env.sh" file is now called "stack.sh".'
+  echo '       Please rename "'"$BASE_DIR/env.sh"'" as "'"$BASE_DIR/stack.sh"'" and run this again.'
+  exit 1
+else
+  echo 'ERROR: cannot find neither "'"$BASE_DIR/stack.sh"'" nor "'"$BASE_DIR/stack.${NAMESPACE}.sh"'".'
+  exit 1
+fi
 
 # Check for required additional parcels
 missing_file=0

@@ -33,4 +33,4 @@ rm -f $NAMESPACE_DIR/{.instance.list,.instance.web}
 delete_key_pairs
 
 log "Deployment destroyed successfully"
-) 2>&1 | tee $BASE_DIR/logs/terminate.log.$(date +%Y%m%d%H%M%S)
+) 2>&1 | tee $BASE_DIR/logs/terminate.log.${1:-unknown}.$(date +%Y%m%d%H%M%S)

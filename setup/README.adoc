@@ -86,18 +86,25 @@ sudo yum install -y git
 git clone https://github.com/asdaraujo/edge2ai-workshop.git
 ----
 
-. Review software versions and edit them as needed. All the versions and locations of the software used for the setup are defined in the `edge2ai-workshop/setup/scripts/env.sh` file. If this file does not exist, create it with the command below:
+. Review software versions and edit them as needed. All the versions and locations of the software used for the setup are defined in the `edge2ai-workshop/setup/scripts/stack.sh` file. If this file does not exist, create it with the command below:
 +
 [source,shell]
 ----
-cp edge2ai-workshop/setup/scripts/env.sh.template edge2ai-workshop/setup/scripts/env.sh
+cp edge2ai-workshop/setup/scripts/stack.template.sh edge2ai-workshop/setup/scripts/stack.sh
+----
++
+The `stack.sh` file is the default stack definition file used by all the namespaces. You can create namespace-specific definitions by creating the following file for a given namespace:
++
+[source,shell]
+----
+cp edge2ai-workshop/setup/scripts/stack.template.sh edge2ai-workshop/setup/scripts/stack.<namespace>.sh
 ----
 +
 IMPORTANT: Most of the software locations are already pre-defined in the template. For a few of the required software, though, there's currently no public repository available. Make sure you follow the instructions below to install these components.
 +
 For Schema Registry (SR) and Streams Messaging Manager (SMM) installation you have two options:
 
-* If If you have an URL link to a location where the CSP parcel and SR/SMM CSDs can be downloaded from, configure the corresponding properties in the `env.sh` file:
+* If If you have an URL link to a location where the CSP parcel and SR/SMM CSDs can be downloaded from, configure the corresponding properties in the `stack.sh` (or `stack.<namespace>.sh`) file:
 +
 [source,shell]
 ----
@@ -241,18 +248,18 @@ git clone https://github.com/asdaraujo/edge2ai-workshop.git
 cd edge2ai-workshop/setup/scripts
 ----
 
-. Review software versions and edit them as needed. All the versions and locations of the software used for the setup are defined in the `edge2ai-workshop/setup/scripts/env.sh` file. If this file does not exist, create it with the command below:
+. Review software versions and edit them as needed. All the versions and locations of the software used for the setup are defined in the `edge2ai-workshop/setup/scripts/stack.sh` file. If this file does not exist, create it with the command below:
 +
 [source,shell]
 ----
-cp env.sh.template env.sh
+cp stack.template.sh stack.sh
 ----
 +
 IMPORTANT: Most of the software locations are already pre-defined in the template. For a few of the required software, though, there's currently no public repository available. Make sure you follow the instructions below to install these components.
 +
 For Schema Registry (SR) and Streams Messaging Manager (SMM) installation you have two options:
 
-* If If you have an URL link to a location where the CSP parcel and SR/SMM CSDs can be downloaded from, configure the corresponding properties in the `env.sh` file:
+* If If you have an URL link to a location where the CSP parcel and SR/SMM CSDs can be downloaded from, configure the corresponding properties in the `stack.sh` file:
 +
 [source,shell]
 ----
@@ -282,7 +289,7 @@ _Example_:
 [source,shell]
 ----
 chmod +x setup.sh
-./setup.sh aws cdsw_template.json /dev/sdc
+./setup.sh aws cluster_template.json /dev/sdc
 ----
 --
 
@@ -394,7 +401,7 @@ nvme0n1     259:1    0  100G  0 disk
 +-nvme0n1p1 259:2    0  100G  0 part /
 nvme1n1     259:0    0 1000G  0 disk
 
-$ ./setup.sh aws cdsw_template.json /dev/nvme1n1
+$ ./setup.sh aws cluster_template.json /dev/nvme1n1
 ----
 
 ==== Azure Standard D8s v3 or Standard D16s v3
@@ -412,7 +419,7 @@ sdb      8:16   0   56G  0 disk
 sdc      8:32   0 1000G  0 disk
 sr0     11:0    1  628K  0 rom
 
-$ ./setup.sh azure cdsw_template.json /dev/sdc
+$ ./setup.sh azure cluster_template.json /dev/sdc
 ----
 
 ==== GCP n1-standard-8 or n1-standard-16
@@ -425,5 +432,5 @@ sda      8:0    0  100G  0 disk
 └─sda1   8:1    0  100G  0 part /
 sdb      8:16   0 1000G  0 disk 
 
-$ ./setup.sh gcp cdsw_template.json /dev/sdb
+$ ./setup.sh gcp cluster_template.json /dev/sdb
 ----

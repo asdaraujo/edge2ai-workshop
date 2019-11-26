@@ -84,6 +84,10 @@ variable "enddate" {
   description = "Resource expiration date (MMDDYYYY)"
 }
 
+variable "namespace" {
+  description = "Namespace for the cluster deployment"
+}
+
 variable "vpc_id" {
   description = "AWS VPC id"
   default     = ""

@@ -124,7 +124,7 @@ CSPOPTION      }
     }
 CDSWOPTION    ,{
 CDSWOPTION      "product": "CDSW",
-CDSWOPTION      "version": "CDSW_VERSION"
+CDSWOPTION      "version": "CDSW_BUILD"
 CDSWOPTION    }
     ,{
       "product": "CFM",
@@ -132,15 +132,15 @@ CDSWOPTION    }
     },
     {
       "product": "CDH",
-      "version": "CDH_PARCEL_VERSION"
+      "version": "CDH_BUILD"
     }
 CSPOPTION   ,{
 CSPOPTION      "product": "SCHEMAREGISTRY",
-CSPOPTION      "version": "SCHEMAREGISTRY_VERSION"
+CSPOPTION      "version": "SCHEMAREGISTRY_BUILD"
 CSPOPTION    },
 CSPOPTION    {
 CSPOPTION      "product": "STREAMS_MESSAGING_MANAGER",
-CSPOPTION      "version": "STREAMS_MESSAGING_MANAGER_VERSION"
+CSPOPTION      "version": "STREAMS_MESSAGING_MANAGER_BUILD"
 CSPOPTION    }
   ],
   "repositories": [
@@ -185,12 +185,25 @@ CSPOPTION    }
       ],
       "serviceConfigs": [
         {
+          "name" : "zookeeper.chroot",
+          "value" : "/kafka",
+          "sensitive" : false
+        },
+        {
           "name": "offsets.topic.replication.factor",
           "value": "1"
         },
         {
           "name": "producer.metrics.enable",
           "value": "true"
+        },
+        {
+          "name" : "transaction.state.log.min.isr",
+          "value" : "1"
+        },
+        {
+          "name" : "transaction.state.log.replication.factor",
+          "value" : "1"
         }
       ],
       "serviceType": "KAFKA"
