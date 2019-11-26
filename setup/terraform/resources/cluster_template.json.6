@@ -36,6 +36,8 @@ CDH7OPTION        ,"hive-HIVESERVER2-BASE"
         ,"nifi-NIFI_NODE-BASE"
         ,"nifiregistry-NIFI_REGISTRY_SERVER-BASE"
         ,"nifitoolkitca-NIFI_TOOLKIT_SERVER-BASE"
+        ,"flink-FLINK_HISTORY_SERVER-BASE"
+        ,"flink-GATEWAY-BASE"
 CSPOPTION        ,"schemaregistry-SCHEMA_REGISTRY_SERVER-BASE"
 CSPOPTION        ,"streams_messaging_manager-STREAMS_MESSAGING_MANAGER_SERVER-BASE"
 CSPOPTION        ,"streams_messaging_manager-STREAMS_MESSAGING_MANAGER_UI-BASE"
@@ -131,6 +133,10 @@ CDSWOPTION    }
       "version": "CFM_VERSION"
     },
     {
+      "product": "FLINK",
+      "version": "FLINK_BUILD"
+    },
+    {
       "product": "CDH",
       "version": "CDH_BUILD"
     }
@@ -147,7 +153,8 @@ CSPOPTION    }
     "CDH_PARCEL_REPO",
     "CFM_PARCEL_REPO",
     "ANACONDA_PARCEL_REPO",
-    "CDSW_PARCEL_REPO"
+    "CDSW_PARCEL_REPO",
+    "CSA_PARCEL_REPO"
     CSPREPO
     CDSWREPO
   ],
@@ -512,6 +519,24 @@ CDH7OPTION        },
         }
       ],
       "serviceType": "NIFI"
+    },
+    {
+      "refName": "flink",
+      "serviceType": "FLINK",
+      "serviceConfigs": [
+      ],
+      "roleConfigGroups": [
+        {
+          "refName": "flink-GATEWAY-BASE",
+          "roleType": "GATEWAY",
+          "base": true
+        },
+        {
+          "refName": "flink-FLINK_HISTORY_SERVER-BASE",
+          "roleType": "FLINK_HISTORY_SERVER",
+          "base": true
+        }
+      ]
     }
 CDSWOPTION    ,{
 CDSWOPTION      "refName": "cdsw",

@@ -54,6 +54,11 @@ function yum_install() {
   done
 }
 
+function get_homedir() {
+  local username=$1
+  getent passwd $username | cut -d: -f6
+}
+
 #########  Start Packer Installation
 
 echo "-- Testing if this is a pre-packed image by looking for existing Cloudera Manager repo"
@@ -88,6 +93,12 @@ EOF
   pip install --quiet --upgrade pip
   pip install --progress-bar off cm_client paho-mqtt
   systemctl disable mariadb
+
+  echo "-- Install Maven"
+  curl http://mirrors.sonic.net/apache/maven/maven-3/3.6.2/binaries/apache-maven-3.6.2-bin.tar.gz > /tmp/apache-maven-3.6.2-bin.tar.gz
+  tar -C $(get_homedir $SSH_USER) -zxvf /tmp/apache-maven-3.6.2-bin.tar.gz
+  rm -f /tmp/apache-maven-3.6.2-bin.tar.gz
+  echo "export PATH=\$PATH:$(get_homedir $SSH_USER)/apache-maven-3.6.2/bin" >> $(get_homedir $SSH_USER)/.bash_profile
 
   echo "-- Get and extract CEM tarball to /opt/cloudera/cem"
   mkdir -p /opt/cloudera/cem
@@ -229,11 +240,11 @@ fi
 ##### Start install
 
 # Prewarm parcel directory
-for parcel_file in /opt/cloudera/parcel-repo/*; do
+for parcel_file in $(find /opt/cloudera/parcel-repo -type f); do
   dd if=$parcel_file of=/dev/null bs=10M &
 done
 
-PUBLIC_IP=$(curl https://api.ipify.org/ 2>/dev/null)
+PUBLIC_IP=$(curl https://api.ipify.org/ 2>/dev/null || curl https://ifconfig.me 2> /dev/null)
 PUBLIC_DNS=$(dig -x ${PUBLIC_IP} +short)
 
 echo "-- Set /etc/hosts"
@@ -382,6 +393,8 @@ s#CFM_VERSION#$CFM_VERSION#g;\
 s#CM_VERSION#$CM_VERSION#g;\
 s#SCHEMAREGISTRY_BUILD#$SCHEMAREGISTRY_BUILD#g;\
 s#STREAMS_MESSAGING_MANAGER_BUILD#$STREAMS_MESSAGING_MANAGER_BUILD#g;\
+s#CSA_PARCEL_REPO#$CSA_PARCEL_REPO#g;\
+s#FLINK_BUILD#$FLINK_BUILD#g;\
 " $TEMPLATE
 
 echo "-- Check for additional parcels"
@@ -463,6 +476,21 @@ systemctl start minifi
 echo "-- Create Kafka topic (iot)"
 kafka-topics --zookeeper edge2ai-1.dim.local:2181/kafka --create --topic iot --partitions 10 --replication-factor 1
 kafka-topics --zookeeper edge2ai-1.dim.local:2181/kafka --describe --topic iot
+
+if [[ -n "$FLINK_BUILD" && "$CDH_MAJOR_VERSION" == "6" ]]; then # TODO: Change this when Flink is available for CDP-DC
+  echo "-- Flink: extra workaround due to CSA-116"
+  sudo -u hdfs hdfs dfs -chown flink:flink /user/flink
+  sudo -u hdfs hdfs dfs -mkdir /user/${SSH_USER}
+  sudo -u hdfs hdfs dfs -chown ${SSH_USER}:${SSH_USER} /user/${SSH_USER}
+
+  echo "-- Runs a quick Flink WordCount to ensure everything is ok"
+  echo "foo bar" > echo.txt
+  export HADOOP_USER_NAME=flink
+  hdfs dfs -put echo.txt
+  flink run -sae -m yarn-cluster -p 2 /opt/cloudera/parcels/FLINK/lib/flink/examples/streaming/WordCount.jar --input hdfs:///user/$HADOOP_USER_NAME/echo.txt --output hdfs:///user/$HADOOP_USER_NAME/output
+  hdfs dfs -cat hdfs:///user/$HADOOP_USER_NAME/output/*
+  unset HADOOP_USER_NAME
+fi
 
 echo "-- At this point you can login into Cloudera Manager host on port 7180 and follow the deployment of the cluster"
 
