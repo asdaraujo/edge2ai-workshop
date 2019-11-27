@@ -171,8 +171,12 @@ def create_admin():
     admin = User.query.filter_by(is_admin=True).first()
     if admin:
         return jsonify({'reason': 'An admin account already exists.'}), 400
-    user = User(email=request.json['email'], full_name=request.json['full_name'],
-                company=request.json['company'], is_admin=True)
+    user = User.query.filter_by(email=request.json['email']).first()
+    if user:
+        user.is_admin = True
+    else:
+        user = User(email=request.json['email'], full_name=request.json['full_name'],
+                    company=request.json['company'], is_admin=True)
     user.set_password(request.json['password'])
     db.session.add(user)
     db.session.commit()
