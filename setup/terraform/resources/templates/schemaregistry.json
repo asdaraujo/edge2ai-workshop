@@ -1,0 +1,44 @@
+{
+  "hostTemplates": [
+    {
+      "refName": "HostTemplate-0-from-$CLUSTER_HOST",
+      "roleConfigGroupsRefNames": [
+         "schemaregistry-SCHEMA_REGISTRY_SERVER-BASE"
+      ]
+    }
+  ],
+  "products": [
+    {
+      "product": "SCHEMAREGISTRY",
+      "version": "$SCHEMAREGISTRY_BUILD"
+    }
+  ],
+  "repositories": [
+    "$CSP_PARCEL_REPO"
+  ],
+  "services": [
+    {
+      "refName": "schemaregistry",
+      "serviceType": "SCHEMAREGISTRY",
+      "roleConfigGroups": [
+        {
+          "refName": "schemaregistry-SCHEMA_REGISTRY_SERVER-BASE",
+          "roleType": "SCHEMA_REGISTRY_SERVER",
+          "base": true,
+          "configs": [
+            {
+              "name": "schema.registry.storage.connector.password",
+              "value": "supersecret1"
+            }
+          ]
+        }
+      ],
+      "serviceConfigs": [
+        {
+          "name": "zookeeper_service",
+          "ref": "zookeeper"
+        }
+      ]
+    }
+  ]
+}

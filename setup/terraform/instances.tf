@@ -66,7 +66,7 @@ resource "aws_instance" "cluster" {
       "sudo cp /tmp/smm/* /opt/dataloader/",
       "sudo chmod 755 /opt/dataloader/*.sh",
       "chmod +x /tmp/resources/*sh",
-      "sudo bash -x /tmp/resources/setup.sh aws /tmp/resources/cluster_template.json \"\" noprompt \"${var.ssh_username}\" \"${var.ssh_password}\" \"${var.namespace}\"",
+      "sudo bash -x /tmp/resources/setup.sh aws \"${var.ssh_username}\" \"${var.ssh_password}\" \"${var.namespace}\"",
     ]
 
     connection {

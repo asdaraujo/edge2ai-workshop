@@ -1,0 +1,96 @@
+{
+  "hostTemplates": [
+    {
+      "refName": "HostTemplate-0-from-$CLUSTER_HOST",
+      "roleConfigGroupsRefNames": [
+         "nifi-NIFI_NODE-BASE"
+        ,"nifiregistry-NIFI_REGISTRY_SERVER-BASE"
+        ,"nifitoolkitca-NIFI_TOOLKIT_SERVER-BASE"
+      ]
+    }
+  ],
+  "products": [
+    {
+      "product": "CFM",
+      "version": "$CFM_VERSION"
+    }
+  ],
+  "repositories": [
+    "$CFM_PARCEL_REPO"
+  ],
+  "services": [
+    {
+      "refName": "nifitoolkitca",
+      "serviceType": "NIFITOOLKITCA",
+      "roleConfigGroups": [
+        {
+          "refName": "nifitoolkitca-NIFI_TOOLKIT_SERVER-BASE",
+          "roleType": "NIFI_TOOLKIT_SERVER",
+          "base": true
+        }
+      ],
+      "serviceConfigs": [
+        {
+          "name": "nifi.toolkit.tls.ca.server.token",
+          "value": "ClouderaNiFi_123"
+        }
+      ]
+    },
+    {
+      "refName": "nifiregistry",
+      "serviceType": "NIFIREGISTRY",
+      "roleConfigGroups": [
+        {
+          "refName": "nifiregistry-NIFI_REGISTRY_SERVER-BASE",
+          "roleType": "NIFI_REGISTRY_SERVER",
+          "base": true
+        }
+      ],
+      "serviceConfigs": [
+        {
+          "name": "nifitoolkitca_service",
+          "ref": "nifitoolkitca"
+        }
+      ]
+    },
+    {
+      "refName": "nifi",
+      "serviceType": "NIFI",
+      "roleConfigGroups": [
+        {
+          "refName": "nifi-NIFI_NODE-BASE",
+          "roleType": "NIFI_NODE",
+          "base": true,
+          "configs": [
+            {
+              "name": "nifi.remote.input.secure",
+              "value": "false"
+            },
+            {
+              "name": "nifi.remote.input.socket.port",
+              "value": "50999"
+            },
+            {
+              "name": "nifi.remote.input.host",
+              "value": "$CLUSTER_HOST"
+            },
+            {
+              "name": "nifi.cluster.flow.election.max.wait.time",
+              "value": "10 secs"
+            }
+          ]
+        }
+      ],
+      "serviceConfigs": [
+        {
+          "name": "zookeeper_service",
+          "ref": "zookeeper"
+        },
+        {
+          "name": "nifitoolkitca_service",
+          "ref": "nifitoolkitca"
+        }
+      ]
+    }
+  ]
+}

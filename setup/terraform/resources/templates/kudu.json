@@ -1,0 +1,49 @@
+{
+  "hostTemplates": [
+    {
+      "refName": "HostTemplate-0-from-$CLUSTER_HOST",
+      "roleConfigGroupsRefNames": [
+         "kudu-KUDU_MASTER-BASE"
+        ,"kudu-KUDU_TSERVER-BASE"
+      ]
+    }
+  ],
+  "services": [
+    {
+      "refName": "kudu",
+      "serviceType": "KUDU",
+      "roleConfigGroups": [
+        {
+          "refName": "kudu-KUDU_MASTER-BASE",
+          "roleType": "KUDU_MASTER",
+          "base": true,
+          "configs": [
+            {
+              "name": "fs_wal_dir",
+              "value": "/kudu/mwal"
+            },
+            {
+              "name": "fs_data_dirs",
+              "value": "/kudu/mdir"
+            }
+          ]
+        },
+        {
+          "refName": "kudu-KUDU_TSERVER-BASE",
+          "roleType": "KUDU_TSERVER",
+          "base": true,
+          "configs": [
+            {
+              "name": "fs_wal_dir",
+              "value": "/kudu/twal"
+            },
+            {
+              "name": "fs_data_dirs",
+              "value": "/kudu/tdir"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

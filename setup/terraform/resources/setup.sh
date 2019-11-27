@@ -11,53 +11,18 @@ if [ "$USER" != "root" ]; then
 fi
 
 CLOUD_PROVIDER=${1:-aws}
-TEMPLATE=${2:-}
-DOCKERDEVICE=${3:-}
-NOPROMPT=${4:-}
-SSH_USER=${5:-}
-SSH_PWD=${6:-}
-NAMESPACE=${7:-}
+SSH_USER=${2:-}
+SSH_PWD=${3:-}
+NAMESPACE=${4:-}
+DOCKER_DEVICE=${5:-}
+
 export NAMESPACE
 
-BASE_DIR=$(cd $(dirname $0); pwd -P)
+BASE_DIR=$(cd $(dirname $0); pwd -L)
+source $BASE_DIR/common.sh
 KEY_FILE=${BASE_DIR}/myRSAkey
 
-if [ -e $BASE_DIR/stack.$NAMESPACE.sh ]; then
-  source $BASE_DIR/stack.${NAMESPACE}.sh
-else
-  source $BASE_DIR/stack.sh
-fi
-
-TEMPLATE=${TEMPLATE}.${CDH_MAJOR_VERSION}
-
-# Often yum connection to Cloudera repo fails and causes the instance create to fail.
-# yum timeout and retries options don't see to help in this type of failure.
-# We explicitly retry a few times to make sure the build continues when these timeouts happen.
-function yum_install() {
-  local packages=$@
-  local retries=10
-  while true; do
-    set +e
-    yum install -d1 -y ${packages}
-    RET=$?
-    set -e
-    if [[ ${RET} == 0 ]]; then
-      break
-    fi
-    retries=$((retries - 1))
-    if [[ ${retries} -lt 0 ]]; then
-      echo 'YUM install failed!'
-      exit 1
-    else
-      echo 'Retrying YUM...'
-    fi
-  done
-}
-
-function get_homedir() {
-  local username=$1
-  getent passwd $username | cut -d: -f6
-}
+load_stack $NAMESPACE
 
 #########  Start Packer Installation
 
@@ -214,6 +179,13 @@ EOF
   for url in "${CSD_URLS[@]}"; do
     echo "---- Downloading $url"
     wget --progress=dot:giga ${url} -P /opt/cloudera/csd/
+    # Patch CDSW CSD so that we can use it on CDP
+    if [ "$url" == "$CDSW_CSD_URL" -a "$CM_MAJOR_VERSION" == "7" ]; then
+      jar xvf /opt/cloudera/csd/CLOUDERA_DATA_SCIENCE_WORKBENCH-*.jar descriptor/service.sdl
+      sed -i 's/"max" *: *"6"/"max" : "7"/g' descriptor/service.sdl
+      jar uvf /opt/cloudera/csd/CLOUDERA_DATA_SCIENCE_WORKBENCH-*.jar descriptor/service.sdl
+      rm -rf descriptor
+    fi
   done
 
   echo "-- Enable password authentication"
@@ -299,17 +271,17 @@ cat key.pem cert.pem > /var/lib/shellinabox/certificate.pem
 systemctl enable shellinaboxd
 systemctl start shellinaboxd
 
-if [[ -n "${CDSW_VERSION}" ]]; then
-    echo "CDSW_VERSION is set to '${CDSW_VERSION}'"
+if [[ -n "${CDSW_BUILD}" ]]; then
+    echo "CDSW_BUILD is set to '${CDSW_BUILD}'"
     # CDSW requires Centos 7.5, so we trick it to believe it is...
     echo "CentOS Linux release 7.5.1810 (Core)" > /etc/redhat-release
     # If user doesn't specify a device, tries to detect a free one to use
     # Device must be unmounted and have at least 200G of space
-    if [[ "${DOCKERDEVICE}" == "" ]]; then
+    if [[ "${DOCKER_DEVICE}" == "" ]]; then
       echo "Docker device was not specified in the command line. Will try to detect a free device to use"
       TMP_FILE=${BASE_DIR}/.device.list
       # Find devices that are not mounted and have size greater than or equal to 200G
-      lsblk -o NAME,MOUNTPOINT,SIZE -s -p -n | awk '/^\// && NF == 2 && $TEMPLATE ~ /([2-9]|[0-9][0-9])[0-9][0-9]G/' > "${TMP_FILE}"
+      lsblk -o NAME,MOUNTPOINT,SIZE -s -p -n | awk '/^\// && NF == 2 && $NF ~ /([2-9]|[0-9][0-9])[0-9][0-9]G/' > "${TMP_FILE}"
       if [[ $(cat $TMP_FILE | wc -l) == 0 ]]; then
         echo "ERROR: Could not find any candidate devices."
         exit 1
@@ -318,13 +290,13 @@ if [[ -n "${CDSW_VERSION}" ]]; then
         cat ${TMP_FILE}
         exit 1
       else
-        DOCKERDEVICE=$(awk '{print $1}' ${TMP_FILE})
+        DOCKER_DEVICE=$(awk '{print $1}' ${TMP_FILE})
       fi
       rm -f ${TMP_FILE}
     fi
-    echo "Docker device: ${DOCKERDEVICE}"
+    echo "Docker device: ${DOCKER_DEVICE}"
 else
-    echo "CDSW_VERSION is unset, skipping CDSW installation";
+    echo "CDSW_BUILD is unset, skipping CDSW installation";
 fi
 
 echo "--Configure and start MariaDB"
@@ -340,7 +312,7 @@ echo "-- Secure MariaDB"
 mysql -u root < ${BASE_DIR}/secure_mariadb.sql
 
 echo "-- Prepare CM database 'scm'"
-/opt/cloudera/cm/schema/scm_prepare_database.sh mysql scm scm cloudera
+/opt/cloudera/cm/schema/scm_prepare_database.sh mysql scm scm supersecret1
 
 echo "-- Install additional CSDs"
 for csd in $(find $BASE_DIR/csds -name "*.jar"); do
@@ -375,58 +347,8 @@ ssh-keyscan -H $(hostname) >> ~/.ssh/known_hosts
 sed -i 's/.*PermitRootLogin.*/PermitRootLogin without-password/' /etc/ssh/sshd_config
 systemctl restart sshd
 
-echo "-- Automate cluster creation using the CM API"
-sed -i "\
-s/YourHostname/$(hostname -f)/g;\
-s/YourCDSWDomain/cdsw.${PUBLIC_IP}.nip.io/g;\
-s/YourPrivateIP/$(hostname -I | tr -d '[:space:]')/g;\
-s/YourPublicDns/$PUBLIC_DNS/g;\
-s#YourDockerDevice#$DOCKERDEVICE#g;\
-s#ANACONDA_PARCEL_REPO#$ANACONDA_PARCEL_REPO#g;\
-s#ANACONDA_VERSION#$ANACONDA_VERSION#g;\
-s#CDH_PARCEL_REPO#$CDH_PARCEL_REPO#g;\
-s#CDH_BUILD#$CDH_BUILD#g;\
-s#CDH_VERSION#$CDH_VERSION#g;\
-s#CDSW_PARCEL_REPO#$CDSW_PARCEL_REPO#g;\
-s#CDSW_BUILD#$CDSW_BUILD#g;\
-s#CFM_PARCEL_REPO#$CFM_PARCEL_REPO#g;\
-s#CFM_VERSION#$CFM_VERSION#g;\
-s#CM_VERSION#$CM_VERSION#g;\
-s#SCHEMAREGISTRY_BUILD#$SCHEMAREGISTRY_BUILD#g;\
-s#STREAMS_MESSAGING_MANAGER_BUILD#$STREAMS_MESSAGING_MANAGER_BUILD#g;\
-s#CSA_PARCEL_REPO#$CSA_PARCEL_REPO#g;\
-s#FLINK_BUILD#$FLINK_BUILD#g;\
-" $TEMPLATE
-
 echo "-- Check for additional parcels"
 chmod +x ${BASE_DIR}/check-for-parcels.sh
-ALL_PARCELS=$(${BASE_DIR}/check-for-parcels.sh ${NOPROMPT})
-
-if [[ "$ALL_PARCELS" == "OK" ]]; then
-  sed -i "s/^CSPOPTION//" $TEMPLATE
-else
-  sed -i "/^CSPOPTION/ d" $TEMPLATE
-fi
-
-if [[ "$CSP_PARCEL_REPO" == "" ]]; then
-  sed -i "/CSPREPO/ d" $TEMPLATE
-else
-  sed -i "s#CSPREPO#,"\""$CSP_PARCEL_REPO"\""#" $TEMPLATE
-fi
-
-if [[ "$CDH_MAJOR_VERSION" == "7" ]]; then
-  sed -i "/^CDH7OPTION/ d" $TEMPLATE
-else
-  sed -i "s/^CDH7OPTION//" $TEMPLATE
-fi
-
-if [[ -n "$CDSW_BUILD" && "$CDH_MAJOR_VERSION" == "6" ]]; then # TODO: Change this when CDSW is available for CDP-DC
-  sed -i "s/^CDSWOPTION//" $TEMPLATE
-  sed -i "s#CDSWREPO#,"\""$CDSW_PARCEL_REPO"\""#" $TEMPLATE
-else
-  sed -i "/^CDSWOPTION/ d" $TEMPLATE
-  sed -i "/CDSWREPO/ d" $TEMPLATE
-fi
 
 echo "-- Wait for CM to be ready before proceeding"
 until $(curl --output /dev/null --silent --head --fail -u "admin:admin" http://localhost:7180/api/version); do
@@ -435,13 +357,22 @@ until $(curl --output /dev/null --silent --head --fail -u "admin:admin" http://l
 done
 echo "-- CM has finished starting"
 
+echo "-- Generate cluster template"
+TEMPLATE_FILE=$BASE_DIR/cluster_template.${NAMESPACE}.json
+export CDSW_DOMAIN=cdsw.${PUBLIC_IP}.nip.io
+export CLUSTER_HOST=$(hostname -f)
+export PRIVATE_IP=$(hostname -I | tr -d '[:space:]')
+export DOCKER_DEVICE PUBLIC_DNS
+python $BASE_DIR/cm_template.py --cdh-major-version $CDH_MAJOR_VERSION $CM_SERVICES > $TEMPLATE_FILE
+
+echo "-- Create cluster"
 CM_REPO_URL=$(grep baseurl $CM_REPO_FILE | sed 's/.*=//;s/ //g')
-python $BASE_DIR/create_cluster.py $(hostname -f) $TEMPLATE $KEY_FILE $CM_REPO_URL
+python $BASE_DIR/create_cluster.py $(hostname -f) $TEMPLATE_FILE $KEY_FILE $CM_REPO_URL
 
 echo "-- Configure and start EFM"
 retries=0
 while true; do
-  mysql -u efm -pcloudera < <( echo -e "drop database efm;\ncreate database efm;" )
+  mysql -u efm -psupersecret1 < <( echo -e "drop database efm;\ncreate database efm;" )
   nohup service efm start &
   sleep 10
   set +e
@@ -474,11 +405,13 @@ systemctl start minifi
 
 # TODO: Implement Ranger DB and Setup in template
 # TODO: Fix kafka topic creation once Ranger security is setup
-echo "-- Create Kafka topic (iot)"
-kafka-topics --zookeeper edge2ai-1.dim.local:2181/kafka --create --topic iot --partitions 10 --replication-factor 1
-kafka-topics --zookeeper edge2ai-1.dim.local:2181/kafka --describe --topic iot
+if [[ ",${CM_SERVICES}," == *",KAFKA,"* ]]; then
+  echo "-- Create Kafka topic (iot)"
+  kafka-topics --zookeeper edge2ai-1.dim.local:2181/kafka --create --topic iot --partitions 10 --replication-factor 1
+  kafka-topics --zookeeper edge2ai-1.dim.local:2181/kafka --describe --topic iot
+fi
 
-if [[ -n "$FLINK_BUILD" && "$CDH_MAJOR_VERSION" == "6" ]]; then # TODO: Change this when Flink is available for CDP-DC
+if [[ ",${CM_SERVICES}," == *",FLINK,"* ]]; then
   echo "-- Flink: extra workaround due to CSA-116"
   sudo -u hdfs hdfs dfs -chown flink:flink /user/flink
   sudo -u hdfs hdfs dfs -mkdir /user/${SSH_USER}

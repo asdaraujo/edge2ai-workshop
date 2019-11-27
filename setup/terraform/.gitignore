@@ -20,6 +20,7 @@
 app.db
 namespaces/
 rules.tf
+stack.sh
 stack.*.sh
 terraform.tfstate
 terraform.tfstate.backup

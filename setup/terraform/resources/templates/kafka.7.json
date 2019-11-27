@@ -1,0 +1,57 @@
+{
+  "hostTemplates": [
+    {
+      "refName": "HostTemplate-0-from-$CLUSTER_HOST",
+      "roleConfigGroupsRefNames": [
+         "kafka-GATEWAY-BASE"
+        ,"kafka-KAFKA_BROKER-BASE"
+      ]
+    }
+  ],
+  "services": [
+    {
+      "refName": "kafka",
+      "serviceType": "KAFKA",
+      "roleConfigGroups": [
+        {
+          "refName": "kafka-GATEWAY-BASE",
+          "roleType": "GATEWAY",
+          "base": true
+        },
+        {
+          "refName": "kafka-KAFKA_BROKER-BASE",
+          "roleType": "KAFKA_BROKER",
+          "base": true,
+          "configs": [
+            {
+              "name": "broker_max_heap_size",
+              "value": "512"
+            }
+          ]
+        }
+      ],
+      "serviceConfigs": [
+        {
+          "name" : "zookeeper.chroot",
+          "value" : "/kafka"
+        },
+        {
+          "name": "offsets.topic.replication.factor",
+          "value": "1"
+        },
+        {
+          "name": "producer.metrics.enable",
+          "value": "true"
+        },
+        {
+          "name" : "transaction.state.log.min.isr",
+          "value" : "1"
+        },
+        {
+          "name" : "transaction.state.log.replication.factor",
+          "value" : "1"
+        }
+      ]
+    }
+  ]
+}

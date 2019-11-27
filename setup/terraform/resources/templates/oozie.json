@@ -1,0 +1,41 @@
+{
+  "hostTemplates": [
+    {
+      "refName": "HostTemplate-0-from-$CLUSTER_HOST",
+      "roleConfigGroupsRefNames": [
+         "oozie-OOZIE_SERVER-BASE"
+      ]
+    }
+  ],
+  "services": [
+    {
+      "refName": "oozie",
+      "serviceType": "OOZIE",
+      "roleConfigGroups": [
+        {
+          "refName": "oozie-OOZIE_SERVER-BASE",
+          "roleType": "OOZIE_SERVER",
+          "base": true,
+          "configs": [
+            {
+              "name": "oozie_database_user",
+              "value": "oozie"
+            },
+            {
+              "name": "oozie_database_host",
+              "value": "$CLUSTER_HOST"
+            },
+            {
+              "name": "oozie_database_type",
+              "value": "mysql"
+            },
+            {
+              "name": "oozie_database_password",
+              "value": "supersecret1"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

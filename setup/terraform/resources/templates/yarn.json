@@ -1,0 +1,47 @@
+{
+  "hostTemplates": [
+    {
+      "refName": "HostTemplate-0-from-$CLUSTER_HOST",
+      "roleConfigGroupsRefNames": [
+         "yarn-JOBHISTORY-BASE"
+        ,"yarn-NODEMANAGER-BASE"
+        ,"yarn-RESOURCEMANAGER-BASE"
+      ]
+    }
+  ],
+  "services": [
+    {
+      "refName": "yarn",
+      "serviceType": "YARN",
+      "roleConfigGroups": [
+        {
+          "refName": "yarn-RESOURCEMANAGER-BASE",
+          "roleType": "RESOURCEMANAGER",
+          "base": true,
+          "configs": [
+            {
+              "name": "yarn_scheduler_maximum_allocation_mb",
+              "value": "6144"
+            }
+          ]
+        },
+        {
+          "refName": "yarn-NODEMANAGER-BASE",
+          "roleType": "NODEMANAGER",
+          "base": true,
+          "configs": [
+            {
+              "name": "yarn_nodemanager_resource_memory_mb",
+              "value": "6144"
+            }
+          ]
+        },
+        {
+          "refName": "yarn-JOBHISTORY-BASE",
+          "roleType": "JOBHISTORY",
+          "base": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "hostTemplates": [
+    {
+      "refName": "HostTemplate-0-from-$CLUSTER_HOST",
+      "roleConfigGroupsRefNames": [
+         "cdsw-CDSW_APPLICATION-BASE"
+        ,"cdsw-CDSW_DOCKER-BASE"
+        ,"cdsw-CDSW_MASTER-BASE"
+      ]
+    }
+  ],
+  "products": [
+    {
+      "product": "Anaconda",
+      "version": "$ANACONDA_VERSION"
+    },
+    {
+      "product": "CDSW",
+      "version": "$CDSW_BUILD"
+    }
+  ],
+  "repositories": [
+    "$ANACONDA_PARCEL_REPO",
+    "$CDSW_PARCEL_REPO"
+  ],
+  "services": [
+    {
+      "refName": "cdsw",
+      "serviceType": "CDSW",
+      "roleConfigGroups": [
+        {
+          "refName": "cdsw-CDSW_APPLICATION-BASE",
+          "roleType": "CDSW_APPLICATION",
+          "base": true
+        },
+        {
+          "refName": "cdsw-CDSW_MASTER-BASE",
+          "roleType": "CDSW_MASTER",
+          "base": true
+        },
+        {
+          "refName": "cdsw-CDSW_DOCKER-BASE",
+          "roleType": "CDSW_DOCKER",
+          "base": true,
+          "configs": [
+            {
+              "name": "cdsw.docker.devices.config",
+              "value": "$DOCKER_DEVICE"
+            }
+          ]
+        }
+      ],
+      "serviceConfigs": [
+        {
+          "name": "yarn_service",
+          "ref": "yarn"
+        },
+        {
+          "name": "hdfs_service",
+          "ref": "hdfs"
+        },
+        {
+          "name": "hive_service",
+          "ref": "hive"
+        },
+        {
+          "name": "spark_on_yarn_service",
+          "ref": "spark_on_yarn"
+        },
+        {
+          "name": "cdsw.domain.config",
+          "value": "$CDSW_DOMAIN"
+        },
+        {
+          "name": "cdsw.master.ip.config",
+          "value": "$PRIVATE_IP"
+        }
+      ]
+    }
+  ]
+}
+

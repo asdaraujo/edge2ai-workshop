@@ -1,0 +1,35 @@
+{
+  "hostTemplates": [
+    {
+      "refName": "HostTemplate-0-from-$CLUSTER_HOST",
+      "roleConfigGroupsRefNames": [
+         "impala-CATALOGSERVER-BASE"
+        ,"impala-IMPALAD-BASE"
+        ,"impala-STATESTORE-BASE"
+      ]
+    }
+  ],
+  "services": [
+    {
+      "refName": "impala",
+      "serviceType": "IMPALA",
+      "roleConfigGroups": [
+        {
+          "refName": "impala-IMPALAD-BASE",
+          "roleType": "IMPALAD",
+          "base": true
+        },
+        {
+          "refName": "impala-STATESTORE-BASE",
+          "roleType": "STATESTORE",
+          "base": true
+        },
+        {
+          "refName": "impala-CATALOGSERVER-BASE",
+          "roleType": "CATALOGSERVER",
+          "base": true
+        }
+      ]
+    }
+  ]
+}

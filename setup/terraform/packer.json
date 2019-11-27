@@ -48,7 +48,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo PACKER_BUILD=1 bash -x /tmp/packer_resources/setup.sh aws /tmp/packer_resources/cluster_template.json \"\" noprompt \"{{user `ssh_username`}}\" \"{{user `ssh_password`}}\" \"{{user `namespace`}}\""
+        "sudo PACKER_BUILD=1 bash -x /tmp/packer_resources/setup.sh aws \"{{user `ssh_username`}}\" \"{{user `ssh_password`}}\" \"{{user `namespace`}}\""
       ]
     }
   ]

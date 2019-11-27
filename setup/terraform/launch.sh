@@ -21,10 +21,17 @@ done
 
 mkdir -p $NAMESPACE_DIR
 
-# Check for parcels
+# Perform a quick configuration sanity check before calling Terraform
+source $BASE_DIR/resources/common.sh
+load_stack $NAMESPACE $BASE_DIR/resources
+log "Validate services selection: $CM_SERVICES"
+python $BASE_DIR/resources/cm_template.py --cdh-major-version $CDH_MAJOR_VERSION $CM_SERVICES --validate-only
+
+log "Check for parcels"
 chmod +x $BASE_DIR/resources/check-for-parcels.sh
 $BASE_DIR/resources/check-for-parcels.sh
 
+log "Ensure key pair exists"
 ensure_key_pairs
 
 log "Launching Terraform"

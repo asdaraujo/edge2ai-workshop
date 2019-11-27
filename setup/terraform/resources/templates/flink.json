@@ -1,0 +1,40 @@
+{
+  "hostTemplates": [
+    {
+      "refName": "HostTemplate-0-from-$CLUSTER_HOST",
+      "roleConfigGroupsRefNames": [
+         "flink-FLINK_HISTORY_SERVER-BASE"
+        ,"flink-GATEWAY-BASE"
+      ]
+    }
+  ],
+  "products": [
+    {
+      "product": "FLINK",
+      "version": "$FLINK_BUILD"
+    }
+  ],
+  "repositories": [
+    "$CSA_PARCEL_REPO"
+  ],
+  "services": [
+    {
+      "refName": "flink",
+      "serviceType": "FLINK",
+      "serviceConfigs": [
+      ],
+      "roleConfigGroups": [
+        {
+          "refName": "flink-GATEWAY-BASE",
+          "roleType": "GATEWAY",
+          "base": true
+        },
+        {
+          "refName": "flink-FLINK_HISTORY_SERVER-BASE",
+          "roleType": "FLINK_HISTORY_SERVER",
+          "base": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "hostTemplates": [
+    {
+      "refName": "HostTemplate-0-from-$CLUSTER_HOST",
+      "roleConfigGroupsRefNames": [
+         "zookeeper-SERVER-BASE"
+      ]
+    }
+  ],
+  "services": [
+    {
+      "serviceType": "ZOOKEEPER",
+      "refName": "zookeeper",
+      "roleConfigGroups": [
+        {
+          "refName": "zookeeper-SERVER-BASE",
+          "roleType": "SERVER",
+          "base": true
+        }
+      ]
+    }
+  ]
+}
