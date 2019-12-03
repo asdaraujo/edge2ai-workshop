@@ -23,11 +23,11 @@
             },
             {
               "name": "oozie_database_host",
-              "value": "$CLUSTER_HOST"
+              "value": "$CLUSTER_HOST:5432"
             },
             {
               "name": "oozie_database_type",
-              "value": "mysql"
+              "value": "postgresql"
             },
             {
               "name": "oozie_database_password",

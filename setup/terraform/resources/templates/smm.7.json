@@ -28,6 +28,9 @@
           "base": true,
           "configs": [
             {
+              "name" : "SMM_HEAP_SIZE",
+              "value" : "2048"
+            }, {
               "name" : "consumer.group.refresh.interval.ms",
               "value" : "1000"
             }, {
@@ -41,7 +44,7 @@
               "value" : "http://$PUBLIC_DNS:7788/api/v1"
             }, {
               "name" : "streams.messaging.manager.storage.connector.connectURI",
-              "value" : "jdbc:mysql://localhost:3306/streamsmsgmgr"
+              "value" : "jdbc:postgresql://localhost:5432/streamsmsgmgr"
             }, {
               "name" : "streams.messaging.manager.storage.connector.password",
               "value" : "supersecret1"

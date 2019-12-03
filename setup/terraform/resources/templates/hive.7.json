@@ -1,0 +1,77 @@
+{
+  "hostTemplates": [
+    {
+      "refName": "HostTemplate-0-from-$CLUSTER_HOST",
+      "roleConfigGroupsRefNames": [
+        "hive-GATEWAY-BASE",
+        "hive-HIVEMETASTORE-BASE",
+        "hive_on_tez-GATEWAY-BASE",
+        "hive_on_tez-HIVESERVER2-BASE",
+        "tez-GATEWAY-BASE"
+      ]
+    }
+  ],
+  "services": [
+    {
+      "refName": "tez",
+      "serviceType": "TEZ",
+      "roleConfigGroups": [
+        {
+          "refName": "tez-GATEWAY-BASE",
+          "roleType": "GATEWAY",
+          "base": true
+        }
+      ]
+    },
+    {
+      "refName": "hive",
+      "serviceType": "HIVE",
+      "serviceConfigs": [
+        {
+          "name": "hive_metastore_database_password",
+          "value": "supersecret1"
+        },
+        {
+          "name" : "hive_metastore_database_type",
+          "value" : "postgresql"
+        },
+        {
+          "name" : "hive_metastore_database_port",
+          "value" : "5432"
+        },
+        {
+          "name": "hive_metastore_database_host",
+          "value": "$CLUSTER_HOST"
+        }
+      ],
+      "roleConfigGroups": [
+        {
+          "refName": "hive-GATEWAY-BASE",
+          "roleType": "GATEWAY",
+          "base": true
+        },
+        {
+          "refName": "hive-HIVEMETASTORE-BASE",
+          "roleType": "HIVEMETASTORE",
+          "base": true
+        }
+      ]
+    },
+    {
+      "refName": "hive_on_tez",
+      "serviceType": "HIVE_ON_TEZ",
+      "roleConfigGroups": [
+        {
+          "refName": "hive_on_tez-GATEWAY-BASE",
+          "roleType": "GATEWAY",
+          "base": true
+        },
+        {
+          "refName": "hive_on_tez-HIVESERVER2-BASE",
+          "roleType": "HIVESERVER2",
+          "base": true
+        }
+      ]
+    }
+  ]
+}

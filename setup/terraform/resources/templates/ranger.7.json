@@ -48,11 +48,11 @@
           "configs": [
             {
               "name": "ranger_database_type",
-              "value": "MySQL"
+              "value": "PostgreSQL"
             },
             {
               "name": "ranger_database_host",
-              "value": "edge2ai-1.dim.local:3306"
+              "value": "edge2ai-1.dim.local:5432"
             },
             {
               "name": "ranger_database_user",
@@ -61,10 +61,6 @@
             {
               "name": "ranger_database_password",
               "value": "supersecret1"
-            },
-            {
-              "name": "conf/ranger-admin-site.xml_role_safety_valve",
-              "value": "<property><name>ranger.jpa.jdbc.url</name><value>jdbc:mysql://edge2ai-1.dim.local:3306/ranger</value></property><property><name>ranger.jpa.jdbc.driver</name><value>com.mysql.jdbc.Driver</value></property><property><name>ranger.jpa.jdbc.dialect</name><value>org.eclipse.persistence.platform.database.MySQLPlatform</value></property>"
             }
           ],
           "base": true

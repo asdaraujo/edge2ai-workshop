@@ -13,6 +13,24 @@
     {
       "refName": "hive",
       "serviceType": "HIVE",
+      "serviceConfigs": [
+        {
+          "name": "hive_metastore_database_password",
+          "value": "supersecret1"
+        },
+        {
+          "name" : "hive_metastore_database_type",
+          "value" : "postgresql"
+        },
+        {
+          "name" : "hive_metastore_database_port",
+          "value" : "5432"
+        },
+        {
+          "name": "hive_metastore_database_host",
+          "value": "$CLUSTER_HOST"
+        }
+      ],
       "roleConfigGroups": [
         {
           "refName": "hive-GATEWAY-BASE",
@@ -28,16 +46,6 @@
           "refName": "hive-HIVEMETASTORE-BASE",
           "roleType": "HIVEMETASTORE",
           "base": true
-        }
-      ],
-      "serviceConfigs": [
-        {
-          "name": "hive_metastore_database_password",
-          "value": "supersecret1"
-        },
-        {
-          "name": "hive_metastore_database_host",
-          "value": "$CLUSTER_HOST"
         }
       ]
     }

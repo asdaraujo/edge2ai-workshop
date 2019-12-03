@@ -38,27 +38,22 @@ if [[ ! -f $CM_REPO_FILE ]]; then
   wget --progress=dot:giga ${CM_REPO_FILE_URL} -O $CM_REPO_FILE
   sed -i -E "s#https?://[^/]*#${CM_BASE_URL}#g" $CM_REPO_FILE
 
-  echo "-- Install MariaDB yum repo"
-  cat - >/etc/yum.repos.d/MariaDB.repo <<EOF
-  [mariadb]
-name = MariaDB
-baseurl = http://yum.mariadb.org/10.1/centos7-amd64
-gpgkey=https://yum.mariadb.org/RPM-GPG-KEY-MariaDB
-gpgcheck=1
-EOF
+  echo "-- Install PostgreSQL yum repo"
+  rpm -Uvh https://yum.postgresql.org/10/redhat/rhel-7-x86_64/pgdg-centos10-10-2.noarch.rpm
 
   echo "-- Running remaining binary preinstalls"
   yum clean all
   rm -rf /var/cache/yum/
   yum repolist
 
-  yum_install cloudera-manager-daemons cloudera-manager-agent cloudera-manager-server \
-              MariaDB-server MariaDB-client shellinabox mosquitto jq transmission-cli
+  yum_install cloudera-manager-daemons cloudera-manager-agent cloudera-manager-server rng-tools \
+              postgresql10-server postgresql10 postgresql-jdbc shellinabox mosquitto jq transmission-cli
   npm install --quiet forever -g
   yum erase -y python-requests
   pip install --quiet --upgrade pip
   pip install --progress-bar off cm_client paho-mqtt pytest nipyapi
-  systemctl disable mariadb
+  pip install --progress-bar off psycopg2==2.7.5 --ignore-installed
+  systemctl disable postgresql-10
 
   echo "-- Install Maven"
   curl http://mirrors.sonic.net/apache/maven/maven-3/3.6.2/binaries/apache-maven-3.6.2-bin.tar.gz > /tmp/apache-maven-3.6.2-bin.tar.gz
@@ -168,12 +163,8 @@ EOF
   fi
 
   echo "-- Install JDBC connector"
-  wget --progress=dot:giga ${JDBC_CONNECTOR_URL} -P ${BASE_DIR}/
-  TAR_FILE=$(basename ${JDBC_CONNECTOR_URL})
-  BASE_NAME=${TAR_FILE%.tar.gz}
-  tar zxf ${BASE_DIR}/${TAR_FILE} -C ${BASE_DIR}/
-  mkdir -p /usr/share/java/
-  cp ${BASE_DIR}/${BASE_NAME}/${BASE_NAME}-bin.jar /usr/share/java/mysql-connector-java.jar
+  cp /usr/share/java/postgresql-jdbc.jar /usr/share/java/postgresql-connector-java.jar
+  chmod 644 /usr/share/java/postgresql-connector-java.jar
 
   echo "-- Install CSDs"
   for url in "${CSD_URLS[@]}"; do
@@ -212,7 +203,11 @@ fi
 
 ##### Start install
 
-# Prewarm parcel directory
+echo "--Ensure there's plenty of entropy"
+systemctl enable rngd
+systemctl start rngd
+
+echo "-- Prewarm parcel directory"
 for parcel_file in $(find /opt/cloudera/parcel-repo -type f); do
   dd if=$parcel_file of=/dev/null bs=10M &
 done
@@ -299,20 +294,34 @@ else
     echo "CDSW_BUILD is unset, skipping CDSW installation";
 fi
 
-echo "--Configure and start MariaDB"
-echo "-- Configure MariaDB"
-cat ${BASE_DIR}/mariadb.config > /etc/my.cnf
-systemctl enable mariadb
-systemctl start mariadb
+echo "-- Configure PostgreSQL"
+echo 'LC_ALL="en_US.UTF-8"' >> /etc/locale.conf
+/usr/pgsql-10/bin/postgresql-10-setup initdb
+sed -i '/host *all *all *127.0.0.1\/32 *ident/ d' /var/lib/pgsql/10/data/pg_hba.conf
+cat >> /var/lib/pgsql/10/data/pg_hba.conf <<EOF
+host all all 127.0.0.1/32 md5
+host all all $(hostname -I | sed 's/ //g')/32 md5
+host all all 127.0.0.1/32 ident
+host ranger rangeradmin 0.0.0.0/0 md5
+EOF
+sed -i '/^[ #]*\(listen_addresses\|max_connections\|shared_buffers\|wal_buffers\|checkpoint_segments\|checkpoint_completion_target\) *=.*/ d' /var/lib/pgsql/10/data/postgresql.conf
+cat >> /var/lib/pgsql/10/data/postgresql.conf <<EOF
+listen_addresses = '*'
+max_connections = 2000
+shared_buffers = 256MB
+wal_buffers = 8MB
+checkpoint_completion_target = 0.9
+EOF
+
+echo "-- Start PostgreSQL"
+systemctl enable postgresql-10
+systemctl start postgresql-10
 
 echo "-- Create DBs required by CM"
-mysql -u root < ${BASE_DIR}/create_db.sql
-
-echo "-- Secure MariaDB"
-mysql -u root < ${BASE_DIR}/secure_mariadb.sql
+sudo -u postgres psql < ${BASE_DIR}/create_db_pg.sql
 
 echo "-- Prepare CM database 'scm'"
-/opt/cloudera/cm/schema/scm_prepare_database.sh mysql scm scm supersecret1
+/opt/cloudera/cm/schema/scm_prepare_database.sh postgresql scm scm supersecret1
 
 echo "-- Install additional CSDs"
 for csd in $(find $BASE_DIR/csds -name "*.jar"); do
@@ -372,7 +381,7 @@ python $BASE_DIR/create_cluster.py $(hostname -f) $TEMPLATE_FILE $KEY_FILE $CM_R
 echo "-- Configure and start EFM"
 retries=0
 while true; do
-  mysql -u efm -psupersecret1 < <( echo -e "drop database efm;\ncreate database efm;" )
+  sudo -u postgres psql < <( echo -e "drop database efm;\nCREATE DATABASE efm OWNER efm ENCODING 'UTF8';" )
   nohup service efm start &
   sleep 10
   set +e

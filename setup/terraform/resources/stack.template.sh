@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 
+CM_SERVICES=BASE,ZOOKEEPER,HDFS,YARN,HIVE,HUE,IMPALA,KAFKA,KUDU,NIFI,OOZIE,SCHEMAREGISTRY,SPARK_ON_YARN,SMM,CDSW,FLINK,RANGER,SOLR
+
 #####  Java Package
 JAVA_PACKAGE_NAME=java-1.8.0-openjdk-devel
-
-#####  MYSQL
-JDBC_CONNECTOR_URL=https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-5.1.46.tar.gz
 
 #####  CM
 CM_VERSION=6.3.1

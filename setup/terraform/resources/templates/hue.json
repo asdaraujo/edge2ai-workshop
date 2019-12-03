@@ -31,11 +31,15 @@
         },
         {
           "name": "database_type",
-          "value": "mysql"
+          "value": "postgresql"
         },
         {
           "name": "database_host",
           "value": "$CLUSTER_HOST"
+        },
+        {
+          "name" : "database_port",
+          "value" : "5432"
         }
       ]
     }

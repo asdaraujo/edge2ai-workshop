@@ -27,6 +27,10 @@
           "base": true,
           "configs": [
             {
+              "name" : "schema.registry.storage.connector.connectURI",
+              "value" : "jdbc:postgresql://localhost:5432/registry"
+            },
+            {
               "name": "schema.registry.storage.connector.password",
               "value": "supersecret1"
             }
