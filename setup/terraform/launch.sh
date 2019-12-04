@@ -15,9 +15,27 @@ fi
 NAMESPACE=$1
 load_env $NAMESPACE
 
-for sig in {0..31}; do
-  trap 'RET=$?; if [ $RET != 0 ]; then echo -e "\n   SETUP FAILED!!! (signal: '$sig', exit code: $RET)\n"; fi' $sig
-done
+# Check if enddate is close
+WARNING_THRESHOLD_DAYS=2
+DATE_CHECK=$(python -c "
+from datetime import datetime, timedelta
+dt = datetime.now()
+dt = dt.replace(hour=0, minute=0, second=0, microsecond=0)
+print((datetime.strptime('$TF_VAR_enddate', '%m%d%Y') - dt).days)
+")
+
+if [ "$DATE_CHECK" -le "0" ]; then
+  echo 'ERROR: The expiration date for your environment is either set for today or already in the past.'
+  echo '       Please update "TF_VAR_endddate" in .env.'"$NAMESPACE"' and try again.'
+  exit 1
+elif [ "$DATE_CHECK" -le "$WARNING_THRESHOLD_DAYS" ]; then
+  echo -n "WARNING: Your environment will expire in less than $WARNING_THRESHOLD_DAYS days. Do you really want to continue? "
+  read CONFIRM
+  if [ "$CONFIRM" != "Y" -a "$CONFIRM" != "y" ]; then
+    echo 'Please update "TF_VAR_endddate" in .env.'"$NAMESPACE"' and try again.'
+    exit 1
+  fi
+fi
 
 mkdir -p $NAMESPACE_DIR
 
