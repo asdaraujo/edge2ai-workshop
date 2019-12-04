@@ -1,7 +1,7 @@
 {
   "hostTemplates": [
     {
-      "refName": "HostTemplate-0-from-$CLUSTER_HOST",
+      "refName": "HostTemplate-0-from-{{CLUSTER_HOST}}",
       "roleConfigGroupsRefNames": [
          "nifi-NIFI_NODE-BASE"
         ,"nifiregistry-NIFI_REGISTRY_SERVER-BASE"
@@ -12,11 +12,11 @@
   "products": [
     {
       "product": "CFM",
-      "version": "$CFM_VERSION"
+      "version": "{{CFM_VERSION}}"
     }
   ],
   "repositories": [
-    "$CFM_PARCEL_REPO"
+    "{{CFM_PARCEL_REPO}}"
   ],
   "services": [
     {
@@ -72,7 +72,7 @@
             },
             {
               "name": "nifi.remote.input.host",
-              "value": "$CLUSTER_HOST"
+              "value": "{{CLUSTER_HOST}}"
             },
             {
               "name": "nifi.cluster.flow.election.max.wait.time",

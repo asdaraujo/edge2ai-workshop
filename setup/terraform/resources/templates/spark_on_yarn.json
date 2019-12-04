@@ -1,7 +1,7 @@
 {
   "hostTemplates": [
     {
-      "refName": "HostTemplate-0-from-$CLUSTER_HOST",
+      "refName": "HostTemplate-0-from-{{CLUSTER_HOST}}",
       "roleConfigGroupsRefNames": [
          "spark_on_yarn-GATEWAY-BASE"
         ,"spark_on_yarn-SPARK_YARN_HISTORY_SERVER-BASE"

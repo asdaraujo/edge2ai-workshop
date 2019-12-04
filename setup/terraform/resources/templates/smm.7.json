@@ -1,7 +1,7 @@
 {
   "hostTemplates": [
     {
-      "refName": "HostTemplate-0-from-$CLUSTER_HOST",
+      "refName": "HostTemplate-0-from-{{CLUSTER_HOST}}",
       "roleConfigGroupsRefNames": [
          "streams_messaging_manager-STREAMS_MESSAGING_MANAGER_SERVER-BASE"
         ,"streams_messaging_manager-STREAMS_MESSAGING_MANAGER_UI-BASE"
@@ -11,11 +11,11 @@
   "products": [
     {
       "product": "STREAMS_MESSAGING_MANAGER",
-      "version": "$STREAMS_MESSAGING_MANAGER_BUILD"
+      "version": "{{STREAMS_MESSAGING_MANAGER_BUILD}}"
     }
   ],
   "repositories": [
-    "$CSP_PARCEL_REPO"
+    "{{CSP_PARCEL_REPO}}"
   ],
   "services": [
     {
@@ -41,7 +41,7 @@
               "value" : "180000"
             }, {
               "name" : "streams.messaging.manager.schema.registry.url",
-              "value" : "http://$PUBLIC_DNS:7788/api/v1"
+              "value" : "http://{{PUBLIC_DNS}}:7788/api/v1"
             }, {
               "name" : "streams.messaging.manager.storage.connector.connectURI",
               "value" : "jdbc:postgresql://localhost:5432/streamsmsgmgr"
@@ -61,7 +61,7 @@
       "serviceConfigs": [
         {
           "name" : "cm.metrics.host",
-          "value" : "$CLUSTER_HOST"
+          "value" : "{{CLUSTER_HOST}}"
         }, {
           "name" : "cm.metrics.password",
           "value" : "admin"

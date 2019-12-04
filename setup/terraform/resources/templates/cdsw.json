@@ -1,7 +1,7 @@
 {
   "hostTemplates": [
     {
-      "refName": "HostTemplate-0-from-$CLUSTER_HOST",
+      "refName": "HostTemplate-0-from-{{CLUSTER_HOST}}",
       "roleConfigGroupsRefNames": [
          "cdsw-CDSW_APPLICATION-BASE"
         ,"cdsw-CDSW_DOCKER-BASE"
@@ -12,16 +12,16 @@
   "products": [
     {
       "product": "Anaconda",
-      "version": "$ANACONDA_VERSION"
+      "version": "{{ANACONDA_VERSION}}"
     },
     {
       "product": "CDSW",
-      "version": "$CDSW_BUILD"
+      "version": "{{CDSW_BUILD}}"
     }
   ],
   "repositories": [
-    "$ANACONDA_PARCEL_REPO",
-    "$CDSW_PARCEL_REPO"
+    "{{ANACONDA_PARCEL_REPO}}",
+    "{{CDSW_PARCEL_REPO}}"
   ],
   "services": [
     {
@@ -45,7 +45,7 @@
           "configs": [
             {
               "name": "cdsw.docker.devices.config",
-              "value": "$DOCKER_DEVICE"
+              "value": "{{DOCKER_DEVICE}}"
             }
           ]
         }
@@ -69,11 +69,11 @@
         },
         {
           "name": "cdsw.domain.config",
-          "value": "$CDSW_DOMAIN"
+          "value": "{{CDSW_DOMAIN}}"
         },
         {
           "name": "cdsw.master.ip.config",
-          "value": "$PRIVATE_IP"
+          "value": "{{PRIVATE_IP}}"
         }
       ]
     }

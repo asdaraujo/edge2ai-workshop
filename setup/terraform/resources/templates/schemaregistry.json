@@ -1,7 +1,7 @@
 {
   "hostTemplates": [
     {
-      "refName": "HostTemplate-0-from-$CLUSTER_HOST",
+      "refName": "HostTemplate-0-from-{{CLUSTER_HOST}}",
       "roleConfigGroupsRefNames": [
          "schemaregistry-SCHEMA_REGISTRY_SERVER-BASE"
       ]
@@ -10,11 +10,11 @@
   "products": [
     {
       "product": "SCHEMAREGISTRY",
-      "version": "$SCHEMAREGISTRY_BUILD"
+      "version": "{{SCHEMAREGISTRY_BUILD}}"
     }
   ],
   "repositories": [
-    "$CSP_PARCEL_REPO"
+    "{{CSP_PARCEL_REPO}}"
   ],
   "services": [
     {

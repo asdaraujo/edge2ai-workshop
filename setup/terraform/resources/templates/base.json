@@ -1,11 +1,11 @@
 {
-  "cdhVersion": "$CDH_VERSION",
-  "cmVersion": "$CM_VERSION",
+  "cdhVersion": "{{CDH_VERSION}}",
+  "cmVersion": "{{CM_VERSION}}",
   "displayName": "OneNodeCluster",
   "hostTemplates": [
     {
       "cardinality": 1,
-      "refName": "HostTemplate-0-from-$CLUSTER_HOST",
+      "refName": "HostTemplate-0-from-{{CLUSTER_HOST}}",
       "roleConfigGroupsRefNames": []
     }
   ],
@@ -13,19 +13,19 @@
     "clusterName": "OneNodeCluster",
     "hosts": [
       {
-        "hostName": "$CLUSTER_HOST",
-        "hostTemplateRefName": "HostTemplate-0-from-$CLUSTER_HOST"
+        "hostName": "{{CLUSTER_HOST}}",
+        "hostTemplateRefName": "HostTemplate-0-from-{{CLUSTER_HOST}}"
       }
     ]
   },
   "products": [
     {
       "product": "CDH",
-      "version": "$CDH_BUILD"
+      "version": "{{CDH_BUILD}}"
     }
   ],
   "repositories": [
-    "$CDH_PARCEL_REPO"
+    "{{CDH_PARCEL_REPO}}"
   ],
   "services": []
 }

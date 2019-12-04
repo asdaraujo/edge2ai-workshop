@@ -1,7 +1,7 @@
 {
   "hostTemplates": [
     {
-      "refName": "HostTemplate-0-from-$CLUSTER_HOST",
+      "refName": "HostTemplate-0-from-{{CLUSTER_HOST}}",
       "roleConfigGroupsRefNames": [
          "flink-FLINK_HISTORY_SERVER-BASE"
         ,"flink-GATEWAY-BASE"
@@ -11,11 +11,11 @@
   "products": [
     {
       "product": "FLINK",
-      "version": "$FLINK_BUILD"
+      "version": "{{FLINK_BUILD}}"
     }
   ],
   "repositories": [
-    "$CSA_PARCEL_REPO"
+    "{{CSA_PARCEL_REPO}}"
   ],
   "services": [
     {

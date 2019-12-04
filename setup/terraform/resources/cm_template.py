@@ -6,7 +6,7 @@ import os
 import re
 import yaml
 from optparse import OptionParser, OptionGroup
-from string import Template
+from jinja2 import Template
 
 # Represent None as empty instead of "null"
 def represent_none(self, _):
@@ -66,7 +66,7 @@ def update_list(base, template, breadcrumbs=''):
 
 def load_template(json_file, configs):
     template = Template(open(json_file).read())
-    json_content = template.substitute(**configs)
+    json_content = template.render(**configs)
     try:
         return json.loads(json_content)
     except:
@@ -77,7 +77,7 @@ def gen_var_template(template_names, templates, yaml_template):
     vars = {}
     for json_file in [templates[name] for name in template_names]:
         template = open(json_file).read()
-        for var in re.findall(r'\${?([A-Za-z0-9_]*)}?', template):
+        for var in re.findall(r'{{ *([A-Za-z0-9_]*) *}}', template):
             vars[var] = None
 
     if os.path.exists(yaml_template):

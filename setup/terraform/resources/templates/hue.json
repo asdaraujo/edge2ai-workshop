@@ -1,7 +1,7 @@
 {
   "hostTemplates": [
     {
-      "refName": "HostTemplate-0-from-$CLUSTER_HOST",
+      "refName": "HostTemplate-0-from-{{CLUSTER_HOST}}",
       "roleConfigGroupsRefNames": [
          "hue-HUE_LOAD_BALANCER-BASE"
         ,"hue-HUE_SERVER-BASE"
@@ -35,7 +35,7 @@
         },
         {
           "name": "database_host",
-          "value": "$CLUSTER_HOST"
+          "value": "{{CLUSTER_HOST}}"
         },
         {
           "name" : "database_port",
