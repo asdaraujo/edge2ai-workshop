@@ -97,7 +97,7 @@ def load_templates(template_dir):
             if cdh_version not in TEMPLATES:
                 TEMPLATES[cdh_version] = {}
             TEMPLATES[cdh_version][template_name.upper()] = template
-        else:
+        elif re.match(r'.*\.json$', template):
             template_name, = re.match(r'.*?([^/.]*)\.json$', template).groups()
             common_templates[template_name.upper()] = template
     for cdh_version in TEMPLATES:
@@ -169,6 +169,8 @@ def main():
     templates = TEMPLATES[options.cdh_major_version]
 
     choices = set([t.upper() for a in args for t in a.split(',')])
+    for choice in choices:
+        os.environ['HAS_' + choice] = '1'
     invalid_options = []
     for choice in choices:
         if choice not in templates:

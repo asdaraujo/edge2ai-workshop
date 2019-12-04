@@ -37,6 +37,12 @@
         }
       ],
       "serviceConfigs": [
+        {% if HAS_RANGER %}
+        {
+          "name" : "enable_ranger_authorization",
+          "value" : "true"
+        },
+        {% endif %}
         {
           "name": "dfs_replication",
           "value": "1"
