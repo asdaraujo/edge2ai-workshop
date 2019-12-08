@@ -1,0 +1,35 @@
+{
+  "hostTemplates": [
+    {
+      "refName": "HostTemplate-0-from-{{CLUSTER_HOST}}",
+      "roleConfigGroupsRefNames": [
+        "hbase-HBASETHRIFTSERVER-BASE",
+        "hbase-MASTER-BASE",
+        "hbase-REGIONSERVER-BASE"
+      ]
+    }
+  ],
+  "services": [
+    {
+      "refName": "hbase",
+      "serviceType": "HBASE",
+      "roleConfigGroups": [
+        {
+          "refName": "hbase-REGIONSERVER-BASE",
+          "roleType": "REGIONSERVER",
+          "base": true
+        },
+        {
+          "refName": "hbase-MASTER-BASE",
+          "roleType": "MASTER",
+          "base": true
+        },
+        {
+          "refName": "hbase-HBASETHRIFTSERVER-BASE",
+          "roleType": "HBASETHRIFTSERVER",
+          "base": true
+        }
+      ]
+    }
+  ]
+}
