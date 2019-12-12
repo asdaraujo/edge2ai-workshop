@@ -41,7 +41,7 @@ mkdir -p $NAMESPACE_DIR
 
 # Perform a quick configuration sanity check before calling Terraform
 source $BASE_DIR/resources/common.sh
-load_stack $NAMESPACE $BASE_DIR/resources
+load_stack $NAMESPACE $BASE_DIR/resources local
 log "Validate services selection: $CM_SERVICES"
 python $BASE_DIR/resources/cm_template.py --cdh-major-version $CDH_MAJOR_VERSION $CM_SERVICES --validate-only
 

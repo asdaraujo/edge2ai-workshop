@@ -48,11 +48,6 @@
             }, {
               "name" : "streams.messaging.manager.storage.connector.password",
               "value" : "supersecret1"
-            {%if not HAS_RANGER %} {# This is needed due to a bug. See CSP-789 for details #}
-            }, {
-              "name" : "staging/streams-messaging-manager-common.xml_role_safety_valve",
-              "value" : "<property><name>enable.ranger.authorization</name><value>none</value></property>"
-            {% endif %}
             }
           ]
         },

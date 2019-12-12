@@ -359,6 +359,11 @@ systemctl restart sshd
 echo "-- Check for additional parcels"
 chmod +x ${BASE_DIR}/check-for-parcels.sh
 
+if [ "$(is_kerberos_enabled)" == "yes" ]; then
+  echo "-- Install Kerberos KDC"
+  install_kerberos
+fi
+
 echo "-- Wait for CM to be ready before proceeding"
 until $(curl --output /dev/null --silent --head --fail -u "admin:admin" http://localhost:7180/api/version); do
   echo "waiting 10s for CM to come up.."
@@ -375,8 +380,13 @@ export DOCKER_DEVICE PUBLIC_DNS
 python $BASE_DIR/cm_template.py --cdh-major-version $CDH_MAJOR_VERSION $CM_SERVICES > $TEMPLATE_FILE
 
 echo "-- Create cluster"
+if [ "$(is_kerberos_enabled)" == "yes" ]; then
+  KERBEROS_OPTION="--use-kerberos"
+else
+  KERBEROS_OPTION=""
+fi
 CM_REPO_URL=$(grep baseurl $CM_REPO_FILE | sed 's/.*=//;s/ //g')
-python $BASE_DIR/create_cluster.py $(hostname -f) $TEMPLATE_FILE $KEY_FILE $CM_REPO_URL
+python $BASE_DIR/create_cluster.py $KERBEROS_OPTION $(hostname -f) $TEMPLATE_FILE $KEY_FILE $CM_REPO_URL
 
 echo "-- Configure and start EFM"
 retries=0
@@ -416,23 +426,32 @@ systemctl start minifi
 # TODO: Fix kafka topic creation once Ranger security is setup
 if [[ ",${CM_SERVICES}," == *",KAFKA,"* ]]; then
   echo "-- Create Kafka topic (iot)"
-  kafka-topics --zookeeper edge2ai-1.dim.local:2181/kafka --create --topic iot --partitions 10 --replication-factor 1
-  kafka-topics --zookeeper edge2ai-1.dim.local:2181/kafka --describe --topic iot
+  auth kafka
+  if [ "$(is_kerberos_enabled)" == "yes" ]; then
+    CLIENT_CONFIG_OPTION="--command-config $KAFKA_CLIENT_PROPERTIES"
+  else
+    CLIENT_CONFIG_OPTION=""
+  fi
+  kafka-topics $CLIENT_CONFIG_OPTION --bootstrap-server $(hostname -f):9092 --create --topic iot --partitions 10 --replication-factor 1
+  kafka-topics $CLIENT_CONFIG_OPTION --bootstrap-server $(hostname -f):9092 --describe --topic iot
+  unauth
 fi
 
 if [[ ",${CM_SERVICES}," == *",FLINK,"* ]]; then
   echo "-- Flink: extra workaround due to CSA-116"
-  sudo -u hdfs hdfs dfs -chown flink:flink /user/flink
-  sudo -u hdfs hdfs dfs -mkdir /user/${SSH_USER}
-  sudo -u hdfs hdfs dfs -chown ${SSH_USER}:${SSH_USER} /user/${SSH_USER}
+  auth hdfs
+  hdfs dfs -chown flink:flink /user/flink
+  hdfs dfs -mkdir /user/${SSH_USER}
+  hdfs dfs -chown ${SSH_USER}:${SSH_USER} /user/${SSH_USER}
+  unauth
 
   echo "-- Runs a quick Flink WordCount to ensure everything is ok"
   echo "foo bar" > echo.txt
-  export HADOOP_USER_NAME=flink
+  auth flink
   hdfs dfs -put echo.txt
-  flink run -sae -m yarn-cluster -p 2 /opt/cloudera/parcels/FLINK/lib/flink/examples/streaming/WordCount.jar --input hdfs:///user/$HADOOP_USER_NAME/echo.txt --output hdfs:///user/$HADOOP_USER_NAME/output
-  hdfs dfs -cat hdfs:///user/$HADOOP_USER_NAME/output/*
-  unset HADOOP_USER_NAME
+  flink run -sae -m yarn-cluster -p 2 /opt/cloudera/parcels/FLINK/lib/flink/examples/streaming/WordCount.jar --input hdfs:///user/flink/echo.txt --output hdfs:///user/flink/output
+  hdfs dfs -cat hdfs:///user/flink/output/*
+  unauth
 fi
 
 echo "-- At this point you can login into Cloudera Manager host on port 7180 and follow the deployment of the cluster"
