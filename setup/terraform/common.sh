@@ -139,6 +139,53 @@ function check_for_jq() {
   fi
 }
 
+function check_file_staleness() {
+  # check if environment files are missing parameters
+  local basefile=$1
+  local compare=$2
+  local base_variables=$(grep -E "^ *(export){0,1} *[a-zA-Z0-9_]*=" $basefile | sed -E 's/ *(export){0,1} *//;s/=.*//' | sort -u)
+  local stale=0
+  set +e
+  for var in $base_variables; do
+    grep -E "^ *(export){0,1} *$var=" $compare > /dev/null
+    if [ $? != 0 ]; then
+      echo "ERROR: Configuration file $compare is missing property ${var}." > /dev/stderr
+      stale=1
+    fi
+  done
+  not_set=$(grep -E "^ *(export){0,1} *[a-zA-Z0-9_]*=" $compare | sed -E 's/ *(export){0,1} *//;s/="?<[A-Z_]*>"?$/=/g;s/""//g' | egrep "CHANGE_ME|REPLACE_ME|=$" | sed 's/=//' | tr "\n" "," | sed 's/,$//')
+  if [ "$not_set" != "" ]; then
+    echo "ERROR: Configuration file $compare has the following unset properties: ${not_set}." > /dev/stderr
+    stale=1
+  fi
+  set -e
+  echo $stale
+}
+
+function check_config() {
+  local template_file=$1
+  local compare_file=$2
+  if [ ! -f $template_file ]; then
+    echo "ERROR: Cannot find the template file $template_file." > /dev/stderr
+    exit 1
+  fi
+  if [ "$(check_file_staleness $template_file $compare_file)" != "0" ]; then
+      cat > /dev/stderr <<EOF
+
+ERROR: Please fix the problems above in the file $compare_file and try again.
+       If this configuration was working before, you may have upgraded to a new version
+       of the workshop that requires additional properties.
+       You can refer to the template $template_file for a list of all the required properties.
+EOF
+      exit 1
+  fi
+}
+
+function check_all_configs() {
+  check_config $BASE_DIR/.env.template $BASE_DIR/.env.$NAMESPACE
+  check_config $BASE_DIR/resources/stack.template.sh $BASE_DIR/resources/stack.${NAMESPACE}.sh
+}
+
 check_for_jq
 
 for sig in {0..31}; do

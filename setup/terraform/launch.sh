@@ -14,6 +14,7 @@ if [ $# != 1 ]; then
 fi
 NAMESPACE=$1
 load_env $NAMESPACE
+check_all_configs
 
 # Check if enddate is close
 WARNING_THRESHOLD_DAYS=2
