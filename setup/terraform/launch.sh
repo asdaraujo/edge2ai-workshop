@@ -32,7 +32,8 @@ if [ "$DATE_CHECK" -le "0" ]; then
 elif [ "$DATE_CHECK" -le "$WARNING_THRESHOLD_DAYS" ]; then
   echo -n "WARNING: Your environment will expire in less than $WARNING_THRESHOLD_DAYS days. Do you really want to continue? "
   read CONFIRM
-  if [ "$CONFIRM" != "Y" -a "$CONFIRM" != "y" ]; then
+  CONFIRM=$(echo $CONFIRM | tr a-z A-Z)
+  if [ "$CONFIRM" != "Y" -a "$CONFIRM" != "YES" ]; then
     echo 'Please update "TF_VAR_endddate" in .env.'"$NAMESPACE"' and try again.'
     exit 1
   fi
