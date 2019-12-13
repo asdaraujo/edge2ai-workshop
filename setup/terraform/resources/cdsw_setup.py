@@ -36,6 +36,8 @@ try:
                 break
         except requests.exceptions.ConnectTimeout:
             pass
+        except requests.exceptions.ConnectionError:
+            pass
         if r:
             print('Waiting for CDSW to be ready... (error code: %s)' % (r.status_code,))
         else:

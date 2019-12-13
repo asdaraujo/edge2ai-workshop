@@ -40,9 +40,6 @@
               "name" : "inactive.producer.timeout.ms",
               "value" : "180000"
             }, {
-              "name" : "streams.messaging.manager.schema.registry.url",
-              "value" : "http://{{PUBLIC_DNS}}:7788/api/v1"
-            }, {
               "name" : "streams.messaging.manager.storage.connector.connectURI",
               "value" : "jdbc:postgresql://localhost:5432/streamsmsgmgr"
             }, {
