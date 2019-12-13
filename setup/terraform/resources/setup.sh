@@ -90,8 +90,9 @@ EOF
   yum_install cloudera-manager-daemons cloudera-manager-agent cloudera-manager-server \
               MariaDB-server MariaDB-client shellinabox mosquitto jq transmission-cli
   npm install --quiet forever -g
+  yum erase -y python-requests
   pip install --quiet --upgrade pip
-  pip install --progress-bar off cm_client paho-mqtt
+  pip install --progress-bar off cm_client paho-mqtt pytest nipyapi
   systemctl disable mariadb
 
   echo "-- Install Maven"
