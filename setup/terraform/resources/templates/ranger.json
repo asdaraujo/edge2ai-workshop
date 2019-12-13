@@ -1,3 +1,4 @@
+{{REQUIRES_CDH_MAJOR_VERSION_7}}
 {
   "hostTemplates": [
     {

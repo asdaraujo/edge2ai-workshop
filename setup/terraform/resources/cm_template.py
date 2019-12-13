@@ -6,7 +6,8 @@ import os
 import re
 import yaml
 from optparse import OptionParser, OptionGroup
-from jinja2 import Template
+from jinja2 import Environment, FileSystemLoader, StrictUndefined
+from jinja2.exceptions import UndefinedError
 
 # Represent None as empty instead of "null"
 def represent_none(self, _):
@@ -17,7 +18,21 @@ logging.basicConfig(level=logging.DEBUG)
 LOG = logging.getLogger(__name__)
 
 IDEMPOTENT_IDS = ['refName', 'name', 'clusterName', 'hostName', 'product']
+REQUIRES_PREFIX = 'REQUIRES_CDH_MAJOR_VERSION_'
 TEMPLATES = {}
+TEMPLATE_DIR = './templates'
+
+JINJA2_ENV = None
+
+def jinja2_env():
+    global JINJA2_ENV
+    if not JINJA2_ENV:
+        raise RuntimeError('Jinja2 environment has not been initialized yet.')
+    return JINJA2_ENV
+
+def init_jinja2_env(template_dir):
+    global JINJA2_ENV
+    JINJA2_ENV = Environment(loader=FileSystemLoader(template_dir), undefined=StrictUndefined)
 
 def merge_templates(templates):
     merged = {}
@@ -65,20 +80,27 @@ def update_list(base, template, breadcrumbs=''):
         base.append(item)
 
 def load_template(json_file, configs):
-    template = Template(open(json_file).read())
-    json_content = template.render(**configs)
+    template = jinja2_env().get_template(json_file)
     try:
+        json_content = template.render(**configs)
         return json.loads(json_content)
+    except UndefinedError as exc:
+        m = re.match('.*' + REQUIRES_PREFIX + '([0-9]*).*is undefined', exc.message)
+        if m:
+            template = re.sub(r'\..*', '', json_file).upper()
+            raise RuntimeError('Template {} is only valid for CDH version {}'.format(template, m.groups()[0]))
+        raise
     except:
         LOG.error('Failed to load file {}'.format(json_file))
         raise
 
-def gen_var_template(template_names, templates, yaml_template):
+def gen_var_template(template_names, yaml_template):
     vars = {}
-    for json_file in [templates[name] for name in template_names]:
-        template = open(json_file).read()
+    for json_file in [TEMPLATES[name] for name in template_names]:
+        template = open(os.path.join(TEMPLATE_DIR, json_file)).read()
         for var in re.findall(r'{{ *([A-Za-z0-9_]*) *}}', template):
-            vars[var] = None
+            if not var.startswith(REQUIRES_PREFIX):
+                vars[var] = None
 
     if os.path.exists(yaml_template):
         vars.update(yaml.load(open(yaml_template)))
@@ -88,22 +110,13 @@ def gen_var_template(template_names, templates, yaml_template):
     output.close()
 
 def load_templates(template_dir):
+    global TEMPLATES, TEMPLATE_DIR
+    TEMPLATE_DIR = template_dir
     files = os.listdir(template_dir)
-    json_paths = [os.path.join(template_dir, f) for f in files]
-    common_templates = {}
-    for template in json_paths:
-        if re.match(r'.*\.[67]\.json$', template):
-            template_name, cdh_version = re.match(r'.*?([^/.]*)\.([67])\.json$', template).groups()
-            if cdh_version not in TEMPLATES:
-                TEMPLATES[cdh_version] = {}
-            TEMPLATES[cdh_version][template_name.upper()] = template
-        elif re.match(r'.*\.json$', template):
-            template_name, = re.match(r'.*?([^/.]*)\.json$', template).groups()
-            common_templates[template_name.upper()] = template
-    for cdh_version in TEMPLATES:
-        temp = common_templates.copy()
-        temp.update(TEMPLATES[cdh_version])
-        TEMPLATES[cdh_version] = temp
+    for template_file in files:
+        if re.match(r'.*\.json$', template_file):
+            template_name, = re.match(r'.*?([^/.]*)\.json$', template_file).groups()
+            TEMPLATES[template_name.upper()] = template_file
 
 def parse_args():
     parser = OptionParser(usage='%prog [options] <json_file> ...')
@@ -134,12 +147,11 @@ def parse_args():
 
 def print_valid_templates():
     print('Valid template names are:')
-    for version in sorted(TEMPLATES):
-        print('  CDH v{}:'.format(version))
-        for template in sorted(TEMPLATES[version]):
-            print('    - {}'.format(template))
+    for template in sorted(TEMPLATES):
+        requires = re.findall(REQUIRES_PREFIX + '.', open(os.path.join(TEMPLATE_DIR, TEMPLATES[template])).read())
+        print('    - {} {}'.format(template, '({})'.format(', '.join(requires)) if requires else ''))
 
-def get_template(template_names, templates, config_file):
+def get_template(template_names, config_file):
     # Get properties from environment variables and configuration file, if specified
     configs = {}
     configs.update(os.environ)
@@ -148,7 +160,7 @@ def get_template(template_names, templates, config_file):
 
     chosen_templates = []
     for template_name in template_names:
-        chosen_templates.append(load_template(templates[template_name], configs))
+        chosen_templates.append(load_template(TEMPLATES[template_name], configs))
     merged = merge_templates(chosen_templates)
     return json.dumps(merged, indent=2)
 
@@ -157,6 +169,7 @@ def main():
 
     if options.template_dir is None:
         options.template_dir = os.path.join(os.path.dirname(__file__), 'templates')
+    init_jinja2_env(options.template_dir)
     load_templates(options.template_dir)
 
     if options.cdh_major_version is None:
@@ -165,29 +178,29 @@ def main():
     elif options.cdh_major_version not in ['6', '7']:
         LOG.error('The only valid values for --cdh-major-version are 6 and 7')
         exit(1)
-
-    templates = TEMPLATES[options.cdh_major_version]
+    os.environ['CDH_MAJOR_VERSION'] = options.cdh_major_version
+    os.environ[REQUIRES_PREFIX + options.cdh_major_version] = ''
 
     choices = set([t.upper() for a in args for t in a.split(',')])
     for choice in choices:
         os.environ['HAS_' + choice] = '1'
     invalid_options = []
     for choice in choices:
-        if choice not in templates:
+        if choice not in TEMPLATES:
             invalid_options.append(choice)
     if invalid_options:
         LOG.error('The following are not valid templates: {}'.format(', '.join(invalid_options)))
         print_valid_templates()
         exit(1)
 
+    if options.gen_var_template:
+        gen_var_template(choices, options.gen_var_template)
+        exit(0)
+
+    output = get_template(choices, options.config_file)
     if options.validate_only:
         exit(0)
-
-    if options.gen_var_template:
-        gen_var_template(choices, templates, options.gen_var_template)
-        exit(0)
-
-    print(get_template(choices, templates, options.config_file))
+    print(output)
 
 if __name__ == '__main__':
     main()

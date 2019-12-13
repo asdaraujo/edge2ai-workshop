@@ -30,22 +30,30 @@
             {
               "name" : "SMM_HEAP_SIZE",
               "value" : "2048"
-            }, {
+            },
+            {
               "name" : "consumer.group.refresh.interval.ms",
               "value" : "1000"
-            }, {
+            },
+            {
               "name" : "inactive.group.timeout.ms",
               "value" : "180000"
-            }, {
+            },
+            {
               "name" : "inactive.producer.timeout.ms",
               "value" : "180000"
-            }, {
+            },
+{% if CDH_MAJOR_VERSION == '6' %}
+            {
               "name" : "streams.messaging.manager.schema.registry.url",
               "value" : "http://{{PUBLIC_DNS}}:7788/api/v1"
-            }, {
+            },
+{% endif %}
+            {
               "name" : "streams.messaging.manager.storage.connector.connectURI",
               "value" : "jdbc:postgresql://localhost:5432/streamsmsgmgr"
-            }, {
+            },
+            {
               "name" : "streams.messaging.manager.storage.connector.password",
               "value" : "supersecret1"
             }
@@ -62,19 +70,17 @@
         {
           "name" : "cm.metrics.host",
           "value" : "{{CLUSTER_HOST}}"
-        }, {
+        },
+        {
           "name" : "cm.metrics.password",
           "value" : "admin"
-        }, {
+        }
+{% if CDH_MAJOR_VERSION == '6' %}
+        ,{
           "name" : "cm.metrics.service.name",
           "value" : "kafka"
-        }, {
-          "name": "zookeeper_service",
-          "ref": "zookeeper"
-        }, {
-          "name": "kafka_service",
-          "ref": "kafka"
         }
+{% endif %}
       ]
     }
   ]
