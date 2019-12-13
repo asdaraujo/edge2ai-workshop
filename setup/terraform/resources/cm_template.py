@@ -117,6 +117,8 @@ def load_templates(template_dir):
         if re.match(r'.*\.json$', template_file):
             template_name, = re.match(r'.*?([^/.]*)\.json$', template_file).groups()
             TEMPLATES[template_name.upper()] = template_file
+    for template in TEMPLATES:
+        os.environ['HAS_' + template] = ''
 
 def parse_args():
     parser = OptionParser(usage='%prog [options] <json_file> ...')
