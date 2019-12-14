@@ -1,0 +1,30 @@
+{{REQUIRES_CDH_MAJOR_VERSION_7}}
+{
+  "hostTemplates": [
+    {
+      "refName": "HostTemplate-0-from-{{CLUSTER_HOST}}",
+      "roleConfigGroupsRefNames": [
+        "livy-GATEWAY-BASE",
+        "livy-LIVY_SERVER-BASE"
+      ]
+    }
+  ],
+  "services": [
+    {
+      "refName": "livy",
+      "serviceType": "LIVY",
+      "roleConfigGroups": [
+        {
+          "refName": "livy-GATEWAY-BASE",
+          "roleType": "GATEWAY",
+          "base": true
+        },
+        {
+          "refName": "livy-LIVY_SERVER-BASE",
+          "roleType": "LIVY_SERVER",
+          "base": true
+        }
+      ]
+    }
+  ]
+}

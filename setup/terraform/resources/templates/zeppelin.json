@@ -1,0 +1,24 @@
+{{REQUIRES_CDH_MAJOR_VERSION_7}}
+{
+  "hostTemplates": [
+    {
+      "refName": "HostTemplate-0-from-{{CLUSTER_HOST}}",
+      "roleConfigGroupsRefNames": [
+        "zeppelin-ZEPPELIN_SERVER-BASE"
+      ]
+    }
+  ],
+  "services": [
+    {
+      "refName": "zeppelin",
+      "serviceType": "ZEPPELIN",
+      "roleConfigGroups": [
+        {
+          "refName": "zeppelin-ZEPPELIN_SERVER-BASE",
+          "roleType": "ZEPPELIN_SERVER",
+          "base": true
+        }
+      ]
+    }
+  ]
+}

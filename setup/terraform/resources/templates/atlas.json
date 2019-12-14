@@ -1,0 +1,34 @@
+{{REQUIRES_CDH_MAJOR_VERSION_7}}
+{
+  "hostTemplates": [
+    {
+      "refName": "HostTemplate-0-from-{{CLUSTER_HOST}}",
+      "roleConfigGroupsRefNames": [
+        "atlas-ATLAS_SERVER-BASE"
+      ]
+    }
+  ],
+  "services": [
+    {
+      "refName": "atlas",
+      "serviceType": "ATLAS",
+      "roleConfigGroups": [
+        {
+          "refName": "atlas-ATLAS_SERVER-BASE",
+          "roleType": "ATLAS_SERVER",
+          "base": true,
+          "configs": [
+            {
+              "name": "conf/atlas-application.properties_role_safety_valve",
+              "value": "atlas.audit.hbase.zookeeper.quorum={{CLUSTER_HOST}}:2181\natlas.graph.storage.hostname={{CLUSTER_HOST}}"
+            },
+            {
+              "name": "atlas_admin_password",
+              "value": "supersecret1"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
