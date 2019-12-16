@@ -11,6 +11,9 @@ ENABLE_KERBEROS=no
 #####  Java Package
 JAVA_PACKAGE_NAME=java-1.8.0-openjdk-devel
 
+##### Maven binary
+MAVEN_BINARY_URL=http://mirrors.sonic.net/apache/maven/maven-3/3.6.3/binaries/apache-maven-3.6.3-bin.tar.gz
+
 #####  CM
 CM_VERSION=6.3.1
 CM_BASE_URL=https://archive.cloudera.com

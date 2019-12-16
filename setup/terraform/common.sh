@@ -11,12 +11,18 @@ function check_env_files() {
   fi
 }
 
-function load_env() {
+function get_env_file_path() {
   local namespace=$1
   local env_file=$BASE_DIR/.env.$namespace
   if [ "$namespace" == "default" ]; then
     env_file=$BASE_DIR/.env
   fi
+  echo $env_file
+}
+
+function load_env() {
+  local namespace=$1
+  local env_file=$(get_env_file_path $namespace)
 
   check_env_files
 
@@ -182,8 +188,14 @@ EOF
 }
 
 function check_all_configs() {
-  check_config $BASE_DIR/.env.template $BASE_DIR/.env.$NAMESPACE
-  check_config $BASE_DIR/resources/stack.template.sh $BASE_DIR/resources/stack.${NAMESPACE}.sh
+  local stack
+  check_config $BASE_DIR/.env.template $(get_env_file_path $NAMESPACE)
+  if [ -e $BASE_DIR/resources/stack.${NAMESPACE}.sh ]; then
+    stack=$BASE_DIR/resources/stack.${NAMESPACE}.sh
+  else
+    stack=$BASE_DIR/resources/stack.sh
+  fi
+  check_config $BASE_DIR/resources/stack.template.sh $stack
 }
 
 check_for_jq

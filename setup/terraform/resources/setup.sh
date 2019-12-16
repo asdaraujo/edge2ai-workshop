@@ -56,10 +56,12 @@ if [[ ! -f $CM_REPO_FILE ]]; then
   systemctl disable postgresql-10
 
   echo "-- Install Maven"
-  curl http://mirrors.sonic.net/apache/maven/maven-3/3.6.2/binaries/apache-maven-3.6.2-bin.tar.gz > /tmp/apache-maven-3.6.2-bin.tar.gz
-  tar -C $(get_homedir $SSH_USER) -zxvf /tmp/apache-maven-3.6.2-bin.tar.gz
-  rm -f /tmp/apache-maven-3.6.2-bin.tar.gz
-  echo "export PATH=\$PATH:$(get_homedir $SSH_USER)/apache-maven-3.6.2/bin" >> $(get_homedir $SSH_USER)/.bash_profile
+  curl "$MAVEN_BINARY_URL" > /tmp/apache-maven-bin.tar.gz
+
+  tar -C $(get_homedir $SSH_USER) -zxvf /tmp/apache-maven-bin.tar.gz
+  rm -f /tmp/apache-maven-bin.tar.gz
+  MAVEN_BIN=$(ls -d1tr $(get_homedir $SSH_USER)/apache-maven-*/bin | tail -1)
+  echo "export PATH=\$PATH:$MAVEN_BIN" >> $(get_homedir $SSH_USER)/.bash_profile
 
   echo "-- Get and extract CEM tarball to /opt/cloudera/cem"
   mkdir -p /opt/cloudera/cem
