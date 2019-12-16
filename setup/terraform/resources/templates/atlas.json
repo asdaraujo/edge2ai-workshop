@@ -25,6 +25,10 @@
             {
               "name": "atlas_admin_password",
               "value": "supersecret1"
+            },
+            {
+              "name" : "atlas_authentication_method_file",
+              "value" : "true"
             }
           ]
         }
