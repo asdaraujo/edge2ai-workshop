@@ -153,7 +153,8 @@ def print_valid_templates():
         requires = re.findall(REQUIRES_PREFIX + '.', open(os.path.join(TEMPLATE_DIR, TEMPLATES[template])).read())
         print('    - {} {}'.format(template, '({})'.format(', '.join(requires)) if requires else ''))
 
-def check_dependencies(template_dir, selected_services):
+def fix_dependencies(template_dir, selected_services):
+    # Load dependencies file
     dep_file = os.path.join(template_dir, 'dependencies')
     dependencies = {}
     with open(dep_file) as deps:
@@ -165,15 +166,20 @@ def check_dependencies(template_dir, selected_services):
                 dependencies[svc] = deps.split(',')
             else:
                 LOG.error('Invalid line in dependencies file: %s', line)
-    missing_deps = False
-    for svc in selected_services:
-        for dep in dependencies.get(svc, []):
-            if dep not in selected_services:
-                LOG.error("Service %s requires %s", svc, dep)
-                missing_deps = True
-    if missing_deps:
-        LOG.error('Required service dependencies are missing. Please fix issues and try again.')
-        exit(1)
+
+    svc_set = set(selected_services)
+    while True:
+        base_set = svc_set.copy()
+        for svc in base_set.union(['all']):
+            for dep in dependencies.get(svc, []):
+                if dep not in svc_set:
+                    svc_set.add(dep)
+                    LOG.info("Adding service %s since it is required by %s", dep, svc)
+        if svc_set == base_set:
+            break
+
+    print(sorted(svc_set))
+    return list(svc_set)
 
 def get_template(template_names, config_file):
     # Get properties from environment variables and configuration file, if specified
@@ -221,7 +227,7 @@ def main():
         gen_var_template(choices, options.gen_var_template)
         exit(0)
 
-    check_dependencies(options.template_dir, choices)
+    choices = fix_dependencies(options.template_dir, choices)
 
     output = get_template(choices, options.config_file)
     if options.validate_only:

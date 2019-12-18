@@ -1,9 +1,11 @@
-ACCUMULO16    requires ZOOKEEPER,HDFS
-ACCUMULO_C6   requires ZOOKEEPER,HDFS
+all           requires BASE
 ATLAS         requires HDFS,HBASE,KAFKA,SOLR
 CDSW          requires SPARK_ON_YARN,YARN
 DAS           requires TEZ,HS2
 FLINK         requires HDFS,YARN,ZOOKEEPER
+HBASE         requires ZOOKEEPER
+HIVE          requires YARN
+IMPALA        requires HIVE
 KAFKA         requires ZOOKEEPER
 LIVY          requires YARN,SPARK_ON_YARN
 NIFI          requires ZOOKEEPER
@@ -12,5 +14,4 @@ QUEUEMANAGER  requires ZOOKEEPER
 RANGER        requires SOLR,HDFS
 SPARK_ON_YARN requires YARN
 SMM           requires KAFKA
-TEZ           requires YARN
 ZEPPELIN      requires YARN,HDFS,SPARK_ON_YARN
