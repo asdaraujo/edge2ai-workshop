@@ -75,6 +75,13 @@ brew install jq
 
 .. Otherwise, see download and install instructions link:https://stedolan.github.io/jq/download/[here]. Make sure `jq` is in your PATH after it's installed.
 
+. Install required Python modules
++
+[source,shell]
+----
+pip install jinja2 pyyaml
+----
+
 . Clone this repository
 +
 [source,shell]

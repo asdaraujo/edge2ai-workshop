@@ -11,6 +11,28 @@ function check_env_files() {
   fi
 }
 
+function check_python_modules() {
+  python -c '
+missing_modules = []
+try:
+  import yaml
+except:
+  print("ERROR: Python module \"PyYAML\" not found.")
+  missing_modules.append("pyyaml")
+
+try:
+  import jinja2
+except:
+  print("ERROR: Python module \"Jinja2\" not found.")
+  missing_modules.append("jinja2")
+
+if missing_modules:
+  print("Please install the missing modules with the command below and try again:")
+  print("\n  pip install " + " ".join(missing_modules) + "\n")
+  exit(1)
+'
+}
+
 function get_env_file_path() {
   local namespace=$1
   local env_file=$BASE_DIR/.env.$namespace

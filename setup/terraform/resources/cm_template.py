@@ -178,7 +178,6 @@ def fix_dependencies(template_dir, selected_services):
         if svc_set == base_set:
             break
 
-    print(sorted(svc_set))
     return list(svc_set)
 
 def get_template(template_names, config_file):

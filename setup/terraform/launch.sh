@@ -15,6 +15,7 @@ fi
 NAMESPACE=$1
 load_env $NAMESPACE
 check_all_configs
+check_python_modules
 
 # Check if enddate is close
 WARNING_THRESHOLD_DAYS=2
