@@ -3,7 +3,7 @@ resource "null_resource" "configure-cdsw" {
   depends_on = [aws_security_group_rule.allow_cdsw_healthcheck]
 
   connection {
-    host        = "${element(aws_instance.cluster.*.public_ip, count.index)}"
+    host        = element(aws_instance.cluster.*.public_ip, count.index)
     type        = "ssh"
     user        = var.ssh_username
     private_key = file(var.ssh_private_key)
@@ -14,7 +14,7 @@ resource "null_resource" "configure-cdsw" {
     destination = "/tmp/cdsw_setup.py"
 
     connection {
-      host        = "${element(aws_instance.cluster.*.public_ip, count.index)}"
+      host        = element(aws_instance.cluster.*.public_ip, count.index)
       type        = "ssh"
       user        = var.ssh_username
       private_key = file(var.ssh_private_key)
@@ -26,7 +26,7 @@ resource "null_resource" "configure-cdsw" {
     destination = "/tmp/iot_model.pkl"
 
     connection {
-      host        = "${element(aws_instance.cluster.*.public_ip, count.index)}"
+      host        = element(aws_instance.cluster.*.public_ip, count.index)
       type        = "ssh"
       user        = var.ssh_username
       private_key = file(var.ssh_private_key)
