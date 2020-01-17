@@ -60,6 +60,8 @@ _CDSW_MODEL_NAME = 'IoT Prediction Model'
 _CDSW_USERNAME = 'admin'
 _CDSW_PASSWORD = 'supersecret1'
 
+PG_NAME = 'Process Sensor Data'
+
 # General helper functions
 
 def get_public_ip():
@@ -547,6 +549,19 @@ def global_setup(run_id, schema_text):
     step6_expand_edge_flow(env)
     step7_rest_and_kudu(env)
 
+    wait_for_data()
+
+def wait_for_data(timeout_secs=120):
+    while timeout_secs:
+        bytes_in = canvas.get_process_group(PG_NAME, 'name').status.aggregate_snapshot.bytes_in
+        if bytes_in > 0:
+            break
+        timeout_secs -= 1
+        time.sleep(1)
+
+    # wait a few more seconds just to let the pipes to be primed
+    time.sleep(10)
+
 def step1_sensor_simulator(env):
     # Create a processor to run the sensor simulator
     gen_data = create_processor(env.root_pg, 'Generate Test Data', 'org.apache.nifi.processors.standard.ExecuteProcess', (0, 0),
@@ -603,7 +618,7 @@ def step4_nifi_flow(env):
 
     # Create NiFi Process Group
     env.reg_client = versioning.create_registry_client('NiFi Registry', _NIFIREG_URL, 'The registry...')
-    env.sensor_pg = canvas.create_process_group(env.root_pg, 'Process Sensor Data', (330, 350))
+    env.sensor_pg = canvas.create_process_group(env.root_pg, PG_NAME, (330, 350))
     #env.sensor_flow = versioning.save_flow_ver(env.sensor_pg, env.reg_client, env.sensor_bucket, flow_name='SensorProcessGroup', comment='Enabled version control - ' + env.run_id)
     env.sensor_flow = save_flow_ver(env.sensor_pg, env.reg_client, env.sensor_bucket, flow_name='SensorProcessGroup', comment='Enabled version control - ' + env.run_id)
 
