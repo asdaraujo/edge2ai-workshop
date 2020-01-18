@@ -5,6 +5,7 @@ from datetime import datetime
 from optparse import OptionParser
 import cm_client
 import json
+import os
 import sys
 import time
 import urllib3
@@ -66,6 +67,29 @@ class ClusterCreator:
 
         cm_client.configuration.username = 'admin'
         cm_client.configuration.password = 'admin'
+
+    def _import_paywall_credentials(self):
+        configs = []
+        if 'REMOTE_REPO_USR' in os.environ and os.environ['REMOTE_REPO_USR']:
+            paywall_usr = os.environ['REMOTE_REPO_USR']
+            configs.append(cm_client.ApiConfig(name='REMOTE_REPO_OVERRIDE_USER', value=paywall_usr))
+        if 'REMOTE_REPO_PWD' in os.environ and os.environ['REMOTE_REPO_PWD']:
+            paywall_pwd = os.environ['REMOTE_REPO_PWD']
+            configs.append(cm_client.ApiConfig(name='REMOTE_REPO_OVERRIDE_PASSWORD', value=paywall_pwd))
+        if configs:
+            self.cm_api.update_config(message='Importing paywall credentials',
+                                      body=cm_client.ApiConfigList(configs))
+
+    def _reset_paywall_credentials(self):
+        try:
+            self.cm_api.update_config(message='Importing paywall credentials',
+                                      body=cm_client.ApiConfigList([
+                                               cm_client.ApiConfig(name='REMOTE_REPO_OVERRIDE_USER', value=None),
+                                               cm_client.ApiConfig(name='REMOTE_REPO_OVERRIDE_PASSWORD', value=None)
+                                           ])
+                                     )
+        except ApiException:
+            pass
 
     @property
     def api_client(self):
@@ -129,6 +153,7 @@ class ClusterCreator:
             print("Exception when calling ClouderaManagerResourceApi->import_cluster_template: %s\n" % e)
 
     def create_cluster(self):
+
         # accept trial licence
         try:
             self.cm_api.begin_trial()
@@ -142,6 +167,7 @@ class ClusterCreator:
         with open (self.key_file, "r") as f:
             key = f.read()
         
+        self._import_paywall_credentials()
         instargs = cm_client.ApiHostInstallArguments(host_names=[self.host], 
                                                      user_name='root', 
                                                      private_key=key, 
@@ -188,6 +214,9 @@ class ClusterCreator:
         cmd = self.wait(cmd)
         if not cmd.success:
             raise RuntimeError('Failed to deploy cluster template')
+
+        # All parcel downloads should've already been done at this point, so we can safely remove the paywall credentials
+        self._reset_paywall_credentials()
 
         if self.use_kerberos:
             self._enable_kerberos()
