@@ -158,6 +158,7 @@ function install_kerberos() {
   add_kerberos_principal flink
 
   add_kerberos_principal workshop
+  add_kerberos_principal admin
   add_kerberos_principal alice
   add_kerberos_principal bob
 
