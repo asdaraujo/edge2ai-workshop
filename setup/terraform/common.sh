@@ -74,17 +74,21 @@ function load_env() {
   export TF_VAR_my_public_ip=$(curl -sL ifconfig.me || curl -sL ipapi.co/ip || curl -sL icanhazip.com)
 }
 
+function get_namespaces() {
+    ls -1d $BASE_DIR/.env* | egrep "/\.env($|\.)" | fgrep -v .env.template | \
+    sed 's/\.env\.//;s/\/\.env$/\/default/' | xargs basename
+}
+
 function show_namespaces() {
   check_env_files
 
-  local namespaces=$(ls -1d $BASE_DIR/.env* | egrep "/\.env($|\.)" | fgrep -v .env.template | \
-                       sed 's/\.env\.//;s/\/\.env$/\/default/')
+  local namespaces=$(get_namespaces)
   if [ "$namespaces" == "" ]; then
     echo -e "\n  No namespaces are currently defined!\n"
   else
     echo -e "\nNamespaces:"
     for namespace in $namespaces; do
-      echo "  - $(basename $namespace)"
+      echo "  - $namespace"
     done
   fi
 }
@@ -220,8 +224,20 @@ function check_all_configs() {
   check_config $BASE_DIR/resources/stack.template.sh $stack
 }
 
+function kerb_auth_for_cluster() {
+  local cluster_id=$1
+  local public_dns=$(public_dns $cluster_id)
+  if [ "$ENABLE_KERBEROS" == "yes" ]; then
+    export KRB5_CONFIG=$NAMESPACE_DIR/krb5.conf.$cluster_id
+    scp -q -o StrictHostKeyChecking=no -i $TF_VAR_ssh_private_key $TF_VAR_ssh_username@$public_dns:/etc/krb5.conf $KRB5_CONFIG
+    sed -i.bak "s/kdc *=.*internal/kdc = $public_dns/;s/admin_server *=.*internal/admin_server = $public_dns/;/includedir/ d" $KRB5_CONFIG
+    export KRB5CCNAME=/tmp/workshop.$$
+    echo supersecret1 | kinit workshop 2>&1 | grep -v "Password for" | true
+  fi
+}
+
 check_for_jq
 
 for sig in {0..31}; do
-  trap 'RET=$?; if [ $RET != 0 ]; then echo -e "\n   FAILED!!! (signal: '$sig', exit code: $RET)\n"; fi' $sig
+  trap 'RET=$?; if [ $RET != 0 ]; then echo -e "\n   FAILED!!! (signal: '$sig', exit code: $RET)\n"; fi; kdestroy > /dev/null 2>&1' $sig
 done
