@@ -12,7 +12,7 @@ function check_env_files() {
 }
 
 function check_python_modules() {
-  python -c '
+  python3 -c '
 missing_modules = []
 try:
   import yaml

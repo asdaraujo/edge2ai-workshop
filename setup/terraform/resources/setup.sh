@@ -379,7 +379,7 @@ export CDSW_DOMAIN=cdsw.${PUBLIC_IP}.nip.io
 export CLUSTER_HOST=$(hostname -f)
 export PRIVATE_IP=$(hostname -I | tr -d '[:space:]')
 export DOCKER_DEVICE PUBLIC_DNS
-python $BASE_DIR/cm_template.py --cdh-major-version $CDH_MAJOR_VERSION $CM_SERVICES > $TEMPLATE_FILE
+python3 $BASE_DIR/cm_template.py --cdh-major-version $CDH_MAJOR_VERSION $CM_SERVICES > $TEMPLATE_FILE
 
 echo "-- Create cluster"
 if [ "$(is_kerberos_enabled)" == "yes" ]; then
@@ -388,7 +388,7 @@ else
   KERBEROS_OPTION=""
 fi
 CM_REPO_URL=$(grep baseurl $CM_REPO_FILE | sed 's/.*=//;s/ //g')
-python $BASE_DIR/create_cluster.py $KERBEROS_OPTION $(hostname -f) $TEMPLATE_FILE $KEY_FILE $CM_REPO_URL
+python3 $BASE_DIR/create_cluster.py $KERBEROS_OPTION $(hostname -f) $TEMPLATE_FILE $KEY_FILE $CM_REPO_URL
 
 echo "-- Configure and start EFM"
 retries=0

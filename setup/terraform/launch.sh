@@ -19,7 +19,7 @@ check_python_modules
 
 # Check if enddate is close
 WARNING_THRESHOLD_DAYS=2
-DATE_CHECK=$(python -c "
+DATE_CHECK=$(python3 -c "
 from datetime import datetime, timedelta
 dt = datetime.now()
 dt = dt.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -47,7 +47,7 @@ source $BASE_DIR/resources/common.sh
 load_stack $NAMESPACE $BASE_DIR/resources local
 log "Validate services selection: $CM_SERVICES"
 CLUSTER_HOST=dummy PRIVATE_IP=dummy PUBLIC_DNS=dummy DOCKER_DEVICE=dummy CDSW_DOMAIN=dummy \
-python $BASE_DIR/resources/cm_template.py --cdh-major-version $CDH_MAJOR_VERSION $CM_SERVICES --validate-only
+python3 $BASE_DIR/resources/cm_template.py --cdh-major-version $CDH_MAJOR_VERSION $CM_SERVICES --validate-only
 
 log "Check for parcels"
 chmod +x $BASE_DIR/resources/check-for-parcels.sh
