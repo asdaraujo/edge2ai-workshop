@@ -188,15 +188,18 @@ def add_cluster():
     """Add a cluster
     """
     has_ip_address = 'ip_address' in request.json and isinstance(request.json['ip_address'], str)
+    has_hostname = 'hostname' in request.json and isinstance(request.json['hostname'], str)
     has_ssh_user = 'ssh_user' in request.json and isinstance(request.json['ssh_user'], str)
     has_ssh_pwd = 'ssh_password' in request.json and isinstance(request.json['ssh_password'], str)
     has_ssh_pk = 'ssh_private_key' in request.json and \
                  isinstance(request.json['ssh_private_key'], str)
-    if not request.json or not has_ip_address or not has_ssh_user or not has_ssh_pwd \
-       or not has_ssh_pk:
+    if not request.json or not has_ip_address or not has_hostname or not has_ssh_user \
+       or not has_ssh_pwd or not has_ssh_pk:
         return jsonify({'success': False, 'message': 'No JSON payload or payload is invalid'}), 400
     try:
-        cluster = Cluster(ip_address=request.json['ip_address'], ssh_user=request.json['ssh_user'],
+        cluster = Cluster(ip_address=request.json['ip_address'],
+                          hostname=request.json['hostname'],
+                          ssh_user=request.json['ssh_user'],
                           ssh_password=request.json['ssh_password'],
                           ssh_private_key=request.json['ssh_private_key'])
         db.session.add(cluster)
