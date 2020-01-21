@@ -171,7 +171,11 @@ if [[ ! -f $CM_REPO_FILE ]]; then
   echo "-- Install CSDs"
   for url in "${CSD_URLS[@]}"; do
     echo "---- Downloading $url"
-    wget --progress=dot:giga ${url} -P /opt/cloudera/csd/
+    if [ "${REMOTE_REPO_USR:-}" != "" -a "${REMOTE_REPO_PWD:-}" != "" ]; then
+      wget --progress=dot:giga --user "$REMOTE_REPO_USR" --password "$REMOTE_REPO_PWD" "${url}" -P /opt/cloudera/csd/
+    else
+      wget --progress=dot:giga "${url}" -P /opt/cloudera/csd/
+    fi
     # Patch CDSW CSD so that we can use it on CDP
     if [ "$url" == "$CDSW_CSD_URL" -a "$CM_MAJOR_VERSION" == "7" ]; then
       jar xvf /opt/cloudera/csd/CLOUDERA_DATA_SCIENCE_WORKBENCH-*.jar descriptor/service.sdl
@@ -215,17 +219,17 @@ for parcel_file in $(find /opt/cloudera/parcel-repo -type f); do
 done
 
 PUBLIC_IP=$(curl https://api.ipify.org/ 2>/dev/null || curl https://ifconfig.me 2> /dev/null)
-PUBLIC_DNS=$(dig -x ${PUBLIC_IP} +short)
+PUBLIC_DNS=$(dig -x ${PUBLIC_IP} +short | sed 's/\.$//')
 
-echo "-- Set /etc/hosts"
-echo "$(hostname -I) $(hostname -f) edge2ai-1.dim.local" >> /etc/hosts
+echo "-- Set /etc/hosts - Public DNS must come first"
+echo "$(hostname -I) $PUBLIC_DNS $(hostname -f) edge2ai-1.dim.local" >> /etc/hosts
 
 echo "-- Configure networking"
-hostnamectl set-hostname $(hostname -f)
+hostnamectl set-hostname $PUBLIC_DNS
 if [[ -f /etc/sysconfig/network ]]; then
   sed -i "/HOSTNAME=/ d" /etc/sysconfig/network
 fi
-echo "HOSTNAME=$(hostname -f)" >> /etc/sysconfig/network
+echo "HOSTNAME=$PUBLIC_DNS" >> /etc/sysconfig/network
 
 echo "-- Generate self-signed certificate for ShellInABox with the needed SAN entries"
 # Generate self-signed certificate for ShellInABox with the needed SAN entries
@@ -260,7 +264,7 @@ basicConstraints = CA:FALSE
 subjectKeyIdentifier = hash
 keyUsage = digitalSignature, keyEncipherment
 extendedKeyUsage = serverAuth, clientAuth
-subjectAltName = DNS:$(hostname -f),DNS:${PUBLIC_DNS},IP:$(hostname -I),IP:${PUBLIC_IP}
+subjectAltName = DNS:$(hostname -f),IP:$(hostname -I),IP:${PUBLIC_IP},DNS:edge2ai-1.dim.local
 EOF
 )
 cat key.pem cert.pem > /var/lib/shellinabox/certificate.pem
@@ -388,6 +392,7 @@ else
   KERBEROS_OPTION=""
 fi
 CM_REPO_URL=$(grep baseurl $CM_REPO_FILE | sed 's/.*=//;s/ //g')
+export REMOTE_REPO_USR REMOTE_REPO_PWD
 python $BASE_DIR/create_cluster.py $KERBEROS_OPTION $(hostname -f) $TEMPLATE_FILE $KEY_FILE $CM_REPO_URL
 
 echo "-- Configure and start EFM"
@@ -448,12 +453,17 @@ if [[ ",${CM_SERVICES}," == *",FLINK,"* ]]; then
   unauth
 
   echo "-- Runs a quick Flink WordCount to ensure everything is ok"
-  echo "foo bar" > echo.txt
-  auth flink
-  hdfs dfs -put echo.txt
-  flink run -sae -m yarn-cluster -p 2 /opt/cloudera/parcels/FLINK/lib/flink/examples/streaming/WordCount.jar --input hdfs:///user/flink/echo.txt --output hdfs:///user/flink/output
-  hdfs dfs -cat hdfs:///user/flink/output/*
-  unauth
+  nohup bash -c '
+    source '$BASE_DIR'/common.sh
+    echo "foo bar" > echo.txt
+    auth flink
+    klist
+    hdfs dfs -put -f echo.txt
+    hdfs dfs -rm -f hdfs:///user/flink/output
+    flink run -sae -m yarn-cluster -p 2 /opt/cloudera/parcels/FLINK/lib/flink/examples/streaming/WordCount.jar --input hdfs:///user/flink/echo.txt --output hdfs:///user/flink/output
+    hdfs dfs -cat hdfs:///user/flink/output/*
+    unauth
+    ' > /tmp/flink_test.log 2>&1 &
 fi
 
 echo "-- At this point you can login into Cloudera Manager host on port 7180 and follow the deployment of the cluster"
