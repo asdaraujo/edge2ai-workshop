@@ -26,6 +26,7 @@ if [ "$confirm" != "YES" ]; then
 fi
 
 log "Destroying instances"
+terraform init
 terraform destroy -auto-approve -state=$NAMESPACE_DIR/terraform.state
 
 log "Cleaning up"
