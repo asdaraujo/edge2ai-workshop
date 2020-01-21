@@ -1,0 +1,98 @@
+# Contributing
+
+## Guidelines
+
+In order to streamline the review of the contribution we ask you
+to ensure the following steps have been taken:
+
+### For all changes:
+
+- [ ] Has your PR been *rebased* against the latest commit within the target branch (typically master)?
+
+- [ ] Is your initial contribution a single, squashed commit?
+
+- [ ] If your PR is associated with an existing Issue in this repository, is the issue referenced
+     in the commit message?
+
+### For documentation related changes:
+
+- [ ] Have you ensured that format looks appropriate for the output in which it is rendered?
+
+## Testing
+
+In order to ensure that changes to this repository don't inadvertently affect the flow used in the workshops we provide automated tests of the workflow. *Please ensure that all tests run successfully before submitting PRs.*
+
+The tests require a working cluster to be executed. To run the tests, follow the steps below:
+
+. Deploy a cluster successfully with the following settings in your stack configuration file:
++
+[source,shell]
+----
+CM_SERVICES=BASE,ZOOKEEPER,HDFS,YARN,HIVE,HUE,IMPALA,KAFKA,KUDU,NIFI,SCHEMAREGISTRY,SPARK_ON_YARN,SMM,CDSW,FLINK
+ENABLE_KERBEROS=no
+----
+
+. Connect to the cluster VM
+. Go to the resources directory:
++
+[source,shell]
+----
+cd /tmp/resources
+----
+
+. Retrieve the schema file used in the workshop and save it locally
++
+[source,shell]
+----
+wget https://raw.githubusercontent.com/asdaraujo/edge2ai-workshop/master/sensor.avsc
+----
+
+. Run the tests
++
+[source,shell]
+----
+export SCHEMA_FILE=$PWD/sensor.avsc
+pytest tests
+----
+
+### Keeping a flow after the test run
+
+The test scripts will automate the full workshop flow setup, run the tests and then tear everything down. If you want to keep the flow after the tests, set the following environment variable before running the tests:
+
+[source,shell]
+----
+export SKIP_TEARDOWN=1
+----
+
+### Re-running a flow
+
+Sometimes you may want to re-run the tests on a flow that you kept, after you've made manual modifications to the flow. This is possible and this section describes how.
+
+Every test run has its own `RUN_ID`. This id is necessary for the tests to verify that the flow worked correctly and avoid ambiguity with other flows that may have been created manually.
+
+The test `RUN_ID` is shown in the `pytest` output when you disable output capture (`-s` option):
+
+[source,shell]
+----
+$ pytest -s tests
+====== test session starts ======
+platform linux2 -- Python 2.7.5, pytest-4.6.9, py-1.8.1, pluggy-0.13.1
+rootdir: /tmp/resources
+collected 11 items
+
+tests/test_nifi.py RUN_ID=1579636291
+                   ^^^^^^^^^^^^^^^^^
+----
+
+When re-running the tests for a flow created previously you must set the `RUN_ID` environment variable to match the run id of the test you ran previously.
+
+Also, when a test is executed, the setup process that prepares the flow also ensures that any left-overs from previous tests are removed. Hence, to re-run a test you must skip the setup process, by setting the `SKIP_SETUP` environment variable.
+
+In short, once you known the `RUN_ID` of a previous test, you can re-run it with the following commands:
+
+[source,shell]
+----
+export SKIP_SETUP=1
+export RUN_ID=1579636291 # <-- enter your own RUN_ID
+pytest tests
+----
