@@ -18,6 +18,10 @@ to ensure the following steps have been taken:
 
 - [ ] Have you ensured that format looks appropriate for the output in which it is rendered?
 
+### For workflow related changes:
+
+- [ ] If you changed the workflows used in the workshop, have you implemented the corresponding flow automation and tests to validate it?
+
 ## Testing
 
 In order to ensure that changes to this repository don't inadvertently affect the flow used in the workshops we provide automated tests of the workflow. *Please ensure that all tests run successfully before submitting PRs.*
