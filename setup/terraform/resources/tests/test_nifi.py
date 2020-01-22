@@ -5,6 +5,8 @@ QUEUED_MSG_THRESHOLD = 1
 
 def test_data_flowing():
     for pg in canvas.list_all_process_groups():
+        if pg.status.name == 'NiFi Flow':
+                continue
         assert pg.status.aggregate_snapshot.bytes_in > 0
 
 def test_nifi_bulletins():
