@@ -24,7 +24,7 @@ RUN git clone -b master --depth 1 https://github.com/asdaraujo/edge2ai-workshop.
 
 RUN pip install --no-cache jinja2 pyyaml \
     && cp /edge2ai-workshop/setup/terraform/.env.template /edge2ai-workshop/setup/terraform/.env \
-    && cp /edge2ai-workshop/setup/terraform/resources/stack.template.sh /edge2ai-workshop/setup/terraform/resources/stack.sh
+    && cp /edge2ai-workshop/setup/terraform/resources/stack.template-cdh.sh /edge2ai-workshop/setup/terraform/resources/stack.sh
 
 
 WORKDIR /edge2ai-workshop/setup/terraform

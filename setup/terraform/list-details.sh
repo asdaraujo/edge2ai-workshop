@@ -30,12 +30,6 @@ function show_details() {
 
   terraform show -json $NAMESPACE_DIR/terraform.state > $TF_JSON_FILE
 
-  if [ -s $WEB_INSTANCE_LIST_FILE ]; then
-    web_server="http://$(web_instance | awk '{print $3}')"
-  else
-    web_server="-"
-  fi
-
   web_instance | while read name public_dns public_ip private_ip; do
     printf "%-40s %-55s %-15s %-15s\n" "$name" "$public_dns" "$public_ip" "$private_ip"
   done | sed 's/\([^ ]*-\)\([0-9]*\)\( .*\)/\1\2\3 \2/' | sort -k4n | sed 's/ [0-9]*$//' > $WEB_INSTANCE_LIST_FILE
@@ -43,6 +37,12 @@ function show_details() {
   cluster_instances | while read name public_dns public_ip private_ip; do
     printf "%-40s %-55s %-15s %-15s\n" "$name" "$public_dns" "$public_ip" "$private_ip"
   done | sed 's/\([^ ]*-\)\([0-9]*\)\( .*\)/\1\2\3 \2/' | sort -k4n | sed 's/ [0-9]*$//' > $INSTANCE_LIST_FILE
+
+  if [ -s $WEB_INSTANCE_LIST_FILE ]; then
+    web_server="http://$(web_instance | awk '{print $3}')"
+  else
+    web_server="-"
+  fi
 
   if [ "$summary_only" != "no" ]; then
     printf "%-15s %-40s %10d\n" "$namespace" "$web_server" "$(cat $INSTANCE_LIST_FILE | wc -l)"

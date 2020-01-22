@@ -93,18 +93,26 @@ sudo yum install -y git
 git clone https://github.com/asdaraujo/edge2ai-workshop.git
 ----
 
-. Review software versions and edit them as needed. All the versions and locations of the software used for the setup are defined in the `edge2ai-workshop/setup/scripts/stack.sh` file. If this file does not exist, create it with the command below:
+. Review software versions and edit them as needed. All the versions and locations of the software used for the setup are defined in the `edge2ai-workshop/setup/scripts/stack.sh` file. If this file does not exist, create it with one of the commands below:
 +
 [source,shell]
 ----
-cp edge2ai-workshop/setup/scripts/stack.template.sh edge2ai-workshop/setup/scripts/stack.sh
+# For a CDH cluster:
+cp edge2ai-workshop/setup/scripts/stack.template-cdh.sh edge2ai-workshop/setup/scripts/stack.sh
+
+# For a CDP-DC cluster:
+cp edge2ai-workshop/setup/scripts/stack.template-cdp.sh edge2ai-workshop/setup/scripts/stack.sh
 ----
 +
 The `stack.sh` file is the default stack definition file used by all the namespaces. You can create namespace-specific definitions by creating the following file for a given namespace:
 +
 [source,shell]
 ----
-cp edge2ai-workshop/setup/scripts/stack.template.sh edge2ai-workshop/setup/scripts/stack.<namespace>.sh
+# For a CDH cluster:
+cp edge2ai-workshop/setup/scripts/stack.template-cdh.sh edge2ai-workshop/setup/scripts/stack.<namespace>.sh
+
+# For a CDP-DC cluster:
+cp edge2ai-workshop/setup/scripts/stack.template-cdp.sh edge2ai-workshop/setup/scripts/stack.<namespace>.sh
 ----
 +
 IMPORTANT: Most of the software locations are already pre-defined in the template. For a few of the required software, though, there's currently no public repository available. Make sure you follow the instructions below to install these components.
@@ -255,11 +263,15 @@ git clone https://github.com/asdaraujo/edge2ai-workshop.git
 cd edge2ai-workshop/setup/scripts
 ----
 
-. Review software versions and edit them as needed. All the versions and locations of the software used for the setup are defined in the `edge2ai-workshop/setup/scripts/stack.sh` file. If this file does not exist, create it with the command below:
+. Review software versions and edit them as needed. All the versions and locations of the software used for the setup are defined in the `edge2ai-workshop/setup/scripts/stack.sh` file. If this file does not exist, create it with one of the commands below:
 +
 [source,shell]
 ----
-cp stack.template.sh stack.sh
+# For a CDH cluster:
+cp stack.template-cdh.sh stack.sh
+
+# For a CDP-DC cluster:
+cp stack.template-cdp.sh stack.sh
 ----
 +
 IMPORTANT: Most of the software locations are already pre-defined in the template. For a few of the required software, though, there's currently no public repository available. Make sure you follow the instructions below to install these components.

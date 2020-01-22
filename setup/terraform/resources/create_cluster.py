@@ -76,9 +76,14 @@ class ClusterCreator:
         if 'REMOTE_REPO_PWD' in os.environ and os.environ['REMOTE_REPO_PWD']:
             paywall_pwd = os.environ['REMOTE_REPO_PWD']
             configs.append(cm_client.ApiConfig(name='REMOTE_REPO_OVERRIDE_PASSWORD', value=paywall_pwd))
-        if configs:
-            self.cm_api.update_config(message='Importing paywall credentials',
-                                      body=cm_client.ApiConfigList(configs))
+        # This only works for CM 7 and above. We catch the exception and ignore it for CM 6
+        # TODO: Check version and only set it if needed
+        try:
+            if configs:
+                self.cm_api.update_config(message='Importing paywall credentials',
+                                          body=cm_client.ApiConfigList(configs))
+        except ApiException:
+            pass
 
     def _reset_paywall_credentials(self):
         try:

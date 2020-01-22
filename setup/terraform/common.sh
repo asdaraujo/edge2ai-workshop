@@ -221,7 +221,7 @@ function check_all_configs() {
   else
     stack=$BASE_DIR/resources/stack.sh
   fi
-  check_config $BASE_DIR/resources/stack.template.sh $stack
+  check_config $BASE_DIR/resources/stack.template-cdp.sh $stack
 }
 
 function kerb_auth_for_cluster() {
