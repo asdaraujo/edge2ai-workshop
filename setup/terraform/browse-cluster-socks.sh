@@ -3,7 +3,8 @@
 set -o errexit
 set -o nounset
 BASE_DIR=$(cd $(dirname $0); pwd -L)
-. $BASE_DIR/common.sh
+export NO_DOCKER=1
+source $BASE_DIR/common.sh
 
 if [ $# != 2 ]; then
   echo "Syntax: $0 <namespace> <cluster_number>"

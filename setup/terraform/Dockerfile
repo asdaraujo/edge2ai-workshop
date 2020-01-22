@@ -20,17 +20,10 @@ RUN wget https://releases.hashicorp.com/terraform/${TERRAFORMVERSION}/terraform_
     && mv terraform /usr/local/bin/terraform \
     && rm terraform_${TERRAFORMVERSION}_linux_amd64.zip
 
-RUN git clone -b master --depth 1 https://github.com/asdaraujo/edge2ai-workshop.git /edge2ai-workshop
-
-RUN pip install --no-cache jinja2 pyyaml \
-    && cp /edge2ai-workshop/setup/terraform/.env.template /edge2ai-workshop/setup/terraform/.env \
-    && cp /edge2ai-workshop/setup/terraform/resources/stack.template-cdh.sh /edge2ai-workshop/setup/terraform/resources/stack.sh
+RUN pip install --no-cache jinja2 pyyaml
 
 
 WORKDIR /edge2ai-workshop/setup/terraform
 
 ENTRYPOINT ["/bin/bash"]
 
-# export ENV=/Users/dchaffelson/PycharmProjects/aaedge2ai-workshop/setup/terraform/.env
-# export STACK=/Users/dchaffelson/PycharmProjects/aaedge2ai-workshop/setup/terraform/resources/stack.sh
-# docker run -ti -v ${ENV}:/edge2ai-workshop/setup/terraform/.env:ro -v ${STACK}:/edge2ai-workshop/setup/terraform/resources/stack.sh cldrbootcamp

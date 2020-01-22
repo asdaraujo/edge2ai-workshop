@@ -1,7 +1,7 @@
 #!/bin/bash
 set -o nounset
 BASE_DIR=$(cd $(dirname $0); pwd -L)
-. $BASE_DIR/common.sh
+source $BASE_DIR/common.sh
 
 trap "rm -f .cdsw .cem .cj .cm .hue .model .nifi .nifireg .schreg .smm .web" 0
 

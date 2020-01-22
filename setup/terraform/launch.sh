@@ -1,6 +1,7 @@
 #!/bin/bash
 BASE_DIR=$(cd $(dirname $0); pwd -L)
 source $BASE_DIR/common.sh
+
 mkdir -p $BASE_DIR/logs
 (
 set -o errexit
@@ -64,11 +65,11 @@ log "Deployment completed successfully"
 
 echo ""
 echo "Instances:"
-./list-details.sh $NAMESPACE
+$BASE_DIR/list-details.sh $NAMESPACE
 
 echo ""
 echo "Health checks:"
-./check-services.sh $NAMESPACE
+$BASE_DIR/check-services.sh $NAMESPACE
 
 if [ "$TF_VAR_deploy_cdsw_model" == "true" ]; then
   echo -e "\033[33m" # set font color to yellow
@@ -82,6 +83,6 @@ fi
 
 echo ""
 echo "Uploading instance details to Web Server:"
-./upload-instance-details.sh $NAMESPACE
+$BASE_DIR/upload-instance-details.sh $NAMESPACE
 
 ) 2>&1 | tee $BASE_DIR/logs/setup.log.${1:-unknown}.$(date +%Y%m%d%H%M%S)

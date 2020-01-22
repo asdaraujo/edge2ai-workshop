@@ -4,6 +4,17 @@ function log() {
   echo "[$(date)] [$(basename $0): $BASH_LINENO] : $*"
 }
 
+function check_docker_launch() {
+  if [ "${NO_DOCKER:-}" != "" ]; then
+    return
+  fi
+  has_docker_img=$(docker image ls 2> /dev/null | awk '$1 == "edge2ai-workshop" && $2 == "latest"' | wc -l)
+  if [ "$has_docker_img" -eq "1" ]; then
+    local cmd=./$(basename $0)
+    exec docker run -ti --rm --entrypoint="" -v $BASE_DIR:/edge2ai-workshop/setup/terraform edge2ai-workshop:latest $cmd $*
+  fi
+}
+
 function check_env_files() {
   if [ -f $BASE_DIR/.env.default ]; then
     echo 'ERROR: An enviroment file cannot be called ".env.default". Please renamed it to ".env".'
@@ -76,7 +87,7 @@ function load_env() {
 
 function get_namespaces() {
     ls -1d $BASE_DIR/.env* | egrep "/\.env($|\.)" | fgrep -v .env.template | \
-    sed 's/\.env\.//;s/\/\.env$/\/default/' | xargs basename
+    sed 's/\.env\.//;s/\/\.env$/\/default/' | xargs -I{} basename {}
 }
 
 function show_namespaces() {
@@ -236,8 +247,19 @@ function kerb_auth_for_cluster() {
   fi
 }
 
-check_for_jq
+function set_traps() {
+  for sig in {0..16} {18..31}; do
+    trap 'RET=$?; reset_traps; if [ $RET != 0 ]; then echo -e "\n   FAILED!!! (signal: '$sig', exit code: $RET)\n"; fi; set +e; kdestroy > /dev/null 2>&1' $sig
+  done
+}
 
-for sig in {0..31}; do
-  trap 'RET=$?; if [ $RET != 0 ]; then echo -e "\n   FAILED!!! (signal: '$sig', exit code: $RET)\n"; fi; kdestroy > /dev/null 2>&1' $sig
-done
+function reset_traps() {
+  for sig in {0..16} {18..31}; do
+    trap - $sig
+  done
+}
+
+ARGS=("$@")
+check_docker_launch "${ARGS[@]:-}"
+check_for_jq
+set_traps
