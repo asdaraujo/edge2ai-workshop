@@ -21,6 +21,7 @@
     {
       "refName": "streams_messaging_manager",
       "serviceType": "STREAMS_MESSAGING_MANAGER",
+      "displayName": "SMM",
       "roleConfigGroups": [
         {
           "refName": "streams_messaging_manager-STREAMS_MESSAGING_MANAGER_SERVER-BASE",
