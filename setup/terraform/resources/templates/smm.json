@@ -44,6 +44,16 @@
               "name" : "inactive.producer.timeout.ms",
               "value" : "180000"
             },
+{% if HAS_SRM %}
+            {
+              "name" : "streams.replication.manager.configure",
+              "value" : "true"
+            },
+            {
+              "name" : "streams.replication.manager.host",
+              "value" : "{{CLUSTER_HOST}}"
+            },
+{% endif %}
 {% if CDH_MAJOR_VERSION == '6' %}
             {
               "name" : "streams.messaging.manager.schema.registry.url",

@@ -30,7 +30,7 @@
           "configs": [
             {
               "name" : "streams.replication.manager.driver.target.cluster",
-              "value" : "primary, secondary"
+              "value" : "local, remote"
             }
           ]
         },
@@ -41,7 +41,7 @@
           "configs" : [
             {
               "name" : "streams.replication.manager.service.target.cluster",
-              "value" : "primary"
+              "value" : "local"
             }
           ]
         }
@@ -49,13 +49,22 @@
       "serviceConfigs": [
         {
           "name" : "clusters",
-          "value" : "primary, secondary"
+          "value" : "local, remote"
         }, {
           "name" : "kafka_service",
           "value" : "kafka"
         }, {
           "name" : "streams.replication.manager.config",
-          "value" : "primary.bootstrap.servers={{CLUSTER_HOST}}:9092;secondary.bootstrap.servers={{CLUSTER_HOST}}:9092;primary->secondary.enabled=false;secondary->primary.enabled=false;replication.factor=1;heartbeats.topic.replication.factor=1;checkpoints.topic.replication.factor=1;offset-syncs.topic.replication.factor=1;offset.storage.replication.factor=1;config.storage.replication.factor=1;status.storage.replication.factor=1"
+          "value" : "local.bootstrap.servers={{CLUSTER_HOST}}:9092;remote.bootstrap.servers={{CLUSTER_HOST}}:9092;remote->local.enabled=false;replication.factor=1;heartbeats.topic.replication.factor=1;checkpoints.topic.replication.factor=1;offset-syncs.topic.replication.factor=1;offset.storage.replication.factor=1;config.storage.replication.factor=1;status.storage.replication.factor=1"
+        }, {
+          "name" : "refresh.groups.interval.seconds",
+          "value" : "30"
+        }, {
+          "name" : "refresh.topics.interval.seconds",
+          "value" : "30"
+        }, {
+          "name" : "metrics.topic.replication.factor",
+          "value" : "1"
         }
       ]
     }
