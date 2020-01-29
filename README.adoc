@@ -48,6 +48,10 @@ This access is not required for the workshop labs. You can skip this section.
 
 SSH access is only required if you need to troubleshoot issues or want to poke around your clusters. The procedure to connect via SSH depends on the type of computer you're using:
 
+==== SSH into the cluster from the Web UI
+
+From the registration link, you can click on the link at the right side to connect to the cluster from a web based SSH client with the credential centos/supersecret1.
+
 ==== SSH into the cluster from Linux/Macos
 
 From the registration link, download the PEM key required to access to your cluster with SSH. Run the following command:

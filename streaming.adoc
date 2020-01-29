@@ -16,7 +16,7 @@ In this workshop you'll implement a data pipeline, using MiNiFi and NiFi to inge
 [[lab_1, Lab 1]]
 == Lab 1 - Apache NiFi: setup machine sensors simulator 
 
-In this lab you will run a simple Python script that simulates IoT sensor data from some hypothetical machines, and send the data to a MQTT broker (link:https://mosquitto.org/[mosquitto]). The gateway host is connected to many and different type of sensors, but they generally all share the same transport protocol, "mqtt".
+In this lab you will run a simple Python script that simulates IoT sensor data from some hypothetical machines, and send the data to a MQTT broker (link:https://mosquitto.org/[mosquitto]). The MQTT broker plays the role of a gateway that is connected to many and different type of sensors through the "mqtt" protocol. Your cluster comes with an embedded MQTT broker that the simulation script publishes to. For convenience, we will use NiFi to run the script rather than Shell commands.
 
 . Go to Apache NiFi and add a Processor (ExecuteProcess) to the canvas.
 +
@@ -143,7 +143,7 @@ image::images/queued_events.png[width=300]
 
 The data produced by the temperature sensors is described by the schema in file `link:https://raw.githubusercontent.com/asdaraujo/edge2ai-workshop/master/sensor.avsc[sensor.avsc]`. In this lab we will register this schema in Schema Registry so that our flows in NiFi can refer to schema using an unified service. This will also allow us to evolve the schema in the future, if needed, keeping older versions under version control, so that existing flows and flowfiles will continue to work.
 
-. Go the following URL, which contains the schema definition we'll use for this lab. Select all contents of the page and copy it.
+. Go to the following URL, which contains the schema definition we'll use for this lab. Select all contents of the page and copy it.
 +
 `link:https://raw.githubusercontent.com/asdaraujo/edge2ai-workshop/master/sensor.avsc[https://raw.githubusercontent.com/asdaraujo/edge2ai-workshop/master/sensor.avsc, window="_blank"]`
 
@@ -151,7 +151,7 @@ The data produced by the temperature sensors is described by the schema in file 
 
 . Click on a blank area in the *Schema Text* field and paste the contents you copied.
 
-. Complete the schema creation by filling the following properties:
+. Complete the schema creation by filling the following properties and save the schema.
 +
 [source]
 ----
@@ -164,8 +164,6 @@ Evolve:        checked
 ----
 +
 image::images/register_schema.png[width=800]
-
-. Save the schema
 
 [[lab_4, Lab 4]]
 == Lab 4 - Configuring the NiFi flow and pushing data to Kafka
@@ -230,7 +228,7 @@ Schema Name:            ${schema.name} -> already set by default!
 [source]
 ----
 Schema Write Strategy:  HWX Schema Reference Attributes
-Schema Access Strategy: Inherit Record Schema
+Schema Access Strategy: Use 'Schema Name' Property
 Schema Registry:        HortonworksSchemaRegistry
 ----
 
