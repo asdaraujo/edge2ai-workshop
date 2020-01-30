@@ -355,16 +355,76 @@ image::images/producers.png[width=800]
 +
 image::images/explore_partition.png[width=800]
 
-. Check the data from the partition. You'll notice something odd. These are readings from temperature sensors and we don't expect any of the sensors to measure temperatures greater than 150 degrees in the conditions they are used. It seems, though, that `sensor_0` and `sensor_1` are intermittently producing noise and some of the measurements have very high values for these measurements.
+. Check the data from the partition. You'll notice something odd. These are readings from temperature sensors and we don't expect any of the sensors to measure temperatures greater than 150 degrees in the conditions they are used. It seems, though, that `sensor_0` and `sensor_1` are intermittently producing noise and some of the measurements have very high values for these measurements. . We'll eliminate with these problematic measurements to avoid problems later in an upcoming CEM lab.
+
 +
 image::images/troubled_sensors.png[width=800]
 
 . Stop the *NiFi ExecuteProcess* simulator again.
 
-. In the next Lab we'll eliminate with these problematic measurements to avoid problems later in our data flow.
+. To prepare for the SRM lab, create a new Kafka topic `global_iot` using SMM. Click on `topics` in the left menu, then `Add New` button, and add the following properties:
+
++
+[source]
+----
+Topic Name:                            global_iot
+Partitions:                            5
+Availability:                          1
+Cleanup Policy:                        delete
+----
++
+image::images/add_topic.png[width=800]
 
 [[lab_6, Lab 6]]
-== Lab 6 - Update the edge flows to perform additional processing on the data
+== Lab 6 - Enable Kafka Replication with SRM
+
+In this lab, we will work with another group to implement Kafka replication since we need two clusters. Each group will pick an alias for its cluster. For instance, group 1 Kafka cluster is NYC cluster and group 2 Kafka cluster is Paris Cluster.
+
+There several ways for enabling messages replication with SRM. In this lab, we will enable Active-Active replication where message produced in NYC are replicated to Paris, and messages produced in Paris are replicated to NYC. While one SRM cluster can replicate both ways, we will implement a best practice which consists of Remote Reads and Local Writes. Hence, SRM in NYC will replicate messages from Paris to NYC and vise versa.
+
+Follow the below steps to enable message replication from Paris to NYC. These steps should be implemented in the NYC cluster.
+
+. Go to Cloudera Manager, SRM service then configuration tab. You can see that SRM is already configured with two clusters (local, remote) which are actually the same local cluster.
++
+image::images/srm_default.png[width=800]
+. Change SRM configuration by replacing local by nyc and remote by paris as follows. Replace the host name in the second configuration line of configs by the host name of the Paris cluster. Finally, set paris->nyc.enabled to true.
++
+image::images/srm_updated.png[width=800]
+. Using the search tab, search for 'local' and change the following properties like below:
++
+[source]
+----
+streams.replication.manager.driver.target.cluster:        nyc
+streams.replication.manager.service.target.cluster:       nyc
+----
++
+. Save the changes and restart the SRM service by clicking on Actions then restart
++
+image::images/srm_restart.png[width=800]
+. Now SRM is configured and ready to replicate messages from Paris to NYC. The last step to do is to whitelist the topics that we want to replicate. SRM supports Regex for whitelisting/blacklisting to selectively replicate topics with a particular pattern. In our case, we would like to replicate only topics that start with the keyword *global*. To do so, ssh into the cluster and run the following command
++
+[source]
+----
+sudo /opt/cloudera/parcels/STREAMS_REPLICATION_MANAGER/bin/srm-control topics --source paris --target nyc --add global_.*
+----
++
+. Go to SMM and check that the replication is configured. Search for all iot topics. You should see a new topic called paris.global_iot. For now, this topics is empty because we didn't produce anything yet in Paris.
+. To check if the replication is working, you will need the help of the other group. Start producing data in global_iot Kafka topic in cluster Paris. The easiest way to do it is to go to NiFi, enter the "Process Sensor Data" process group, copy and past the PublishKafkaRecord processor.
+. Double click on the new PublishKafka processor to open the configuration, change topic property to global_iot and the name property to "Publish to Kafka topic: iot"
+. Connect "the Set Schema Name" processor to the Kafka processor and start it. You will have dual ingest of events to both iot and global_iot topics. Your flow now looks like the following.
++
+image::images/dual_ingest.png[width=800]
+. Go to SMM and check the content of the paris.global_iot topic. You should see events getting replicated from the other cluster. After some time, you can see metrics associated with the replicated topic increasing.
++
+image::images/replication.png[width=800]
+. Navigate to the replication menu of SMM, and look to throughput and latency metrics to make sure that everything is working as expected.
++
+image::images/monitor_replication.png[width=800]
+
+Now that this lab is done for Paris -> NYC replication, the other group can implement the same steps in the other cluster by inverting the clusters in the configurations.
+
+[[lab_7, Lab 7]]
+== Lab 7 - Update the edge flows to perform additional processing on the data
 
 In the previous lab we noticed that some of the sensors were sending erroneous measurements intermittently. If we let these measurements to be processed by our data flow we might have problems with the quality of our flow output and we want to avoid that.
 
@@ -469,8 +529,8 @@ image::images/terminate_errors.png[width=800]
 
 . Stop the simulator once you have verified the data.
 
-[[lab_7, Lab 7]]
-== Lab 7 - Use NiFi to call the CDSW model endpoint and save to Kudu
+[[lab_8, Lab 8]]
+== Lab 8 - Use NiFi to call the CDSW model endpoint and save to Kudu
 
 In this lab, you will use NiFi to consume the Kafka messages containing the IoT data we ingested in the previous lab, call a CDSW model API endpoint to predict whether the machine where the readings came from is likely to break or not.
 
@@ -731,8 +791,8 @@ We're ready now to run and test our flow. Follow the steps below:
 +
 image::images/kudu_success.png[width=800]
 
-[[lab_8, Lab 8]]
-== Lab 8 - Check the data on Kudu
+[[lab_9, Lab 9]]
+== Lab 9 - Check the data on Kudu
 
 In this lab, you will run some SQL queries using the Impala engine and verify that the Kudu table is being updated as expected.
 
