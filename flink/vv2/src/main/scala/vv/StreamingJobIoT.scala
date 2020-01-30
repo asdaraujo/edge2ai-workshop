@@ -10,7 +10,7 @@ import org.apache.flink.streaming.util.serialization.JSONKeyValueDeserialization
 
 
 
-object StreamingJob {
+object StreamingJobIoT {
 
   def main(args: Array[String]) {
     // set up the streaming execution environment
