@@ -1,17 +1,48 @@
 #!/bin/bash
 
+DEFAULT_DOCKER_IMAGE=asdaraujo/edge2ai-workshop:latest
+
 function log() {
   echo "[$(date)] [$(basename $0): $BASH_LINENO] : $*"
 }
 
-function check_docker_launch() {
-  if [ "${NO_DOCKER:-}" != "" ]; then
-    return
+function _find_docker_image() {
+  local img_candidates=($DEFAULT_DOCKER_IMAGE edge2ai-workshop:latest)
+  if [ "${EDGE2AI_DOCKER_IMAGE:-}" != "" ]; then
+    img_candidates=(${EDGE2AI_DOCKER_IMAGE})
   fi
-  has_docker_img=$(docker image ls 2> /dev/null | awk '$1 == "edge2ai-workshop" && $2 == "latest"' | wc -l)
-  if [ "$has_docker_img" -eq "1" ]; then
-    local cmd=./$(basename $0)
-    exec docker run -ti --rm --entrypoint="" -v $BASE_DIR:/edge2ai-workshop/setup/terraform edge2ai-workshop:latest $cmd $*
+  for img in "${img_candidates[@]}"; do
+    local label=${img%%:*}
+    local tag
+    if [[ $img == *":"* ]]; then
+      tag=${img##*:}
+    else
+      tag=latest
+    fi
+    local has_docker_img=$(docker image ls 2> /dev/null | awk '$1 == "'"$label"'" && $2 == "'"$tag"'"' | wc -l)
+    if [ "$has_docker_img" -eq "1" ]; then
+      echo "${label}:${tag}"
+      return
+    fi
+  done
+}
+
+function check_docker_launch() {
+  local is_inside_docker=$(egrep "/(lxc|docker)/" /proc/1/cgroup > /dev/null 2>&1 && echo yes || echo no)
+  if [ "${NO_DOCKER:-}" == "" -a "$is_inside_docker" == "no" ]; then
+    docker_img=$(_find_docker_image)
+    if [ "$docker_img" != "" ]; then
+      local cmd=./$(basename $0)
+      echo "Using docker image: $docker_img"
+      exec docker run -ti --rm --entrypoint="" -v $BASE_DIR:/edge2ai-workshop/setup/terraform $docker_img $cmd $*
+    fi
+  fi
+  if [ "${EDGE2AI_DOCKER_IMAGE:-}" != "" ]; then
+    echo "ERROR: Docker image [$EDGE2AI_DOCKER_IMAGE] does not exist. Please check your EDGE2AI_DOCKER_IMAGE env variable."
+    exit
+  fi
+  if [ "$is_inside_docker" == "no" ]; then
+    echo "Running locally (no docker)"
   fi
 }
 

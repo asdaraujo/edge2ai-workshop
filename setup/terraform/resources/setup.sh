@@ -65,9 +65,10 @@ if [[ ! -f $CM_REPO_FILE ]]; then
 
   echo "-- Get and extract CEM tarball to /opt/cloudera/cem"
   mkdir -p /opt/cloudera/cem
-  wget --progress=dot:giga ${CEM_URL} -P /opt/cloudera/cem
-  tar -zxf /opt/cloudera/cem/CEM-${CEM_VERSION}-centos7-tars-tarball.tar.gz -C /opt/cloudera/cem
-  rm -f /opt/cloudera/cem/CEM-${CEM_VERSION}-centos7-tars-tarball.tar.gz
+  CEM_TARBALL=/opt/cloudera/cem/CEM-${CEM_VERSION}-centos7-tars-tarball.tar.gz
+  wget --progress=dot:giga "${CEM_URL}" -O $CEM_TARBALL
+  tar -zxf $CEM_TARBALL -C /opt/cloudera/cem
+  rm -f $CEM_TARBALL
 
   echo "-- Install and configure EFM"
   EFM_TARBALL=$(find /opt/cloudera/cem/ -path "*/centos7/*" -name "efm-*-bin.tar.gz")

@@ -42,11 +42,32 @@ The automated setup scripts support the concept of *namespaces*. All the resourc
 
 A namespace is defined by simply creating a configuration file called `.env.<namespace>`, where `<namespace>` is a string that identifies the namespace uniquely. The namespace identifier cannot contain spaces or special characters.
 
-== Automated setup
+== Setup
 
-This setup uses link:https://www.terraform.io/[Terraform] to spin up the VMs and execute the required setup scripts.
+The setup of the workshop environment is fully automated. Before launching the workshop environment you need to ensure your laptop has the necessary pre-requisites to execute the setup script.
+
+=== Pre-requisites
+
+You can either manually install all the pre-requisites on your laptop or use a Docker image that already contains all the necessary bits in it. For simplicity reasons, we highly recommend the Docker option.
+
+==== Option 1 (RECOMMENDED): Use the Docker image
+
+. Ensure a recent version of link:https://hub.docker.com/editions/community/docker-ce-desktop-mac[Docker] is running on your laptop
+. Pull the latest Docker image for the workshop:
++
+[source,shell]
+----
+docker pull asdaraujo/edge2ai-workshop
+----
+
+==== Option 2: Manually install pre-requisites
+
+NOTE: If you already have Docker and pulled the latest image, as per instructions in Option 1, you can *skip* this section.
 
 . Install Terraform
++
+This setup uses link:https://www.terraform.io/[Terraform] to spin up the VMs and execute the required setup scripts.
+
 .. Check if Terraform is installed and version is 0.12.3 or later
 +
 [source,shell]
@@ -81,6 +102,8 @@ brew install jq
 ----
 pip install jinja2 pyyaml
 ----
+
+=== Launching the workshop environment
 
 . Clone this repository
 +
@@ -119,7 +142,7 @@ IMPORTANT: Most of the software locations are already pre-defined in the templat
 +
 For Schema Registry (SR) and Streams Messaging Manager (SMM) installation you have two options:
 
-* If If you have an URL link to a location where the CSP parcel and SR/SMM CSDs can be downloaded from, configure the corresponding properties in the `stack.sh` (or `stack.<namespace>.sh`) file:
+* If you have an URL link to a location where the CSP parcel and SR/SMM CSDs can be downloaded from, configure the corresponding properties in the `stack.sh` (or `stack.<namespace>.sh`) file:
 +
 [source,shell]
 ----
@@ -211,7 +234,7 @@ where `<namespace>` is the name of one of your namespaces.
 
 . A few helper scripts are provided to help connecting to the clusters:
 
-* `./list-details.sh <namespace>` - display the details of all the clusters (public DNS, public IP and private DNS).
+* `./list-details.sh [namespace]` - if run without arguments it will display a summary of all the existing environments. If a namespace is specified, it will display the details for all the clusters on that environment (public DNS, public IP and private DNS).
 * `./check-services.sh <namespace>` - perform a health check of all the cluster to verify if all the services are up and running.
 * `./connect-to-cluster.sh <namespace> <cluster_number>` - connect to the specified cluster using SSH.
 * `./browse-cluster.sh <namespace> <cluster_number>` - (MacOS only) Opens a Chrome browser with all the tabs required for the workshop. All the URLs use the cluster's public DNS name.
@@ -227,92 +250,6 @@ Clusters numbers start from 0 (zero).
 The automated setup scripts support the concept of *namespaces*. All the resources of a single deployment are associated with a single namespace. By creating multiple namespaces, one can manage multiple independent deployment without them interfering with each other.
 
 A namespace is defined by simply creating a configuration file called `.env.<namespace>`, where `<namespace>` is a string that identifies the namespace uniquely. The namespace identifier cannot contain spaces or special characters.
-
-== Manual setup
-
-. Provision one VM for the cluster setup
-
-* Create a Centos 7 VM with at least 16 vCPUs/ 64 GB RAM. Choose the plain vanilla Centos image, not a cloudera-centos image.
-+
-NOTE: This is a vanilla Centos 7 AMI. No other prerequistes are necessary. All the required software will be installed by the setup process.
-* OS disk size: at least *100 GB*.
-* Docker device disk: at least *200 GB* SSD disk.
-+
-NOTE: You need a fast disk for the *Docker volume*. Aim for a disk with 3000 IOPS. This might mean choosing a 1TB disk.
-+
-IMPORTANT: Ensure that you allocate disks with the sizes specified above, or larger. Otherwise, you may run out of space during the workshop.
-
-. Configure VM and networking
-
-* If you created the VM on Azure and need to resize the OS disk, here are the [instructions](scripts/how-to-resize-os-disk.md).
-* Add 2 inbound rules to the Security Group:
-** to allow your IP only, for all ports.
-** to allow the VM's own IP, for all ports.
-
-. SSH into the VM, clone this repository and `cd` to the scripts directory:
-+
-[source,shell]
-----
-# Install YUM, skip if you already have it
-sudo yum install -y git
-
-# Clone the repo
-git clone https://github.com/asdaraujo/edge2ai-workshop.git
-
-# Go to the scripts directory
-cd edge2ai-workshop/setup/scripts
-----
-
-. Review software versions and edit them as needed. All the versions and locations of the software used for the setup are defined in the `edge2ai-workshop/setup/scripts/stack.sh` file. If this file does not exist, create it with one of the commands below:
-+
-[source,shell]
-----
-# For a CDH cluster:
-cp stack.template-cdh.sh stack.sh
-
-# For a CDP-DC cluster:
-cp stack.template-cdp.sh stack.sh
-----
-+
-IMPORTANT: Most of the software locations are already pre-defined in the template. For a few of the required software, though, there's currently no public repository available. Make sure you follow the instructions below to install these components.
-+
-For Schema Registry (SR) and Streams Messaging Manager (SMM) installation you have two options:
-
-* If If you have an URL link to a location where the CSP parcel and SR/SMM CSDs can be downloaded from, configure the corresponding properties in the `stack.sh` file:
-+
-[source,shell]
-----
-SCHEMAREGISTRY_VERSION=
-STREAMS_MESSAGING_MANAGER_VERSION=
-CSP_PARCEL_REPO=
-SCHEMAREGISTRY_CSD_URL=
-STREAMS_MESSAGING_MANAGER_CSD_URL=
-----
-+
-NOTE: The version of the components, as indicated in the `SCHEMAREGISTRY_VERSION` and `STREAMS_MESSAGING_MANAGER_VERSION` variables, have the form: `<csd_version>.<parcel_version>`. For example, for the CSD binary `SCHEMAREGISTRY-0.8.0.jar` and parcel version `2.0.0.0-112` the Schema Registry version is `0.8.0.2.0.0.0-112`.
-
-* Alternatively, leave the properties above unset and download the CSP parcel into `edge2ai-workshop/setup/parcels/` and both CSDs into `edge2ai-workshop/setup/csds/`. Note that the setup process will upload these files to every VM it creates, so if you're launching a large nuber of VMs, expect a good amount of upload volume.
-
-. Run the `setup.sh` script. It takes 3 arguments:
-+
-IMPORTANT: The script current implementation only supports AWS deployments. Azure and GCP will be added in the future.
-
-** The cloud provider name: `aws`,`azure`,`gcp`.
-** The template file.
-** (OPTIONAL) the Docker Device disk mount point.
-
-+
---
-_Example_:
-
-[source,shell]
-----
-chmod +x setup.sh
-./setup.sh aws cluster_template.json /dev/sdc
-----
---
-
-. Wait until the script finishes, check for any error.
 
 == Use
 
