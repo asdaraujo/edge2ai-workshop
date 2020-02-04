@@ -278,6 +278,16 @@ function kerb_auth_for_cluster() {
   fi
 }
 
+function remaining_days() {
+  local enddate=$1
+  python -c "
+from datetime import datetime, timedelta
+dt = datetime.now()
+dt = dt.replace(hour=0, minute=0, second=0, microsecond=0)
+print((datetime.strptime('$enddate', '%m%d%Y') - dt).days)
+"
+}
+
 function set_traps() {
   for sig in {0..16} {18..31}; do
     trap 'RET=$?; reset_traps; if [ $RET != 0 ]; then echo -e "\n   FAILED!!! (signal: '$sig', exit code: $RET)\n"; fi; set +e; kdestroy > /dev/null 2>&1' $sig

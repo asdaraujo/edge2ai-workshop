@@ -20,13 +20,7 @@ check_python_modules
 
 # Check if enddate is close
 WARNING_THRESHOLD_DAYS=2
-DATE_CHECK=$(python -c "
-from datetime import datetime, timedelta
-dt = datetime.now()
-dt = dt.replace(hour=0, minute=0, second=0, microsecond=0)
-print((datetime.strptime('$TF_VAR_enddate', '%m%d%Y') - dt).days)
-")
-
+DATE_CHECK=$(remaining_days "$TF_VAR_enddate")
 if [ "$DATE_CHECK" -le "0" ]; then
   echo 'ERROR: The expiration date for your environment is either set for today or already in the past.'
   echo '       Please update "TF_VAR_endddate" in .env.'"$NAMESPACE"' and try again.'

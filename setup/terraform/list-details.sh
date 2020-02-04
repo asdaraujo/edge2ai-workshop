@@ -19,6 +19,10 @@ function cluster_instances() {
   cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.type == "aws_instance" and .name != "web") | "\(.values.tags.Name) \(.values.public_dns) \(.values.public_ip) \(.values.private_ip)"'
 }
 
+function enddate() {
+  cat $TF_JSON_FILE | jq -r '.values.root_module.resources[0].values.tags.enddate' | sed 's/null//'
+}
+
 function show_details() {
   local namespace=$1
   local summary_only=${2:-no}
@@ -44,8 +48,18 @@ function show_details() {
     web_server="-"
   fi
 
+  local enddate=$(enddate)
+  local remaining_days=""
+  local warning=""
+  if [ "$enddate" != "" ]; then
+    remaining_days=$(remaining_days "$enddate")
+    if [ "$remaining_days" -lt 2 ]; then
+      warning=$(echo -e "\033[31m==> ATTENTION: Your instances will expire and be destroyed in $remaining_days days\033[0m")
+    fi
+  fi
+
   if [ "$summary_only" != "no" ]; then
-    printf "%-15s %-40s %10d\n" "$namespace" "$web_server" "$(cat $INSTANCE_LIST_FILE | wc -l)"
+    printf "%-15s %-40s %10d  %8s  %9s %s\n" "$namespace" "$web_server" "$(cat $INSTANCE_LIST_FILE | wc -l)" "$enddate" "$remaining_days" "$warning"
   else
     if [ -s "$TF_VAR_web_ssh_private_key" ]; then
       echo "WEB SERVER Key file: $TF_VAR_web_ssh_private_key"
@@ -84,11 +98,15 @@ function show_details() {
     cat $INSTANCE_LIST_FILE
 
     echo ""
+    if [ "$warning" != "" ]; then
+      echo "  $warning"
+      echo ""
+    fi
   fi
 }
 
 if [ "$NAMESPACE" == "" ]; then
-  printf "%-15s %-40s %10s\n" "Namespace" "Web Server" "# of VMs"
+  printf "%-15s %-40s %10s  %8s  %9s\n" "Namespace" "Web Server" "# of VMs" "End Date" "Days Left"
   for namespace in $(get_namespaces); do
     show_details $namespace yes
   done
