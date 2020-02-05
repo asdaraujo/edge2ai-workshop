@@ -12,11 +12,11 @@ fi
 NAMESPACE=${1:-}
 
 function web_instance() {
-  cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.type == "aws_instance" and .name == "web") | "\(.values.tags.Name) \(.values.public_dns) \(.values.public_ip) \(.values.private_ip)"'
+  cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.address == "aws_instance.web") | "\(.values.tags.Name) \(.values.public_dns) \(.values.public_ip) \(.values.private_ip)"'
 }
 
 function cluster_instances() {
-  cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.type == "aws_instance" and .name != "web") | "\(.values.tags.Name) \(.values.public_dns) \(.values.public_ip) \(.values.private_ip)"'
+  cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.address == "aws_instance.cluster") | "\(.values.tags.Name) \(.values.public_dns) \(.values.public_ip) \(.values.private_ip)"'
 }
 
 function enddate() {
