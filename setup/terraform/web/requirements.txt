@@ -5,4 +5,5 @@ flask-migrate>=2.5.2
 flask-httpauth>=3.3.0
 flask-wtf>=0.14.2
 python-dotenv>=0.10.3
+Werkzeug<1.0.0
 pymysql
