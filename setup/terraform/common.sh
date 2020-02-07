@@ -2,6 +2,13 @@
 
 DEFAULT_DOCKER_IMAGE=asdaraujo/edge2ai-workshop:latest
 
+# Color codes
+C_NORMAL="$(echo -e "\033[0m")"
+C_BOLD="$(echo -e "\033[1m")"
+C_DIM="$(echo -e "\033[2m")"
+C_RED="$(echo -e "\033[31m")"
+C_YELLOW="$(echo -e "\033[33m")"
+
 function log() {
   echo "[$(date)] [$(basename $0): $BASH_LINENO] : $*"
 }
@@ -33,7 +40,7 @@ function check_docker_launch() {
     docker_img=$(_find_docker_image)
     if [ "$docker_img" != "" ]; then
       local cmd=./$(basename $0)
-      echo -e "\033[2mUsing docker image: $docker_img\033[0m"
+      echo -e "${C_DIM}Using docker image: ${docker_img}${C_NORMAL}"
       exec docker run -ti --rm --entrypoint="" -v $BASE_DIR:/edge2ai-workshop/setup/terraform $docker_img $cmd $*
     fi
   fi
@@ -42,7 +49,7 @@ function check_docker_launch() {
     exit
   fi
   if [ "$is_inside_docker" == "no" ]; then
-    echo -e "\033[2mRunning locally (no docker)\033[0m"
+    echo -e "${C_DIM}Running locally (no docker)${C_NORMAL}"
   fi
 }
 
@@ -132,6 +139,20 @@ function show_namespaces() {
     for namespace in $namespaces; do
       echo "  - $namespace"
     done
+  fi
+}
+
+function ensure_ulimit() {
+  local ulimit_target=10000
+  local nofile=$(ulimit -n)
+  if [ "$nofile" != "unlimited" -a "$nofile" -lt $ulimit_target ]; then
+    ulimit -n $ulimit_target 2>/dev/null || true
+    nofile=$(ulimit -n)
+    if [ "$nofile" != "unlimited" -a "$nofile" -lt $ulimit_target ]; then
+      echo "WARNING: The maximum number of open file handles for this session is low ($nofile)."
+      echo "         If the launch fails with the message "Too many open files", consider increasing"
+      echo "         it with the ulimit command and try again."
+    fi
   fi
 }
 
@@ -305,6 +326,7 @@ function reset_traps() {
 }
 
 ARGS=("$@")
+ensure_ulimit
 check_docker_launch "${ARGS[@]:-}"
 check_for_jq
 set_traps

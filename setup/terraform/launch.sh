@@ -72,13 +72,11 @@ echo "Health checks:"
 $BASE_DIR/check-services.sh $NAMESPACE
 
 if [ "$TF_VAR_deploy_cdsw_model" == "true" ]; then
-  echo -e "\033[33m" # set font color to yellow
-  echo "    NOTE: CDSW model is being deployed in the background."
+  echo "${C_YELLOW}    NOTE: CDSW model is being deployed in the background."
   echo "          Execute the following command later to check on the status of"
   echo "          CDSW and the Model deployment:"
   echo ""
-  echo "          ./check-services.sh $NAMESPACE"
-  echo -e -n "\033[0m" # back to normal color
+  echo "          ./check-services.sh $NAMESPACE ${C_NORMAL}"
 fi
 
 echo ""

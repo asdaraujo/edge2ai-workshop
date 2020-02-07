@@ -19,11 +19,9 @@ echo "WARNING: if you continue all the instances for the bootcamp environment wi
 echo -en "\nIf you are certain that you want to destroy the environment, type YES: "
 read confirm
 if [ "$confirm" != "YES" ]; then
-  echo -e "\033[31m"
-  echo "WARNING: Skipping termination. If you really want to destroy, run it again and answer"
+  echo "${C_RED}WARNING: Skipping termination. If you really want to destroy, run it again and answer"
   echo "         the prompt with YES (all caps)."
-  echo "Bye..."
-  echo -e "\033[0m"
+  echo "Bye...${C_NORMAL}"
   exit
 fi
 

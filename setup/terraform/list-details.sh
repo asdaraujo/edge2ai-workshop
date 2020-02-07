@@ -54,7 +54,7 @@ function show_details() {
   if [ "$enddate" != "" ]; then
     remaining_days=$(remaining_days "$enddate")
     if [ "$remaining_days" -lt 2 ]; then
-      warning=$(echo -e "\033[31m==> ATTENTION: Your instances will expire and be destroyed in $remaining_days days\033[0m")
+      warning=$(echo -e "${C_RED}==> ATTENTION: Your instances will expire and be destroyed in $remaining_days days${C_NORMAL}")
     fi
   fi
 
@@ -114,12 +114,10 @@ if [ "$NAMESPACE" == "" ]; then
   for namespace in $(get_namespaces); do
     show_details $namespace yes
   done
-  echo -e "\033[33m" # set font color to yellow
-  echo "    To list the full details for a particular namespace, use:"
+  echo "${C_YELLOW}    To list the full details for a particular namespace, use:"
   echo ""
   echo "          ./list-details.sh <namespace>"
-  echo ""
-  echo -e -n "\033[0m" # back to normal color
+  echo "${C_NORMAL}"
 else
   show_details $NAMESPACE
 fi
