@@ -102,6 +102,10 @@ function show_details() {
       echo "  $warning"
       echo ""
     fi
+
+    if [ "${DEBUG_DETAILS:-}" != "" ]; then
+      jq -r '.' $TF_JSON_FILE
+    fi
   fi
 }
 

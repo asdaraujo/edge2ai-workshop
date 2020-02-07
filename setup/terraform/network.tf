@@ -24,19 +24,32 @@ resource "aws_internet_gateway" "igw" {
   }
 }
 
-resource "aws_main_route_table_association" "rtb_assoc" {
+data "aws_internet_gateway" "existing_igw" {
+  count  = (var.vpc_id != "" ? 1 : 0)
+  filter {
+    name   = "attachment.vpc-id"
+    values = [var.vpc_id]
+  }
+}
+
+resource "aws_route_table_association" "rtb_assoc" {
+  count          = (var.vpc_id != "" ? 1 : 0)
+  subnet_id      = aws_subnet.subnet1.id
+  route_table_id = aws_route_table.rtb.id
+}
+
+resource "aws_main_route_table_association" "main_rtb_assoc" {
   count          = (var.vpc_id != "" ? 0 : 1)
   vpc_id         = (var.vpc_id != "" ? var.vpc_id : aws_vpc.vpc[0].id)
-  route_table_id = aws_route_table.rtb[0].id
+  route_table_id = aws_route_table.rtb.id
 }
 
 resource "aws_route_table" "rtb" {
-  count  = (var.vpc_id != "" ? 0 : 1)
   vpc_id = (var.vpc_id != "" ? var.vpc_id : aws_vpc.vpc[0].id)
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.igw[0].id
+    gateway_id = (var.vpc_id == "" ? aws_internet_gateway.igw[0].id : data.aws_internet_gateway.existing_igw[0].internet_gateway_id)
   }
 
   tags = {

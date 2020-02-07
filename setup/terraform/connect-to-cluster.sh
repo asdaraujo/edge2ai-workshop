@@ -13,9 +13,14 @@ NAMESPACE=$1
 CLUSTER_ID=$2
 load_env $NAMESPACE
 
-if [ ! -s $TF_VAR_ssh_private_key ]; then
-  echo "Private key not found: $TF_VAR_ssh_private_key"
+if [ "$CLUSTER_ID" == "web" ]; then
+  PRIVATE_KEY=$TF_VAR_web_ssh_private_key
+else
+  PRIVATE_KEY=$TF_VAR_ssh_private_key
+fi
+if [ ! -s $PRIVATE_KEY ]; then
+  echo "Private key not found: $PRIVATE_KEY"
   exit 1
 fi
 
-ssh -o StrictHostKeyChecking=no -i $TF_VAR_ssh_private_key $TF_VAR_ssh_username@$(public_dns $CLUSTER_ID)
+ssh -o StrictHostKeyChecking=no -i $PRIVATE_KEY $TF_VAR_ssh_username@$(public_dns $CLUSTER_ID)

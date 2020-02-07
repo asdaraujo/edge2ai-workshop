@@ -1,6 +1,6 @@
 resource "null_resource" "configure-cdsw" {
   count = var.deploy_cdsw_model ? var.cluster_count : 0
-  depends_on = [aws_security_group_rule.allow_cdsw_healthcheck]
+  depends_on = [aws_security_group_rule.workshop_cdsw_sg_rule]
 
   connection {
     host        = element(aws_instance.cluster.*.public_ip, count.index)

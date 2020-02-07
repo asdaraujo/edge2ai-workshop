@@ -53,7 +53,13 @@ ensure_key_pairs
 
 log "Launching Terraform"
 terraform init
-terraform apply -auto-approve -parallelism=20 -state=$NAMESPACE_DIR/terraform.state
+# Sets the var below to prevent managed SGs from being added to the SGs we create
+if [ -s $NAMESPACE_DIR/terraform.state ]; then
+  export TF_VAR_managed_security_group_ids="[$(terraform show -json $NAMESPACE_DIR/terraform.state | \
+    jq -r '.values[]?.resources[]? | select(.type == "aws_security_group").values.id | "\"\(.)\""' | \
+    tr "\n" "," | sed 's/,$//')]"
+fi
+terraform apply -auto-approve -parallelism=20 -refresh=true -state=$NAMESPACE_DIR/terraform.state
 
 log "Deployment completed successfully"
 

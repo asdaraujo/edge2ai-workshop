@@ -33,7 +33,7 @@ function check_docker_launch() {
     docker_img=$(_find_docker_image)
     if [ "$docker_img" != "" ]; then
       local cmd=./$(basename $0)
-      echo "Using docker image: $docker_img"
+      echo -e "\033[2mUsing docker image: $docker_img\033[0m"
       exec docker run -ti --rm --entrypoint="" -v $BASE_DIR:/edge2ai-workshop/setup/terraform $docker_img $cmd $*
     fi
   fi
@@ -42,7 +42,7 @@ function check_docker_launch() {
     exit
   fi
   if [ "$is_inside_docker" == "no" ]; then
-    echo "Running locally (no docker)"
+    echo -e "\033[2mRunning locally (no docker)\033[0m"
   fi
 }
 
@@ -185,7 +185,11 @@ function ensure_instance_list() {
 function public_dns() {
   local cluster_number=$1
   ensure_instance_list $NAMESPACE
-  awk '$1 ~ /-'$cluster_number'$/{print $2}' $INSTANCE_LIST_FILE
+  if [ "$cluster_number" == "web" ]; then
+    awk '{print $2}' $WEB_INSTANCE_LIST_FILE
+  else
+    awk '$1 ~ /-'$cluster_number'$/{print $2}' $INSTANCE_LIST_FILE
+  fi
 }
 
 function public_ip() {

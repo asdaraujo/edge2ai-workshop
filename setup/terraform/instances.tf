@@ -5,10 +5,11 @@ resource "aws_instance" "cluster" {
   availability_zone      = aws_subnet.subnet1.availability_zone
   key_name               = aws_key_pair.workshop_key_pair.key_name
   subnet_id              = aws_subnet.subnet1.id
-  vpc_security_group_ids = [aws_security_group.workshop_main_sg.id]
+  vpc_security_group_ids = [aws_security_group.workshop_cluster_sg.id]
 
   depends_on = [
-    aws_main_route_table_association.rtb_assoc,
+    aws_route_table_association.rtb_assoc,
+    aws_main_route_table_association.main_rtb_assoc,
   ]
 
   timeouts {
@@ -84,10 +85,11 @@ resource "aws_instance" "web" {
   availability_zone      = aws_subnet.subnet1.availability_zone
   key_name               = aws_key_pair.workshop_web_key_pair.key_name
   subnet_id              = aws_subnet.subnet1.id
-  vpc_security_group_ids = [aws_security_group.workshop_main_sg.id]
+  vpc_security_group_ids = [aws_security_group.workshop_web_sg.id]
 
   depends_on = [
-    aws_main_route_table_association.rtb_assoc,
+    aws_route_table_association.rtb_assoc,
+    aws_main_route_table_association.main_rtb_assoc,
   ]
 
   root_block_device {

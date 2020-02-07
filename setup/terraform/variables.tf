@@ -97,3 +97,8 @@ variable "cidr_block_1" {
   description = "CIDR for subnet 1"
   default     = "10.0.1.0/24"
 }
+
+variable "managed_security_group_ids" {
+  type    = list(string)
+  default = []
+}
