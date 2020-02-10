@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+
+"""
+Testing Schema reg
+"""
+
 from ..utils import schreg_get_all_schemas, schreg_get_versions
 
 def test_schema_registry_schemas():

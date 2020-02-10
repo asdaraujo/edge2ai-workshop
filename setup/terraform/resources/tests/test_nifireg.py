@@ -1,4 +1,13 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+
+"""
+Testing NiFi reg
+"""
+
 from nipyapi import versioning
+
 
 def test_nifi_registry_iot(run_id):
     bucket = versioning.get_registry_bucket('IoT')
@@ -10,6 +19,7 @@ def test_nifi_registry_iot(run_id):
     assert len(versions) >= 2
     assert versions[0].comments == 'Second version - ' + run_id, 'Comments: ' + versions[0].comments
     assert versions[1].comments == 'First version - ' + run_id, 'Comments: ' + versions[1].comments
+
 
 def test_nifi_registry_sensorflows(run_id):
     bucket = versioning.get_registry_bucket('SensorFlows')

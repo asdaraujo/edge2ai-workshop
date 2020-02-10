@@ -31,29 +31,37 @@ CM_REPO_FILE=/etc/yum.repos.d/cloudera-manager.repo
 if [[ ! -f $CM_REPO_FILE ]]; then
   echo "-- Cloudera Manager repo not found, assuming not prepacked"
   echo "-- Installing base dependencies"
-  yum_install ${JAVA_PACKAGE_NAME} vim wget curl git bind-utils epel-release
-  yum_install python-pip npm gcc-c++ make
+  yum_install ${JAVA_PACKAGE_NAME} vim wget curl git bind-utils epel-release centos-release-scl
+  yum_install npm gcc-c++ make shellinabox mosquitto jq transmission-cli rng-tools rh-python36
 
-  echo "-- Install CM yum repo"
+  echo "-- Install CM and Postgresql repo"
   wget --progress=dot:giga ${CM_REPO_FILE_URL} -O $CM_REPO_FILE
   sed -i -E "s#https?://[^/]*#${CM_BASE_URL}#g" $CM_REPO_FILE
-
-  echo "-- Install PostgreSQL yum repo"
   rpm -Uvh https://yum.postgresql.org/10/redhat/rhel-7-x86_64/pgdg-centos10-10-2.noarch.rpm
 
-  echo "-- Running remaining binary preinstalls"
+  echo "-- Clean repos"
   yum clean all
   rm -rf /var/cache/yum/
   yum repolist
 
-  yum_install cloudera-manager-daemons cloudera-manager-agent cloudera-manager-server rng-tools \
-              postgresql10-server postgresql10 postgresql-jdbc shellinabox mosquitto jq transmission-cli
-  npm install --quiet forever -g
-  yum erase -y python-requests
-  pip install --quiet --upgrade pip
-  pip install --progress-bar off cm_client paho-mqtt pytest nipyapi
-  pip install --progress-bar off psycopg2==2.7.5 --ignore-installed
+  echo "-- Install and disable Cloudera Manager and Postgresql"
+  yum_install cloudera-manager-daemons cloudera-manager-agent cloudera-manager-server postgresql10-server postgresql10 postgresql-jdbc
+  systemctl disable cloudera-scm-agent
+  systemctl disable cloudera-scm-server
   systemctl disable postgresql-10
+
+  echo "--Handle additional installs"
+  npm install --quiet forever -g
+  export MANPATH=
+  source /opt/rh/rh-python36/enable
+  pip install --quiet --upgrade pip
+  pip install --progress-bar off cm_client paho-mqtt pytest nipyapi psycopg2-binary pyyaml jinja2 impyla
+  ln -s /opt/rh/rh-python36/root/bin/python3 /usr/bin/python3
+  ln -s /opt/rh/rh-python36/root/bin/pip3 /usr/bin/pip3
+
+  echo "-- Install JDBC connector"
+  cp /usr/share/java/postgresql-jdbc.jar /usr/share/java/postgresql-connector-java.jar
+  chmod 644 /usr/share/java/postgresql-connector-java.jar
 
   echo "-- Install Maven"
   curl "$MAVEN_BINARY_URL" > /tmp/apache-maven-bin.tar.gz
@@ -97,8 +105,6 @@ if [[ ! -f $CM_REPO_FILE ]]; then
   /opt/cloudera/cem/minifi/bin/minifi.sh install
 
   echo "-- Disable services here for packer images - will reenable later"
-  systemctl disable cloudera-scm-server
-  systemctl disable cloudera-scm-agent
   systemctl disable minifi
 
   echo "-- Download and install MQTT Processor NAR file"
@@ -108,6 +114,9 @@ if [[ ! -f $CM_REPO_FILE ]]; then
 
   echo "-- Preloading large Parcels to /opt/cloudera/parcel-repo"
   mkdir -p /opt/cloudera/parcel-repo
+  mkdir -p /opt/cloudera/parcels
+  # We want to execute ln -s within the parcels directory for preloading
+  cd "/opt/cloudera/parcels"
   if [ "${#PARCEL_URLS[@]}" -gt 0 ]; then
     set -- "${PARCEL_URLS[@]}"
     while [ $# -gt 0 ]; do
@@ -122,52 +131,15 @@ if [[ ! -f $CM_REPO_FILE ]]; then
       wget --no-clobber --progress=dot:giga "${url%%/}/${parcel_name}" -O "/opt/cloudera/parcel-repo/${parcel_name}"
       echo "$hash" > "/opt/cloudera/parcel-repo/${parcel_name}.sha"
       transmission-create -s 512 -o "/opt/cloudera/parcel-repo/${parcel_name}.torrent" "/opt/cloudera/parcel-repo/${parcel_name}"
+#      # predistribute parcel
+      tar zxf "/opt/cloudera/parcel-repo/${parcel_name}" -C "/opt/cloudera/parcels"
+      product_name="${parcel_name/-*/}"
+      sudo ln -s "${parcel_name%-*.parcel}" "${product_name}"
+      touch "/opt/cloudera/parcels/${product_name}/.dont_delete"
     done
   fi
-
-  echo "-- Configure and optimize the OS"
-  echo never > /sys/kernel/mm/transparent_hugepage/enabled
-  echo never > /sys/kernel/mm/transparent_hugepage/defrag
-  echo "echo never > /sys/kernel/mm/transparent_hugepage/enabled" >> /etc/rc.d/rc.local
-  echo "echo never > /sys/kernel/mm/transparent_hugepage/defrag" >> /etc/rc.d/rc.local
-  # add tuned optimization https://www.cloudera.com/documentation/enterprise/latest/topics/cdh_admin_performance.html
-  echo  "vm.swappiness = 1" >> /etc/sysctl.conf
-  sysctl vm.swappiness=1
-  timedatectl set-timezone UTC
-
-  echo "-- Handle cases for cloud provider customisations"
-  case "${CLOUD_PROVIDER}" in
-        aws)
-            echo "server 169.254.169.123 prefer iburst minpoll 4 maxpoll 4" >> /etc/chrony.conf
-            systemctl restart chronyd
-            ;;
-        azure)
-            umount /mnt/resource
-            mount /dev/sdb1 /opt
-            ;;
-        gcp)
-            ;;
-        *)
-            echo $"Usage: $0 {aws|azure|gcp} template-file [docker-device]"
-            echo $"example: ./setup.sh azure default_template.json"
-            echo $"example: ./setup.sh aws cluster_template.json /dev/xvdb"
-            exit 1
-  esac
-
-  iptables-save > $BASE_DIR/firewall.rules
-  FWD_STATUS=$(systemctl is-active firewalld || true)
-  if [[ "${FWD_STATUS}" != "unknown" ]]; then
-    systemctl disable firewalld
-    systemctl stop firewalld
-  fi
-  setenforce 0
-  if [[ -f /etc/selinux/config ]]; then
-    sed -i 's/SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
-  fi
-
-  echo "-- Install JDBC connector"
-  cp /usr/share/java/postgresql-jdbc.jar /usr/share/java/postgresql-connector-java.jar
-  chmod 644 /usr/share/java/postgresql-connector-java.jar
+  # return to BASE_DIR for continued execution
+  cd "${BASE_DIR}"
 
   echo "-- Install CSDs"
   for url in "${CSD_URLS[@]}"; do
@@ -186,11 +158,7 @@ if [[ ! -f $CM_REPO_FILE ]]; then
     fi
   done
 
-  echo "-- Enable password authentication"
-  sed -i.bak 's/PasswordAuthentication *no/PasswordAuthentication yes/' /etc/ssh/sshd_config
-
-  echo "-- Reset SSH user password"
-  echo "$SSH_PWD" | sudo passwd --stdin "$SSH_USER"
+  chown -R cloudera-scm:cloudera-scm /opt/cloudera
 
   echo "-- Finished image preinstall"
 else
@@ -210,14 +178,66 @@ fi
 
 ##### Start install
 
+#echo "-- Prewarm parcels directory"
+for parcel_file in $(find /opt/cloudera/parcel-repo -type f); do
+  dd if="$parcel_file" of=/dev/null bs=10M &
+done
+# Prewarm distributed parcels
+$(find /opt/cloudera/parcels -type f | xargs -n 1 -P $(nproc --all) -I{} dd if={} of=/dev/null bs=10M status=none) &
+
+echo "-- Configure and optimize the OS"
 echo "--Ensure there's plenty of entropy"
 systemctl enable rngd
 systemctl start rngd
 
-echo "-- Prewarm parcel directory"
-for parcel_file in $(find /opt/cloudera/parcel-repo -type f); do
-  dd if=$parcel_file of=/dev/null bs=10M &
-done
+# Enable Python3
+export MANPATH=
+source /opt/rh/rh-python36/enable
+
+echo never > /sys/kernel/mm/transparent_hugepage/enabled
+echo never > /sys/kernel/mm/transparent_hugepage/defrag
+echo "echo never > /sys/kernel/mm/transparent_hugepage/enabled" >> /etc/rc.d/rc.local
+echo "echo never > /sys/kernel/mm/transparent_hugepage/defrag" >> /etc/rc.d/rc.local
+# add tuned optimization https://www.cloudera.com/documentation/enterprise/latest/topics/cdh_admin_performance.html
+echo  "vm.swappiness = 1" >> /etc/sysctl.conf
+sysctl vm.swappiness=1
+timedatectl set-timezone UTC
+
+iptables-save > $BASE_DIR/firewall.rules
+FWD_STATUS=$(systemctl is-active firewalld || true)
+if [[ "${FWD_STATUS}" != "unknown" ]]; then
+  systemctl disable firewalld
+  systemctl stop firewalld
+fi
+setenforce 0
+if [[ -f /etc/selinux/config ]]; then
+  sed -i 's/SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
+fi
+
+echo "-- Enable password authentication"
+sed -i.bak 's/PasswordAuthentication *no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+
+echo "-- Reset SSH user password"
+echo "$SSH_PWD" | sudo passwd --stdin "$SSH_USER"
+
+echo "-- Handle cases for cloud provider customisations"
+case "${CLOUD_PROVIDER}" in
+      aws)
+          echo "server 169.254.169.123 prefer iburst minpoll 4 maxpoll 4" >> /etc/chrony.conf
+          systemctl restart chronyd
+          ;;
+      azure)
+          umount /mnt/resource
+          mount /dev/sdb1 /opt
+          ;;
+      gcp)
+          ;;
+      *)
+          echo $"Usage: $0 {aws|azure|gcp} template-file [docker-device]"
+          echo $"example: ./setup.sh azure default_template.json"
+          echo $"example: ./setup.sh aws cluster_template.json /dev/xvdb"
+          exit 1
+esac
 
 PUBLIC_IP=$(curl https://api.ipify.org/ 2>/dev/null || curl https://ifconfig.me 2> /dev/null)
 PUBLIC_DNS=$(dig -x ${PUBLIC_IP} +short | sed 's/\.$//')
@@ -281,7 +301,7 @@ if [[ -n "${CDSW_BUILD}" ]]; then
     # Device must be unmounted and have at least 200G of space
     if [[ "${DOCKER_DEVICE}" == "" ]]; then
       echo "Docker device was not specified in the command line. Will try to detect a free device to use"
-      TMP_FILE=${BASE_DIR}/.device.list
+      TMP_FILE=/tmp/.device.list
       # Find devices that are not mounted and have size greater than or equal to 200G
       lsblk -o NAME,MOUNTPOINT,SIZE -s -p -n | awk '/^\// && NF == 2 && $NF ~ /([2-9]|[0-9][0-9])[0-9][0-9]G/' > "${TMP_FILE}"
       if [[ $(cat $TMP_FILE | wc -l) == 0 ]]; then
@@ -292,6 +312,8 @@ if [[ -n "${CDSW_BUILD}" ]]; then
         cat ${TMP_FILE}
         exit 1
       else
+        echo "Found 1 device to use"
+        cat ${TMP_FILE}
         DOCKER_DEVICE=$(awk '{print $1}' ${TMP_FILE})
       fi
       rm -f ${TMP_FILE}
