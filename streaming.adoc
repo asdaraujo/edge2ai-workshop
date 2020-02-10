@@ -27,7 +27,7 @@ image::images/simulate1.png[width=800]
 +
 [source]
 ----
-Command:           python
+Command:           python3
 Command Arguments: /opt/demo/simulate.py
 ----
 +

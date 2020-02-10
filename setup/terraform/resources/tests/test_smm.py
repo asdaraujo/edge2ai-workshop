@@ -1,5 +1,14 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+
+"""
+Testing SMM
+"""
+
 from ..utils import CONSUMER_GROUP_ID, PRODUCER_CLIENT_ID
 from ..utils import smm_api_get, exception_context, retry_test
+
 
 @retry_test(max_retries=120, wait_time_secs=1)
 def test_smm_topic():
@@ -18,6 +27,7 @@ def test_smm_topic():
         assert metrics[0]['topicSummary']['underReplicatedPercent'] == 0.0
         assert metrics[0]['topicSummary']['preferredReplicasPercent'] == 100.0
 
+
 @retry_test(max_retries=120, wait_time_secs=1)
 def test_smm_broker():
     resp = smm_api_get('/api/v1/admin/metrics/aggregated/brokers', params={'from': '-1', 'to': '-1'})
@@ -28,6 +38,7 @@ def test_smm_broker():
         metrics = brokers['aggrBrokerMetricsCollection'][0]
         assert metrics['throughput'] > 0
         assert metrics['messageIn'] > 0
+
 
 @retry_test(max_retries=120, wait_time_secs=1)
 def test_smm_group():
@@ -46,6 +57,7 @@ def test_smm_group():
             assert metrics[partition]['partitionMetrics']['bytesOutCount'] > 0
             assert PRODUCER_CLIENT_ID in metrics[partition]['producerIdToOutMessagesCount']
             assert metrics[partition]['producerIdToOutMessagesCount'][PRODUCER_CLIENT_ID] > 0
+
 
 @retry_test(max_retries=120, wait_time_secs=1)
 def test_smm_producer():
