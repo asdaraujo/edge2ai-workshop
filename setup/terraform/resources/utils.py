@@ -7,6 +7,7 @@ Common utilities for Python scripts
 
 import logging
 import re
+import os
 import requests
 import time
 from contextlib import contextmanager
@@ -20,6 +21,8 @@ LOG.setLevel(logging.INFO)
 
 CONSUMER_GROUP_ID = 'iot-sensor-consumer'
 PRODUCER_CLIENT_ID = 'nifi-sensor-data'
+
+schema_uri = 'https://raw.githubusercontent.com/asdaraujo/edge2ai-workshop/master/sensor.avsc'
 
 _EFM_API_URL = 'http://edge2ai-1.dim.local:10080/efm/api'
 _NIFI_URL = 'http://edge2ai-1.dim.local:8080/nifi'
@@ -546,6 +549,16 @@ def smm_api_request(method, endpoint, expected_code=requests.codes.ok, **kwargs)
 
 def smm_api_get(endpoint, expected_code=requests.codes.ok, **kwargs):
     return smm_api_request('GET', endpoint, expected_code, **kwargs)
+
+
+def read_in_schema_text(uri=schema_uri):
+    if 'SCHEMA_FILE' in os.environ and os.path.exists(os.environ['SCHEMA_FILE']):
+        return open(os.environ['SCHEMA_FILE']).read()
+    else:
+        r = requests.get(uri)
+        if r.status_code != 200:
+            raise ValueError("Could not fetch schema from URI, response was", r.status_code)
+        return r.text
 
 # MAIN
 

@@ -48,13 +48,6 @@ ENABLE_KERBEROS=no
 cd /tmp/resources
 ----
 
-. Retrieve the schema file used in the workshop and save it locally
-+
-[source,shell]
-----
-wget https://raw.githubusercontent.com/asdaraujo/edge2ai-workshop/master/sensor.avsc
-----
-
 . If you have opted not to deploy the CDSW model set SKIP_CDSW to true
 +
 [source,shell]
@@ -66,9 +59,18 @@ export SKIP_CDSW=true
 +
 [source,shell]
 ----
-export SCHEMA_FILE=$PWD/sensor.avsc
 source /opt/rh/rh-python36/enable
 pytest tests
+----
+
+### Supplying your own schema
+
+If you want to supply your own schema for testing, save it locally and export the path as SCHEMA_FILE
+
+[source,shell]
+----
+wget https://raw.githubusercontent.com/asdaraujo/edge2ai-workshop/master/sensor.avsc
+export SCHEMA_FILE=$PWD/sensor.avsc
 ----
 
 ### Keeping a flow after the test run

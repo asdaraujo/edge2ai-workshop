@@ -2,8 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from nipyapi import canvas
-from functools import cmp_to_key
-from ..utils import exception_context, retry_test
+from ..utils import exception_context
 
 QUEUED_MSG_THRESHOLD = 1
 
