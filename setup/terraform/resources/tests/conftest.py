@@ -12,9 +12,7 @@ from ..utils import *
 
 @pytest.fixture(scope="session")
 def schema_text():
-    if 'SCHEMA_FILE' in os.environ and os.path.exists(os.environ['SCHEMA_FILE']):
-        return open(os.environ['SCHEMA_FILE']).read()
-    raise RuntimeError('Environment variable SCHEMA_FILE is not set.')
+    return read_in_schema_text()
 
 
 @pytest.fixture(scope="session")
