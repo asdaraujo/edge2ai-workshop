@@ -1,8 +1,8 @@
 #!/bin/bash
 BASE_DIR=$(cd $(dirname $0); pwd -L)
-source $BASE_DIR/common.sh
+source ${BASE_DIR}/common.sh
 
-mkdir -p $BASE_DIR/logs
+mkdir -p "${BASE_DIR}"/logs
 (
 set -o errexit
 set -o nounset
@@ -28,14 +28,14 @@ if [ "$DATE_CHECK" -le "0" ]; then
 elif [ "$DATE_CHECK" -le "$WARNING_THRESHOLD_DAYS" ]; then
   echo -n "WARNING: Your environment will expire in less than $WARNING_THRESHOLD_DAYS days. Do you really want to continue? "
   read CONFIRM
-  CONFIRM=$(echo $CONFIRM | tr a-z A-Z)
+  CONFIRM=$(echo "${CONFIRM}" | tr a-z A-Z)
   if [ "$CONFIRM" != "Y" -a "$CONFIRM" != "YES" ]; then
     echo 'Please update "TF_VAR_endddate" in .env.'"$NAMESPACE"' and try again.'
     exit 1
   fi
 fi
 
-mkdir -p $NAMESPACE_DIR
+mkdir -p "${NAMESPACE_DIR}"
 
 # Perform a quick configuration sanity check before calling Terraform
 source $BASE_DIR/resources/common.sh
@@ -59,17 +59,17 @@ if [ -s $NAMESPACE_DIR/terraform.state ]; then
     jq -r '.values[]?.resources[]? | select(.type == "aws_security_group").values.id | "\"\(.)\""' | \
     tr "\n" "," | sed 's/,$//')]"
 fi
-terraform apply -auto-approve -parallelism=20 -refresh=true -state=$NAMESPACE_DIR/terraform.state
+terraform apply -auto-approve -parallelism=${TF_VAR_parallelism} -refresh=true -state=$NAMESPACE_DIR/terraform.state
 
 log "Deployment completed successfully"
 
 echo ""
 echo "Instances:"
-$BASE_DIR/list-details.sh $NAMESPACE
+"${BASE_DIR}/list-details.sh" "${NAMESPACE}"
 
 echo ""
 echo "Health checks:"
-$BASE_DIR/check-services.sh $NAMESPACE
+"${BASE_DIR}/check-services.sh" "${NAMESPACE}"
 
 if [ "$TF_VAR_deploy_cdsw_model" == "true" ]; then
   echo "${C_YELLOW}    NOTE: CDSW model is being deployed in the background."
@@ -81,6 +81,6 @@ fi
 
 echo ""
 echo "Uploading instance details to Web Server:"
-$BASE_DIR/upload-instance-details.sh $NAMESPACE
+"${BASE_DIR}/upload-instance-details.sh" "${NAMESPACE}"
 
 ) 2>&1 | tee $BASE_DIR/logs/setup.log.${1:-unknown}.$(date +%Y%m%d%H%M%S)

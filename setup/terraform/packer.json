@@ -9,7 +9,8 @@
     "source_ami": "{{user `base_ami`}}",
     "instance_type": "{{user `instance_type`}}",
     "ssh_username": "{{user `ssh_username`}}",
-    "ami_name": "{{user `owner`}}-{{user `namespace`}}-packer-{{timestamp}}",
+    "ami_name": "{{user `owner`}}-{{user `namespace`}}-cdfworkshop-{{timestamp}}",
+    "ena_support": true,
     "launch_block_device_mappings": [
         {
           "device_name": "/dev/sda1",
@@ -18,12 +19,6 @@
           "delete_on_termination": true
         }
       ],
-    "ami_block_device_mappings": [ {
-         "device_name": "/dev/sdf",
-         "volume_size": 200,
-         "volume_type": "gp2",
-         "delete_on_termination": true
-     }],
     "tags": {
       "Name": "{{user `owner`}}-{{user `namespace`}}-packer-{{timestamp}}",
       "owner": "{{user `owner`}}",

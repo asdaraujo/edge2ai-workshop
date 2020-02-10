@@ -22,6 +22,10 @@ to ensure the following steps have been taken:
 
 - [ ] If you changed the workflows used in the workshop, have you implemented the corresponding flow automation and tests to validate it?
 
+### For Deployment related changes:
+
+- [ ] If you changed the Deployment Automation (Terraform, Setup scripts, etc.) used in the workshop, have you tested both Packer AMI and Base AMI deployment?
+
 ## Testing
 
 In order to ensure that changes to this repository don't inadvertently affect the flow used in the workshops we provide automated tests of the workflow. *Please ensure that all tests run successfully before submitting PRs.*
@@ -51,11 +55,19 @@ cd /tmp/resources
 wget https://raw.githubusercontent.com/asdaraujo/edge2ai-workshop/master/sensor.avsc
 ----
 
+. If you have opted not to deploy the CDSW model set SKIP_CDSW to true
++
+[source,shell]
+----
+export SKIP_CDSW=true
+----
+
 . Run the tests
 +
 [source,shell]
 ----
 export SCHEMA_FILE=$PWD/sensor.avsc
+source /opt/rh/rh-python36/enable
 pytest tests
 ----
 

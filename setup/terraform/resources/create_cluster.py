@@ -1,4 +1,8 @@
-from __future__ import print_function
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""Cluster creation controls for Cloudera Manager submission"""
+
 from cm_client.rest import ApiException
 from collections import namedtuple
 from datetime import datetime
@@ -140,7 +144,7 @@ class ClusterCreator:
         try:
             cmd_api_instance = cm_client.CommandsResourceApi(self.api_client)
             while True:
-                cmd = cmd_api_instance.read_command(long(cmd.id))
+                cmd = cmd_api_instance.read_command(int(cmd.id))
                 print(datetime.strftime(datetime.now(), '%c'))
                 print_cmd(cmd)
                 if not cmd.active:

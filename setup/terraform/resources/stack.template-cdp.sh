@@ -17,11 +17,11 @@ REMOTE_REPO_PWD=dummy
 JAVA_PACKAGE_NAME=java-1.8.0-openjdk-devel
 
 ##### Maven binary
-MAVEN_BINARY_URL=http://mirrors.sonic.net/apache/maven/maven-3/3.6.3/binaries/apache-maven-3.6.3-bin.tar.gz
+MAVEN_BINARY_URL=https://mirrors.sonic.net/apache/maven/maven-3/3.6.3/binaries/apache-maven-3.6.3-bin.tar.gz
 
 #####  CM
 CM_VERSION=7.0.3
-CM_BASE_URL=http://archive.cloudera.com
+CM_BASE_URL=https://archive.cloudera.com
 CM_MAJOR_VERSION=${CM_VERSION%%.*}
 CM_REPO_FILE_URL=${CM_BASE_URL}/cm${CM_MAJOR_VERSION}/${CM_VERSION}/redhat7/yum/cloudera-manager-trial.repo
 
