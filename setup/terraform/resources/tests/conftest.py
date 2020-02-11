@@ -11,11 +11,6 @@ from ..utils import *
 
 
 @pytest.fixture(scope="session")
-def schema_text():
-    return read_in_schema_text()
-
-
-@pytest.fixture(scope="session")
 def setup_flag():
     if 'SKIP_SETUP' in os.environ:
         return False
@@ -40,20 +35,21 @@ def teardown_flag():
 def run_id():
     if 'RUN_ID' in os.environ:
         return os.environ['RUN_ID']
-    run_id =  str(int(time.time()))
+    run_id = str(int(time.time()))
     print('RUN_ID=' + run_id)
     return run_id
 
 
 @pytest.fixture(scope="session", autouse=True)
-def setup_all(run_id, schema_text, setup_flag, teardown_flag, cdsw_flag):
+def setup_all(run_id, setup_flag, teardown_flag, cdsw_flag):
     if setup_flag:
-        global_teardown(run_id)
-        global_setup(run_id, schema_text, cdsw_flag)
+        global_teardown(run_id=run_id)
+        global_setup(run_id=run_id, cdsw_flag=cdsw_flag)
+        wait_for_data()
     else:
-        set_environment(run_id)
+        set_environment(run_id=run_id)
     yield True
     if teardown_flag:
-        global_teardown(run_id)
+        global_teardown(run_id=run_id)
 
 

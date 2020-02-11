@@ -7,9 +7,11 @@ Common utilities for Python scripts
 
 import logging
 import re
-import os
 import requests
 import time
+import os
+import sys
+from inspect import getmembers
 from contextlib import contextmanager
 from impala.dbapi import connect
 from nipyapi import config, canvas, versioning, nifi
@@ -22,8 +24,6 @@ LOG.setLevel(logging.INFO)
 CONSUMER_GROUP_ID = 'iot-sensor-consumer'
 PRODUCER_CLIENT_ID = 'nifi-sensor-data'
 
-schema_uri = 'https://raw.githubusercontent.com/asdaraujo/edge2ai-workshop/master/sensor.avsc'
-
 _EFM_API_URL = 'http://edge2ai-1.dim.local:10080/efm/api'
 _NIFI_URL = 'http://edge2ai-1.dim.local:8080/nifi'
 _NIFI_API_URL = 'http://edge2ai-1.dim.local:8080/nifi-api'
@@ -31,6 +31,8 @@ _NIFIREG_URL = 'http://edge2ai-1.dim.local:18080'
 _NIFIREG_API_URL = 'http://edge2ai-1.dim.local:18080/nifi-registry-api'
 _SCHREG_API_URL = 'http://edge2ai-1.dim.local:7788/api/v1'
 _SMM_API_URL = 'http://edge2ai-1.dim.local:8585'
+
+_SCHEMA_URI = 'https://raw.githubusercontent.com/asdaraujo/edge2ai-workshop/master/sensor.avsc'
 
 _CDSW_MODEL_NAME = 'IoT Prediction Model'
 _CDSW_USERNAME = 'admin'
@@ -518,6 +520,8 @@ def schreg_delete_schema(name):
 
 
 def schreg_create_schema(name, description, schema_text):
+    assert schema_text is not None
+    assert len(schema_text) > 0
     endpoint = '/schemaregistry/schemas'
     body = {
         'type': 'avro',
@@ -539,6 +543,16 @@ def schreg_create_schema_version(name, schema_text):
     }
     resp = schreg_api_post(endpoint, requests.codes.created, headers={'Content-Type': 'application/json'}, json=body)
 
+
+def read_in_schema(uri=_SCHEMA_URI):
+    if 'SCHEMA_FILE' in os.environ and os.path.exists(os.environ['SCHEMA_FILE']):
+        return open(os.environ['SCHEMA_FILE']).read()
+    else:
+        r = requests.get(_SCHEMA_URI)
+        if r.status_code == 200:
+            return r.text
+        raise ValueError("Unable to retrieve schema from URI, response was %s", r.response_code)
+
 # SMM helper functions
 
 
@@ -549,16 +563,6 @@ def smm_api_request(method, endpoint, expected_code=requests.codes.ok, **kwargs)
 
 def smm_api_get(endpoint, expected_code=requests.codes.ok, **kwargs):
     return smm_api_request('GET', endpoint, expected_code, **kwargs)
-
-
-def read_in_schema_text(uri=schema_uri):
-    if 'SCHEMA_FILE' in os.environ and os.path.exists(os.environ['SCHEMA_FILE']):
-        return open(os.environ['SCHEMA_FILE']).read()
-    else:
-        r = requests.get(uri)
-        if r.status_code != 200:
-            raise ValueError("Could not fetch schema from URI, response was", r.status_code)
-        return r.text
 
 # MAIN
 
@@ -580,7 +584,7 @@ def set_environment(run_id):
     return (run_id, root_pg, efm_pg_id, flow_id)
 
 
-def global_teardown(run_id):
+def global_teardown(run_id=None):
     (run_id, root_pg, efm_pg_id, flow_id) = set_environment(run_id)
 
     canvas.schedule_process_group(root_pg.id, False)
@@ -603,27 +607,26 @@ def global_teardown(run_id):
     reg_client = versioning.get_registry_client('NiFi Registry')
     if reg_client:
         versioning.delete_registry_client(reg_client)
-    #nifireg_delete_flows('IoT')
     nifireg_delete_flows('SensorFlows')
     drop_kudu_table()
 
 
-def global_setup(run_id, schema_text, cdsw_flag):
+def global_setup(run_id=None, schema_text=None, cdsw_flag=True, target_lab=99):
     class _Env(object): pass
     env = _Env()
     env.run_id, env.root_pg, env.efm_pg_id, env.flow_id = set_environment(run_id)
-    env.schema_text = schema_text
+    env.schema_text = schema_text if schema_text is not None else read_in_schema()
+    LOG.info("Using Schema: %s", schema_text)
     env.cdsw_flag = cdsw_flag
 
-    step1_sensor_simulator(env)
-    step2_edge_flow(env)
-    step3_register_schema(env)
-    step4_nifi_flow(env)
-    step6_expand_edge_flow(env)
-    step7_rest_and_kudu(env)
-
-    wait_for_data()
-
+    lab_setup_functions = [o for o, p in getmembers(sys.modules[__name__]) if 'lab' in o]
+    LOG.info("Found Lab Setup Functions: %s", str(lab_setup_functions))
+    for lab_setup_func in lab_setup_functions:
+        if int(lab_setup_func[3]) < target_lab:
+            LOG.info("[{0}] is numbered lower than target [lab{1}], executing".format(lab_setup_func, target_lab))
+            globals()[lab_setup_func](env)
+        else:
+            LOG.info("[{0}] is numbered higher than target [lab{1}], skipping".format(lab_setup_func, target_lab))
 
 def wait_for_data(timeout_secs=120):
     LOG.info("Setup complete, waiting for data to flow in NiFi")
@@ -639,7 +642,7 @@ def wait_for_data(timeout_secs=120):
     time.sleep(10)
 
 
-def step1_sensor_simulator(env):
+def lab1_sensor_simulator(env):
     LOG.info("Running step1_sensor_simulator")
     # Create a processor to run the sensor simulator
     gen_data = create_processor(env.root_pg, 'Generate Test Data', 'org.apache.nifi.processors.standard.ExecuteProcess', (0, 0),
@@ -656,7 +659,7 @@ def step1_sensor_simulator(env):
     canvas.schedule_processor(gen_data, True)
 
 
-def step2_edge_flow(env):
+def lab2_edge_flow(env):
     LOG.info("Running step2_edge_flow")
     # Create input port and funnel in NiFi
     env.from_gw = canvas.create_port(env.root_pg.id, 'INPUT_PORT', 'from Gateway', 'STOPPED', (0, 200))
@@ -687,13 +690,13 @@ def step2_edge_flow(env):
     efm_publish_flow(env.flow_id, 'First version - ' + str(env.run_id))
 
 
-def step3_register_schema(env):
+def lab3_register_schema(env):
     LOG.info("Running step3_register_schema")
     # Create Schema
     schreg_create_schema('SensorReading', 'Schema for the data generated by the IoT sensors', env.schema_text)
 
 
-def step4_nifi_flow(env):
+def lab4_nifi_flow(env):
     LOG.info("Running step4_nifi_flow")
     # Create a bucket in NiFi Registry to save the edge flow versions
     env.sensor_bucket = versioning.get_registry_bucket('SensorFlows')
@@ -753,7 +756,7 @@ def step4_nifi_flow(env):
     update_connection(env.from_gw, env.temp_funnel, sensor_port)
 
 
-def step6_expand_edge_flow(env):
+def lab6_expand_edge_flow(env):
     LOG.info("Running step6_expand_edge_flow")
     # Expand the CEM flow
     extract_proc = efm_create_processor(
@@ -786,7 +789,7 @@ def step6_expand_edge_flow(env):
     efm_publish_flow(env.flow_id, 'Second version - ' + str(env.run_id))
 
 
-def step7_rest_and_kudu(env):
+def lab7_rest_and_kudu(env):
     LOG.info("Running step7_rest_and_kudu")
     # Create controllers
     json_reader_with_schema_svc = create_controller(env.sensor_pg,
