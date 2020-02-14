@@ -16,7 +16,7 @@ RUN apk update && apk upgrade \
 RUN cp /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 RUN pip install --upgrade pip \
-    && pip install --no-cache jinja2 pyyaml
+    && pip install --no-cache jinja2 pyyaml boto3
 
 RUN wget https://releases.hashicorp.com/terraform/${TERRAFORMVERSION}/terraform_${TERRAFORMVERSION}_linux_amd64.zip \
     && unzip terraform_${TERRAFORMVERSION}_linux_amd64.zip \

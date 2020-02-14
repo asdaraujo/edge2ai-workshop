@@ -40,30 +40,157 @@ function get_homedir() {
   getent passwd $username | cut -d: -f6
 }
 
+function get_stack_file() {
+  local namespace=$1
+  local base_dir=$2
+  local exclude_signed=${3:-no}
+  for stack in $base_dir/stack.${namespace}.sh \
+               $base_dir/stack.sh; do
+    if [ "${exclude_signed}" == "no" -a -e "${stack}.signed" ]; then
+      stack="${stack}.signed"
+      break
+    elif [ -e "${stack}" ]; then
+      break
+    fi
+  done
+  echo "$stack"
+}
+
 function load_stack() {
   local namespace=$1
   local base_dir=${2:-$BASE_DIR}
-  local is_local=${3:-no}
-  if [ -e $base_dir/stack.${namespace}.sh ]; then
-    source $base_dir/stack.${namespace}.sh
-  else
-    source $base_dir/stack.sh
-  fi
-  export CM_SERVICES=$CM_SERVICES
-  export CM_SERVICES=$(echo "$CM_SERVICES" | tr "[a-z]" "[A-Z]")
-  export CM_VERSION CDH_VERSION CDH_BUILD CDH_PARCEL_REPO ANACONDA_VERSION ANACONDA_PARCEL_REPO
-  export ANACONDA_VERSION CDH_BUILD CDH_PARCEL_REPO CDH_VERSION CDSW_PARCEL_REPO CDSW_BUILD
-  export CFM_PARCEL_REPO CFM_VERSION CM_VERSION CSA_PARCEL_REPO CSP_PARCEL_REPO FLINK_BUILD
-  export SCHEMAREGISTRY_BUILD STREAMS_MESSAGING_MANAGER_BUILD STREAMS_REPLICATION_MANAGER_BUILD
-
+  local validate_only=${3:-no}
+  local exclude_signed=${4:-}
+  local stack_file=$(get_stack_file $namespace $base_dir $exclude_signed)
+  source $stack_file
+  # export all stack vars
+  for var_name in $(grep -h "^[A-Z0-9_]*=" $stack_file | sed 's/=.*//' | sort -u); do
+    eval "export $var_name"
+  done
+  CM_SERVICES=$(echo "$CM_SERVICES" | tr "[a-z]" "[A-Z]")
+  # set service selection flags
+  for svc_name in $(echo "$CM_SERVICES" | tr "," " "); do
+    eval "export HAS_${svc_name}=1"
+  done
+  # check for Kerberos
   ENABLE_KERBEROS=$(echo "${ENABLE_KERBEROS:-NO}" | tr a-z A-Z)
   if [ "$ENABLE_KERBEROS" == "YES" -o "$ENABLE_KERBEROS" == "TRUE" -o "$ENABLE_KERBEROS" == "1" ]; then
     ENABLE_KERBEROS=yes
-    if [ "$is_local" != "local" ]; then
+    if [ "$validate_only" == "no" ]; then
       mkdir -p $KEYTABS_DIR
     fi
   else
     ENABLE_KERBEROS=no
+  fi
+}
+
+function check_vars() {
+  local stack_file=$1; shift
+  local errors=0
+  while [ $# -gt 0 ]; do
+    local var_name=$1; shift
+    if [ "$(eval "echo \${${var_name}:-}")" == "" ]; then
+      echo "ERROR: The required property ${var_name} is not set" > /dev/stderr 
+      errors=1
+    fi
+  done
+  echo $errors
+}
+
+function validate_stack() {
+  local namespace=$1
+  local base_dir=${2:-$BASE_DIR}
+  local stack_file=$(get_stack_file $namespace $base_dir exclude-signed)
+  load_stack "$namespace" "$base_dir" validate_only exclude-signed
+  errors=0
+
+  # validate required variables
+  if [ "$(check_vars "$stack_file" \
+            CDH_MAJOR_VERSION CM_MAJOR_VERSION CM_SERVICES \
+            ENABLE_KERBEROS JAVA_PACKAGE_NAME MAVEN_BINARY_URL)" != "0" ]; then
+    errors=1
+  fi
+
+  if [ "${HAS_CDSW:-}" == "1" ]; then
+    if [ "$(check_vars "$stack_file" \
+              CDSW_BUILD CDSW_CSD_URL)" != "0" ]; then
+      errors=1
+    fi
+  fi
+
+  if [ "${HAS_SCHEMAREGISTRY:-}" == "1" -o "${HAS_SMM:-}" == "1" -o "${HAS_SRM:-}" == "1" ]; then
+    if [ "$(check_vars "$stack_file" \
+              CSP_PARCEL_REPO SCHEMAREGISTRY_CSD_URL \
+              STREAMS_MESSAGING_MANAGER_CSD_URL \
+              STREAMS_REPLICATION_MANAGER_CSD_URL)" != "0" ]; then
+      errors=1
+    fi
+  fi
+
+  if [ "${HAS_NIFI:-}" == "1" ]; then
+    if [ "$(check_vars "$stack_file" \
+              CFM_NIFICA_CSD_URL CFM_NIFIREG_CSD_URL CFM_NIFI_CSD_URL)" != "0" ]; then
+      errors=1
+    fi
+  fi
+
+  if [ "${HAS_NIFI:-}" == "1" ]; then
+    if [ "$(check_vars "$stack_file" FLINK_CSD_URL)" != "0" ]; then
+      errors=1
+    fi
+  fi
+
+  if [ ! \( "${CEM_URL:-}" != "" -a "${EFM_TARBALL_URL:-}${MINIFITK_TARBALL_URL:-}${MINIFI_TARBALL_URL:-}" == "" \) -a \
+       ! \( "${CEM_URL:-}" == "" -a "${EFM_TARBALL_URL:-}" != "" -a "${MINIFITK_TARBALL_URL:-}" != "" -a "${MINIFI_TARBALL_URL:-}" != "" \) ]; then
+    echo "ERROR: The following parameter combinations are mutually exclusive:" > /dev/stderr
+    echo "         - CEM_URL must be specified" > /dev/stderr
+    echo "           OR" > /dev/stderr
+    echo "         - EFM_TARBALL_URL and MINIFITK_TARBALL_URL and MINIFI_TARBALL_URL must be specified" > /dev/stderr
+    errors=1
+  fi
+
+  if [ ! \( "${CM_BASE_URL:-}" != "" -a "${CM_REPO_FILE_URL:-}" != "" -a "${CM_REPO_AS_TARBALL_URL:-}" == "" \) -a \
+       ! \( "${CM_BASE_URL:-}${CM_REPO_FILE_URL:-}" == "" -a "${CM_REPO_AS_TARBALL_URL:-}" != "" \) ]; then
+    echo "ERROR: The following parameter combinations are mutually exclusive:" > /dev/stderr
+    echo "         - CM_BASE_URL and CM_REPO_FILE_URL must be specified" > /dev/stderr
+    echo "           OR" > /dev/stderr
+    echo "         - CM_REPO_AS_TARBALL_URL must be specified" > /dev/stderr
+    errors=1
+  fi
+
+  set -- "${PARCEL_URLS[@]:-}" "${CSD_URLS[@]:-}"
+  local has_paywall_url=0
+  while [ $# -gt 0 ]; do
+    local url=$1; shift
+    if [[ "$url" == *"/p/"* ]]; then
+      has_paywall_url=1
+      break
+    fi
+  done
+  if [ "$has_paywall_url" == "1" ]; then
+    if [ "${REMOTE_REPO_PWD:-}" == "" -o "${REMOTE_REPO_USR:-}" == "" ]; then
+      echo "ERROR: REMOTE_REPO_USR and REMOTE_REPO_PWD must be specified when using paywall URLs" > /dev/stderr
+      errors=1
+    fi
+  fi
+
+  if [ "$errors" != "0" ]; then
+    echo "ERROR: Please fix the errors above in the configuration file $stack_file and try again." > /dev/stderr 
+    exit 1
+  fi
+}
+
+function check_for_presigned_url() {
+  local url="$1"
+  url_file=$(get_stack_file $NAMESPACE $BASE_DIR exclude-signed).urls
+  signed_url=""
+  if [ -s "$url_file" ]; then
+    signed_url="$(fgrep "${url}-->" "$url_file" | sed 's/.*-->//')"
+  fi
+  if [ "$signed_url" != "" ]; then
+    echo "$signed_url"
+  else
+    echo "$url"
   fi
 }
 

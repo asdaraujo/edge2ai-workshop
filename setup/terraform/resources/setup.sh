@@ -26,17 +26,58 @@ load_stack $NAMESPACE
 
 #########  Start Packer Installation
 
+echo "-- Ensure SElinux is disabled"
+setenforce 0
+if [[ -f /etc/selinux/config ]]; then
+  sed -i 's/SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
+fi
+
+if [ "${REMOTE_REPO_USR:-}" != "" -a "${REMOTE_REPO_PWD:-}" != "" ]; then
+  wget_basic_auth="--user '$REMOTE_REPO_USR' --password '$REMOTE_REPO_PWD'"
+  curl_basic_auth="-u '${REMOTE_REPO_USR}:${REMOTE_REPO_PWD}'"
+else
+  wget_basic_auth=""
+  curl_basic_auth=""
+fi
+
 echo "-- Testing if this is a pre-packed image by looking for existing Cloudera Manager repo"
 CM_REPO_FILE=/etc/yum.repos.d/cloudera-manager.repo
 if [[ ! -f $CM_REPO_FILE ]]; then
   echo "-- Cloudera Manager repo not found, assuming not prepacked"
   echo "-- Installing base dependencies"
   yum_install ${JAVA_PACKAGE_NAME} vim wget curl git bind-utils epel-release centos-release-scl
-  yum_install npm gcc-c++ make shellinabox mosquitto jq transmission-cli rng-tools rh-python36
+  yum_install npm gcc-c++ make shellinabox mosquitto jq transmission-cli rng-tools rh-python36 httpd
 
-  echo "-- Install CM and Postgresql repo"
-  wget --progress=dot:giga ${CM_REPO_FILE_URL} -O $CM_REPO_FILE
-  sed -i -E "s#https?://[^/]*#${CM_BASE_URL}#g" $CM_REPO_FILE
+  echo "-- Install CM repo"
+  if [ "${CM_REPO_AS_TARBALL_URL:-}" == "" ]; then
+    wget --progress=dot:giga $wget_basic_auth ${CM_REPO_FILE_URL} -O $CM_REPO_FILE
+    sed -i -E "s#https?://[^/]*#${CM_BASE_URL}#g" $CM_REPO_FILE
+  else
+    sed -i.bak 's/^ *Listen  *.*/Listen 3333/' /etc/httpd/conf/httpd.conf
+    systemctl start httpd
+
+    CM_REPO_AS_TARBALL_FILE=/tmp/cm-repo-as-a-tarball.tar.gz
+    wget $wget_basic_auth "${CM_REPO_AS_TARBALL_URL}" -O $CM_REPO_AS_TARBALL_FILE
+    tar -C /var/www/html -xvf $CM_REPO_AS_TARBALL_FILE
+    CM_REPO_ROOT_DIR=$(tar -tvf $CM_REPO_AS_TARBALL_FILE | head -1 | awk '{print $NF}')
+    rm -f $CM_REPO_AS_TARBALL_FILE
+
+    # In some versions the allkeys.asc file is missing from the repo-as-tarball
+    KEYS_FILE=/var/www/html/${CM_REPO_ROOT_DIR}/allkeys.asc
+    if [ ! -f "$KEYS_FILE" ]; then
+      KEYS_URL="$(dirname $(dirname "$CM_REPO_AS_TARBALL_URL"))/allkeys.asc"
+      wget $wget_basic_auth "${KEYS_URL}" -O $KEYS_FILE
+    fi
+
+    cat > /etc/yum.repos.d/cloudera-manager.repo <<EOF
+[cloudera-manager]
+name = Cloudera Manager, Version
+baseurl = http://localhost:3333/$CM_REPO_ROOT_DIR
+gpgcheck = 0
+EOF
+  fi
+
+  echo "-- Install Postgresql repo"
   rpm -Uvh https://yum.postgresql.org/10/redhat/rhel-7-x86_64/pgdg-centos10-10-2.noarch.rpm
 
   echo "-- Clean repos"
@@ -50,7 +91,7 @@ if [[ ! -f $CM_REPO_FILE ]]; then
   systemctl disable cloudera-scm-server
   systemctl disable postgresql-10
 
-  echo "--Handle additional installs"
+  echo "-- Handle additional installs"
   npm install --quiet forever -g
   export MANPATH=
   source /opt/rh/rh-python36/enable
@@ -73,13 +114,23 @@ if [[ ! -f $CM_REPO_FILE ]]; then
 
   echo "-- Get and extract CEM tarball to /opt/cloudera/cem"
   mkdir -p /opt/cloudera/cem
-  CEM_TARBALL=/opt/cloudera/cem/CEM-${CEM_VERSION}-centos7-tars-tarball.tar.gz
-  wget --progress=dot:giga "${CEM_URL}" -O $CEM_TARBALL
-  tar -zxf $CEM_TARBALL -C /opt/cloudera/cem
-  rm -f $CEM_TARBALL
+  if [ "$CEM_URL" != "" ]; then
+    CEM_TARBALL_NAME=$(basename ${CEM_URL%%\?*})
+    CEM_TARBALL_PATH=/opt/cloudera/cem/${CEM_TARBALL_NAME}
+    wget --progress=dot:giga $wget_basic_auth "${CEM_URL}" -O $CEM_TARBALL_PATH
+    tar -zxf $CEM_TARBALL_PATH -C /opt/cloudera/cem
+    rm -f $CEM_TARBALL_PATH
+  else
+    for url in "$EFM_TARBALL_URL" "$MINIFITK_TARBALL_URL" "$MINIFI_TARBALL_URL"; do
+      TARBALL_NAME=$(basename ${url%%\?*})
+      TARBALL_PATH=/opt/cloudera/cem/${TARBALL_NAME}
+      wget --progress=dot:giga $wget_basic_auth "${url}" -O $TARBALL_PATH
+    done
+  fi
+
 
   echo "-- Install and configure EFM"
-  EFM_TARBALL=$(find /opt/cloudera/cem/ -path "*/centos7/*" -name "efm-*-bin.tar.gz")
+  EFM_TARBALL=$(find /opt/cloudera/cem/ -name "efm-*-bin.tar.gz")
   EFM_BASE_NAME=$(basename $EFM_TARBALL | sed 's/-bin.tar.gz//')
   tar -zxf ${EFM_TARBALL} -C /opt/cloudera/cem
   ln -s /opt/cloudera/cem/${EFM_BASE_NAME} /opt/cloudera/cem/efm
@@ -91,8 +142,8 @@ if [[ ! -f $CM_REPO_FILE ]]; then
   cp $BASE_DIR/efm.conf /opt/cloudera/cem/efm/conf
 
   echo "-- Install and configure MiNiFi"
-  MINIFI_TARBALL=$(find /opt/cloudera/cem/ -path "*/centos7/*" -name "minifi-[0-9]*-bin.tar.gz")
-  MINIFITK_TARBALL=$(find /opt/cloudera/cem/ -path "*/centos7/*" -name "minifi-toolkit-*-bin.tar.gz")
+  MINIFI_TARBALL=$(find /opt/cloudera/cem/ -name "minifi-[0-9]*-bin.tar.gz")
+  MINIFITK_TARBALL=$(find /opt/cloudera/cem/ -name "minifi-toolkit-*-bin.tar.gz")
   MINIFI_BASE_NAME=$(basename $MINIFI_TARBALL | sed 's/-bin.tar.gz//')
   MINIFITK_BASE_NAME=$(basename $MINIFITK_TARBALL | sed 's/-bin.tar.gz//')
   tar -zxf ${MINIFI_TARBALL} -C /opt/cloudera/cem
@@ -125,15 +176,33 @@ if [[ ! -f $CM_REPO_FILE ]]; then
       url=$3
       shift 3
       echo ">>> $component - $version - $url"
-      curl --silent "${url%%/}/manifest.json" > /tmp/manifest.json
+      # Download parcel manifest
+      manifest_url="$(check_for_presigned_url "${url%%/}/manifest.json")"
+      curl $curl_basic_auth --silent "$manifest_url" > /tmp/manifest.json
+      # Find the parcel name for the specific component and version
       parcel_name=$(jq -r '.parcels[] | select(.parcelName | contains("'"$version"'-el7.parcel")) | select(.components[] | .name == "'"$component"'").parcelName' /tmp/manifest.json)
+      # Create the hash file
       hash=$(jq -r '.parcels[] | select(.parcelName | contains("'"$version"'-el7.parcel")) | select(.components[] | .name == "'"$component"'").hash' /tmp/manifest.json)
-      wget --no-clobber --progress=dot:giga "${url%%/}/${parcel_name}" -O "/opt/cloudera/parcel-repo/${parcel_name}"
       echo "$hash" > "/opt/cloudera/parcel-repo/${parcel_name}.sha"
-      transmission-create -s 512 -o "/opt/cloudera/parcel-repo/${parcel_name}.torrent" "/opt/cloudera/parcel-repo/${parcel_name}"
-#      # predistribute parcel
-      tar zxf "/opt/cloudera/parcel-repo/${parcel_name}" -C "/opt/cloudera/parcels"
-      product_name="${parcel_name/-*/}"
+      # Download the parcel file - in the background
+      parcel_url="$(check_for_presigned_url "${url%%/}/${parcel_name}")"
+      wget --no-clobber --progress=dot:giga $wget_basic_auth "${parcel_url}" -O "/opt/cloudera/parcel-repo/${parcel_name}" &
+    done
+    wait
+    # Create the torrent file for the parcel
+    for parcel_file in /opt/cloudera/parcel-repo/*.parcel; do
+      transmission-create -s 512 -o "${parcel_file}.torrent" "${parcel_file}" &
+    done
+    wait
+    # Predistribute parcel
+    for parcel_file in /opt/cloudera/parcel-repo/*.parcel; do
+      tar zxf "$parcel_file" -C "/opt/cloudera/parcels" &
+    done
+    wait
+    # Pre-activate parcels
+    for parcel_file in /opt/cloudera/parcel-repo/*.parcel; do
+      parcel_name="$(basename "$parcel_file")"
+      product_name="${parcel_name%%-*}"
       sudo ln -s "${parcel_name%-*.parcel}" "${product_name}"
       touch "/opt/cloudera/parcels/${product_name}/.dont_delete"
     done
@@ -144,13 +213,15 @@ if [[ ! -f $CM_REPO_FILE ]]; then
   echo "-- Install CSDs"
   for url in "${CSD_URLS[@]}"; do
     echo "---- Downloading $url"
+    file_name=$(basename "${url%%\?*}")
     if [ "${REMOTE_REPO_USR:-}" != "" -a "${REMOTE_REPO_PWD:-}" != "" ]; then
-      wget --progress=dot:giga --user "$REMOTE_REPO_USR" --password "$REMOTE_REPO_PWD" "${url}" -P /opt/cloudera/csd/
+      auth="--user '$REMOTE_REPO_USR' --password '$REMOTE_REPO_PWD'"
     else
-      wget --progress=dot:giga "${url}" -P /opt/cloudera/csd/
+      auth=""
     fi
+    wget --progress=dot:giga $wget_basic_auth "${url}" -O /opt/cloudera/csd/${file_name}
     # Patch CDSW CSD so that we can use it on CDP
-    if [ "$url" == "$CDSW_CSD_URL" -a "$CM_MAJOR_VERSION" == "7" ]; then
+    if [ "${HAS_CDSW:-1}" == "1" -a "$url" == "$CDSW_CSD_URL" -a "$CM_MAJOR_VERSION" == "7" ]; then
       jar xvf /opt/cloudera/csd/CLOUDERA_DATA_SCIENCE_WORKBENCH-*.jar descriptor/service.sdl
       sed -i 's/"max" *: *"6"/"max" : "7"/g' descriptor/service.sdl
       jar uvf /opt/cloudera/csd/CLOUDERA_DATA_SCIENCE_WORKBENCH-*.jar descriptor/service.sdl
@@ -186,7 +257,7 @@ done
 $(find /opt/cloudera/parcels -type f | xargs -n 1 -P $(nproc --all) -I{} dd if={} of=/dev/null bs=10M status=none) &
 
 echo "-- Configure and optimize the OS"
-echo "--Ensure there's plenty of entropy"
+echo "-- Ensure there's plenty of entropy"
 systemctl enable rngd
 systemctl start rngd
 
@@ -194,6 +265,7 @@ systemctl start rngd
 export MANPATH=
 source /opt/rh/rh-python36/enable
 
+echo "-- Configure kernel parameters"
 echo never > /sys/kernel/mm/transparent_hugepage/enabled
 echo never > /sys/kernel/mm/transparent_hugepage/defrag
 echo "echo never > /sys/kernel/mm/transparent_hugepage/enabled" >> /etc/rc.d/rc.local
@@ -203,15 +275,17 @@ echo  "vm.swappiness = 1" >> /etc/sysctl.conf
 sysctl vm.swappiness=1
 timedatectl set-timezone UTC
 
+echo "-- Disable firewalls"
 iptables-save > $BASE_DIR/firewall.rules
 FWD_STATUS=$(systemctl is-active firewalld || true)
 if [[ "${FWD_STATUS}" != "unknown" ]]; then
   systemctl disable firewalld
   systemctl stop firewalld
 fi
-setenforce 0
-if [[ -f /etc/selinux/config ]]; then
-  sed -i 's/SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
+
+if [ "$(grep 3333 /etc/httpd/conf/httpd.conf > /dev/null && echo ok || echo no)" == "ok" ]; then
+  echo "-- Enable httpd to serve local repository"
+  systemctl start httpd
 fi
 
 echo "-- Enable password authentication"
@@ -293,7 +367,7 @@ cat key.pem cert.pem > /var/lib/shellinabox/certificate.pem
 systemctl enable shellinaboxd
 systemctl start shellinaboxd
 
-if [[ -n "${CDSW_BUILD}" ]]; then
+if [ "${HAS_CDSW:-}" == "1" ]; then
     echo "CDSW_BUILD is set to '${CDSW_BUILD}'"
     # CDSW requires Centos 7.5, so we trick it to believe it is...
     echo "CentOS Linux release 7.5.1810 (Core)" > /etc/redhat-release
@@ -320,7 +394,7 @@ if [[ -n "${CDSW_BUILD}" ]]; then
     fi
     echo "Docker device: ${DOCKER_DEVICE}"
 else
-    echo "CDSW_BUILD is unset, skipping CDSW installation";
+    echo "CDSW is not selected, skipping CDSW installation";
 fi
 
 echo "-- Configure PostgreSQL"
@@ -415,7 +489,7 @@ else
   KERBEROS_OPTION=""
 fi
 CM_REPO_URL=$(grep baseurl $CM_REPO_FILE | sed 's/.*=//;s/ //g')
-export REMOTE_REPO_USR REMOTE_REPO_PWD
+export CM_MAJOR_VERSION REMOTE_REPO_USR REMOTE_REPO_PWD
 python $BASE_DIR/create_cluster.py $KERBEROS_OPTION $(hostname -f) $TEMPLATE_FILE $KEY_FILE $CM_REPO_URL
 
 echo "-- Configure and start EFM"
@@ -488,6 +562,9 @@ if [[ ",${CM_SERVICES}," == *",FLINK,"* ]]; then
     unauth
     ' > /tmp/flink_test.log 2>&1 &
 fi
+
+echo "-- Cleaning up"
+rm -f $BASE_DIR/stack.*.sh*
 
 echo "-- At this point you can login into Cloudera Manager host on port 7180 and follow the deployment of the cluster"
 

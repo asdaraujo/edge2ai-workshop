@@ -14,8 +14,8 @@ if [ $# != 1 ]; then
   exit 1
 fi
 NAMESPACE=$1
+validate_env
 load_env $NAMESPACE
-check_all_configs
 check_python_modules
 
 # Check if enddate is close
@@ -35,11 +35,19 @@ elif [ "$DATE_CHECK" -le "$WARNING_THRESHOLD_DAYS" ]; then
   fi
 fi
 
+START_TIME=$(date +%s)
+
 mkdir -p "${NAMESPACE_DIR}"
 
 # Perform a quick configuration sanity check before calling Terraform
 source $BASE_DIR/resources/common.sh
-load_stack $NAMESPACE $BASE_DIR/resources local
+validate_stack $NAMESPACE $BASE_DIR/resources
+
+# Presign URLs, if needed
+STACK_FILE=$(get_stack_file $NAMESPACE $BASE_DIR/resources exclude-signed)
+echo "Using stack: $STACK_FILE"
+presign_urls $STACK_FILE
+
 log "Validate services selection: $CM_SERVICES"
 CLUSTER_HOST=dummy PRIVATE_IP=dummy PUBLIC_DNS=dummy DOCKER_DEVICE=dummy CDSW_DOMAIN=dummy \
 python $BASE_DIR/resources/cm_template.py --cdh-major-version $CDH_MAJOR_VERSION $CM_SERVICES --validate-only
@@ -82,5 +90,9 @@ fi
 echo ""
 echo "Uploading instance details to Web Server:"
 "${BASE_DIR}/upload-instance-details.sh" "${NAMESPACE}"
+
+END_TIME=$(date +%s)
+DURATION=$((END_TIME-START_TIME))
+log "Deployment completed in $(printf "%d:%02d" "$((DURATION/60))" "$((DURATION%60))") minutes"
 
 ) 2>&1 | tee $BASE_DIR/logs/setup.log.${1:-unknown}.$(date +%Y%m%d%H%M%S)

@@ -61,13 +61,14 @@ resource "aws_instance" "cluster" {
 
   provisioner "remote-exec" {
     inline = [
-      "set -u",
-      "set -e",
+      "set -o nounset",
+      "set -o errexit",
+      "set -o pipefail",
       "sudo mkdir -p /opt/dataloader/",
       "sudo cp /tmp/smm/* /opt/dataloader/",
       "sudo chmod 755 /opt/dataloader/*.sh",
       "chmod +x /tmp/resources/*sh",
-      "sudo bash -x /tmp/resources/setup.sh aws \"${var.ssh_username}\" \"${var.ssh_password}\" \"${var.namespace}\"",
+      "sudo bash -x /tmp/resources/setup.sh aws \"${var.ssh_username}\" \"${var.ssh_password}\" \"${var.namespace}\" 2>&1 | tee /tmp/resources/setup.log",
     ]
 
     connection {

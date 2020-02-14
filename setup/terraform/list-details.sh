@@ -12,15 +12,21 @@ fi
 NAMESPACE=${1:-}
 
 function web_instance() {
-  cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.address == "aws_instance.web") | "\(.values.tags.Name) \(.values.public_dns) \(.values.public_ip) \(.values.private_ip)"'
+  if [ -s $TF_JSON_FILE ]; then
+    cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.address == "aws_instance.web") | "\(.values.tags.Name) \(.values.public_dns) \(.values.public_ip) \(.values.private_ip)"'
+  fi
 }
 
 function cluster_instances() {
-  cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.address == "aws_instance.cluster") | "\(.values.tags.Name) \(.values.public_dns) \(.values.public_ip) \(.values.private_ip)"'
+  if [ -s $TF_JSON_FILE ]; then
+    cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.address == "aws_instance.cluster") | "\(.values.tags.Name) \(.values.public_dns) \(.values.public_ip) \(.values.private_ip)"'
+  fi
 }
 
 function enddate() {
-  cat $TF_JSON_FILE | jq -r '.values.root_module.resources[0].values.tags.enddate' | sed 's/null//'
+  if [ -s $TF_JSON_FILE ]; then
+    cat $TF_JSON_FILE | jq -r '.values.root_module.resources[0].values.tags.enddate' | sed 's/null//'
+  fi
 }
 
 function show_details() {
@@ -30,9 +36,13 @@ function show_details() {
   load_env $namespace
 
   TF_JSON_FILE=$BASE_DIR/.tf.json.$$
-  trap "rm -f $TF_JSON_FILE" 0
+  #trap "rm -f $TF_JSON_FILE" 0
 
-  terraform show -json $NAMESPACE_DIR/terraform.state > $TF_JSON_FILE
+  rm -f $TF_JSON_FILE
+  mkdir -p $NAMESPACE_DIR
+  set +e
+  terraform show -json $NAMESPACE_DIR/terraform.state > $TF_JSON_FILE 2>/dev/null
+  set +e
 
   web_instance | while read name public_dns public_ip private_ip; do
     printf "%-40s %-55s %-15s %-15s\n" "$name" "$public_dns" "$public_ip" "$private_ip"
@@ -59,7 +69,7 @@ function show_details() {
   fi
 
   if [ "$summary_only" != "no" ]; then
-    printf "%-15s %-40s %10d  %8s  %9s %s\n" "$namespace" "$web_server" "$(cat $INSTANCE_LIST_FILE | wc -l)" "$enddate" "$remaining_days" "$warning"
+    printf "%-25s %-40s %10d  %8s  %9s %s\n" "$namespace" "$web_server" "$(cat $INSTANCE_LIST_FILE | wc -l)" "$enddate" "$remaining_days" "$warning"
   else
     if [ -s "$TF_VAR_web_ssh_private_key" ]; then
       echo "WEB SERVER Key file: $TF_VAR_web_ssh_private_key"
@@ -110,10 +120,11 @@ function show_details() {
 }
 
 if [ "$NAMESPACE" == "" ]; then
-  printf "%-15s %-40s %10s  %8s  %9s\n" "Namespace" "Web Server" "# of VMs" "End Date" "Days Left"
+  printf "%-25s %-40s %10s  %8s  %9s\n" "Namespace" "Web Server" "# of VMs" "End Date" "Days Left"
   for namespace in $(get_namespaces); do
     show_details $namespace yes
   done
+  echo ""
   echo "${C_YELLOW}    To list the full details for a particular namespace, use:"
   echo ""
   echo "          ./list-details.sh <namespace>"

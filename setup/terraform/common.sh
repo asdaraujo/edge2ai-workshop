@@ -75,6 +75,12 @@ except:
   print("ERROR: Python module \"Jinja2\" not found.")
   missing_modules.append("jinja2")
 
+try:
+  import boto3
+except:
+  print("ERROR: Python module \"Boto3\" not found.")
+  missing_modules.append("boto3")
+
 if missing_modules:
   print("Please install the missing modules with the command below and try again:")
   print("\n  pip install " + " ".join(missing_modules) + "\n")
@@ -261,9 +267,14 @@ function check_file_staleness() {
   echo $stale
 }
 
-function check_config() {
-  local template_file=$1
-  local compare_file=$2
+function presign_urls() {
+  local stack_file=$1
+  python $BASE_DIR/presign_urls.py "$stack_file"
+}
+
+function validate_env() {
+  local template_file=$BASE_DIR/.env.template
+  local compare_file=$(get_env_file_path $NAMESPACE)
   if [ ! -f $template_file ]; then
     echo "ERROR: Cannot find the template file $template_file." > /dev/stderr
     exit 1
@@ -278,17 +289,6 @@ ERROR: Please fix the problems above in the file $compare_file and try again.
 EOF
       exit 1
   fi
-}
-
-function check_all_configs() {
-  local stack
-  check_config $BASE_DIR/.env.template $(get_env_file_path $NAMESPACE)
-  if [ -e $BASE_DIR/resources/stack.${NAMESPACE}.sh ]; then
-    stack=$BASE_DIR/resources/stack.${NAMESPACE}.sh
-  else
-    stack=$BASE_DIR/resources/stack.sh
-  fi
-  check_config $BASE_DIR/resources/stack.template-cdp.sh $stack
 }
 
 function kerb_auth_for_cluster() {

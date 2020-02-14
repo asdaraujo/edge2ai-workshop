@@ -1,3 +1,5 @@
+*.signed
+*.urls
 *tfstate*
 .cdsw
 .cem
