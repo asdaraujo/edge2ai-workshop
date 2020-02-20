@@ -1,7 +1,10 @@
 *.jar
 target/
 <<<<<<< HEAD
+<<<<<<< HEAD
 dependency-reduced-pom.xml
 =======
 >>>>>>> reorganized
+=======
+>>>>>>> c441d0c302141af657759e18da043490fbfbaeb6
 
