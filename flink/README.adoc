@@ -1,7 +1,7 @@
 = Setup
 
 == Create Kafka Topic - "highTemp"
-+
+
 [source,shell]
 ----
 kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 1 --topic highTemp
@@ -20,8 +20,8 @@ kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 -
 == Run Job:
 * Load Flink JAR
 
-* Run Flink JAR -
-+
+* Run Flink JAR
+
 [source,shell]
 ----
 flink run -m yarn-cluster vv2-1.0-SNAPSHOT.jar
