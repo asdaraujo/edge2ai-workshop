@@ -2,11 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="faa186f1-5b33-4eed-aaf1-feef288d9bb1" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/flink/StreamingJobIoT.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/flink/StreamingJob.scala" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/flink/dependency-reduced-pom.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/flink/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/flink/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/flink/src/main/scala/flink-workshop/StreamingJobIoT.scala" beforeDir="false" afterPath="$PROJECT_DIR$/flink/src/main/scala/flinkworkshop/StreamingJobIoT.scala" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/flink/src/main/scala/flink-workshop/StreamingJobIoT.scala" beforeDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />

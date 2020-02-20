@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ScalaCompilerConfiguration">
-    <profile name="Maven 1" modules="StreamingJobIoT" />
+    <profile name="Maven 1" modules="StreamingJobIoT,vv2" />
+    <profile name="Maven 2" modules="flink">
+      <parameters>
+        <parameter value="-nobootcp" />
+      </parameters>
+    </profile>
   </component>
 </project>

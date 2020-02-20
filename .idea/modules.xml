@@ -2,8 +2,9 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/flink/StreamingJobIoT.iml" filepath="$PROJECT_DIR$/flink/StreamingJobIoT.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/edge2ai-workshop.iml" filepath="$PROJECT_DIR$/.idea/edge2ai-workshop.iml" />
+      <module fileurl="file://$PROJECT_DIR$/flink/flink.iml" filepath="$PROJECT_DIR$/flink/flink.iml" />
+      <module fileurl="file://$PROJECT_DIR$/flink/vv2.iml" filepath="$PROJECT_DIR$/flink/vv2.iml" />
     </modules>
   </component>
 </project>

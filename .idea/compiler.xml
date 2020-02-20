@@ -6,11 +6,14 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
-        <module name="StreamingJobIoT" />
+        <module name="vv2" />
+        <module name="flink" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
+      <module name="flink" target="1.8" />
       <module name="StreamingJobIoT" target="1.8" />
+      <module name="vv2" target="1.8" />
     </bytecodeTargetLevel>
   </component>
 </project>
