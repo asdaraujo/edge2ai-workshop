@@ -1,6 +1,13 @@
 = Setup
 
-== Create Kafka Topic -- highTemp
+== Create Kafka Topic - "highTemp"
++
+[source,shell]
+----
+kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 1 --topic highTemp
+----
+
+* or better yet use SMM to create topic...
 
 == Upload the following NiFi Template to NiFi and run flow:
 
@@ -11,5 +18,12 @@
 * https://gist.github.com/vvagias/c46d23af91d0daff17f9d1916e7a2bbc
 
 == Run Job:
-===Load Flink JAR -
-*** Run Flink JAR -  flink run -m yarn-cluster vv2-1.0-SNAPSHOT.jar
+* Load Flink JAR
+
+* Run Flink JAR -
++
+[source,shell]
+----
+flink run -m yarn-cluster vv2-1.0-SNAPSHOT.jar
+----
+
