@@ -25,7 +25,7 @@ terraform show -json $NAMESPACE_DIR/terraform.state | jq -r '.values.root_module
   (curl -L http://$ip:7788/ 2>/dev/null | egrep "<title>Schema Registry</title>|Error 401 Authentication required" > /dev/null 2>&1 && echo Ok) > .schreg &
   (curl -L http://$ip:9991/ 2>/dev/null | grep "<title>STREAMS MESSAGING MANAGER</title>" > /dev/null 2>&1 && echo Ok) > .smm &
   (curl -L http://$ip:8888/ 2>/dev/null | grep "<title>Hue" > /dev/null 2>&1 && echo Ok) > .hue &
-  (curl -L http://cdsw.$ip.nip.io/ 2>/dev/null | grep "<title.*Cloudera Data Science Workbench" > /dev/null 2>&1 && echo Ok) > .cdsw &
+  (curl -L http://cdsw.$ip.nip.io/ 2>/dev/null | egrep "<title.*(Cloudera Machine Learning|Cloudera Data Science Workbench)" > /dev/null 2>&1 && echo Ok) > .cdsw &
   (token=$(curl -X POST --cookie-jar .cj --cookie .cj -H "Content-Type: application/json" --data '{"_local":false,"login":"admin","password":"supersecret1"}' "$CDSW_API/authenticate" 2>/dev/null | jq -r '.auth_token' 2> /dev/null) && \
    curl -X POST --cookie-jar .cj --cookie .cj -H "Content-Type: application/json" -H "Authorization: Bearer $token" --data '{"projectOwnerName":"admin","latestModelDeployment":true,"latestModelBuild":true}' "$CDSW_ALTUS_API/models/list-models" 2>/dev/null | jq -r '.[].latestModelDeployment | select(.model.name == "IoT Prediction Model").status' 2>/dev/null) > .model &
   wait
