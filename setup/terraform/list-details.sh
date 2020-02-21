@@ -36,7 +36,7 @@ function show_details() {
   load_env $namespace
 
   TF_JSON_FILE=$BASE_DIR/.tf.json.$$
-  #trap "rm -f $TF_JSON_FILE" 0
+  trap "rm -f $TF_JSON_FILE" 0
 
   rm -f $TF_JSON_FILE
   mkdir -p $NAMESPACE_DIR
