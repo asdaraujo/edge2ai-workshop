@@ -27,7 +27,7 @@ fi
 
 log "Destroying instances"
 terraform init
-terraform destroy -auto-approve -state=$NAMESPACE_DIR/terraform.state
+terraform destroy -parallelism=1000 -auto-approve -state=$NAMESPACE_DIR/terraform.state
 
 log "Cleaning up"
 rm -f $NAMESPACE_DIR/{.instance.list,.instance.web}
