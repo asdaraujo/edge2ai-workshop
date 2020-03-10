@@ -9,7 +9,8 @@ from botocore.exceptions import ClientError
 
 S3_CLIENT = boto3.client("s3",
                          aws_access_key_id=os.environ.get("TF_VAR_aws_access_key_id", ""),
-                         aws_secret_access_key=os.environ.get("TF_VAR_aws_secret_access_key", ""))
+                         aws_secret_access_key=os.environ.get("TF_VAR_aws_secret_access_key", ""),
+                         region_name="us-west-2")
 
 def create_presigned_url(bucket_name, object_name, expiration=7200):
     global S3_CLIENT
