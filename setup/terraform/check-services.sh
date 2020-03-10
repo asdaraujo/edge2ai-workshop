@@ -14,7 +14,7 @@ NAMESPACE=$1
 load_env $NAMESPACE
 
 printf "%-30s %-30s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %s\n" "instance" "ip address" "WEB" "CM" "CEM" "NIFI" "NREG" "SREG" "SMM" "HUE" "CML" "Model Status"
-terraform show -json $NAMESPACE_DIR/terraform.state | jq -r '.values.root_module.resources[] | select(.address == "aws_instance.web" or .address == "aws_instance.cluster") | "\(.address)[\(.index)] \(.values.public_ip)"' | while read instance ip; do
+(cd $BASE_DIR && terraform show -json $NAMESPACE_DIR/terraform.state) | jq -r '.values.root_module.resources[] | select(.address == "aws_instance.web" or .address == "aws_instance.cluster") | "\(.address)[\(.index)] \(.values.public_ip)"' | while read instance ip; do
   CML_API="http://cdsw.$ip.nip.io/api/v1"
   CML_ALTUS_API="http://cdsw.$ip.nip.io/api/altus-ds-1"
   (curl -L http://$ip/api/ping 2>/dev/null | grep 'Pong!' > /dev/null 2>&1 && echo Ok) > .web &

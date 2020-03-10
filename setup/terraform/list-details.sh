@@ -41,7 +41,7 @@ function show_details() {
   rm -f $TF_JSON_FILE
   mkdir -p $NAMESPACE_DIR
   set +e
-  terraform show -json $NAMESPACE_DIR/terraform.state > $TF_JSON_FILE 2>/dev/null
+  (cd $BASE_DIR && terraform show -json $NAMESPACE_DIR/terraform.state > $TF_JSON_FILE 2>/dev/null)
   set +e
 
   web_instance | while read name public_dns public_ip private_ip; do

@@ -26,8 +26,8 @@ if [ "$confirm" != "YES" ]; then
 fi
 
 log "Destroying instances"
-terraform init
-terraform destroy -parallelism=1000 -auto-approve -state=$NAMESPACE_DIR/terraform.state
+(cd $BASE_DIR && terraform init)
+(cd $BASE_DIR && terraform destroy -parallelism=1000 -auto-approve -state=$NAMESPACE_DIR/terraform.state)
 
 log "Cleaning up"
 rm -f $NAMESPACE_DIR/{.instance.list,.instance.web}
