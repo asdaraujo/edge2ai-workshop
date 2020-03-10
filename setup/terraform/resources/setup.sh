@@ -57,7 +57,7 @@ if [[ ! -f $CM_REPO_FILE ]]; then
     systemctl start httpd
 
     CM_REPO_AS_TARBALL_FILE=/tmp/cm-repo-as-a-tarball.tar.gz
-    wget $wget_basic_auth "${CM_REPO_AS_TARBALL_URL}" -O $CM_REPO_AS_TARBALL_FILE
+    wget --progress=dot:giga $wget_basic_auth "${CM_REPO_AS_TARBALL_URL}" -O $CM_REPO_AS_TARBALL_FILE
     tar -C /var/www/html -xvf $CM_REPO_AS_TARBALL_FILE
     CM_REPO_ROOT_DIR=$(tar -tvf $CM_REPO_AS_TARBALL_FILE | head -1 | awk '{print $NF}')
     rm -f $CM_REPO_AS_TARBALL_FILE
@@ -66,7 +66,7 @@ if [[ ! -f $CM_REPO_FILE ]]; then
     KEYS_FILE=/var/www/html/${CM_REPO_ROOT_DIR}/allkeys.asc
     if [ ! -f "$KEYS_FILE" ]; then
       KEYS_URL="$(dirname $(dirname "$CM_REPO_AS_TARBALL_URL"))/allkeys.asc"
-      wget $wget_basic_auth "${KEYS_URL}" -O $KEYS_FILE
+      wget --progress=dot:giga $wget_basic_auth "${KEYS_URL}" -O $KEYS_FILE
     fi
 
     cat > /etc/yum.repos.d/cloudera-manager.repo <<EOF
@@ -159,7 +159,7 @@ EOF
   systemctl disable minifi
 
   echo "-- Download and install MQTT Processor NAR file"
-  wget https://repo1.maven.org/maven2/org/apache/nifi/nifi-mqtt-nar/1.8.0/nifi-mqtt-nar-1.8.0.nar -P /opt/cloudera/cem/minifi/lib
+  wget --progress=dot:giga https://repo1.maven.org/maven2/org/apache/nifi/nifi-mqtt-nar/1.8.0/nifi-mqtt-nar-1.8.0.nar -P /opt/cloudera/cem/minifi/lib
   chown root:root /opt/cloudera/cem/minifi/lib/nifi-mqtt-nar-1.8.0.nar
   chmod 660 /opt/cloudera/cem/minifi/lib/nifi-mqtt-nar-1.8.0.nar
 
