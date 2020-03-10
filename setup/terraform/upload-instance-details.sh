@@ -41,6 +41,23 @@ if [ "$WEB_IP_ADDRESS" == "" ]; then
   fi
 fi
 
+WAIT_FOR_WEB=10
+while [ "$WAIT_FOR_WEB" -gt "0" ]; do
+  set +e
+  RET=$(curl --connect-timeout 1 -s -o /dev/null -w "%{http_code}" -k -H "Content-Type: application/json" "http://${WEB_IP_ADDRESS}/api/ping")
+  set -e
+  if [ "$RET" == "200" ]; then
+    break
+  fi
+  WAIT_FOR_WEB=$((WAIT_FOR_WEB - 1))
+  echo "Waiting for web server to be ready..."
+done
+if [ "$RET" == "200" ]; then
+  echo "Web server is ready!"
+else
+  echo "ERROR: Web server didn't respond successfully."
+fi
+
 curl -k -H "Content-Type: application/json" -X POST \
   -d '{
        "email":"'"$ADMIN_EMAIL"'",
