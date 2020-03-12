@@ -24,6 +24,35 @@ TEMPLATE_DIR = './templates'
 
 JINJA2_ENV = None
 
+def to_int(x):
+    try:
+        return(int(x))
+    except:
+        return 999
+
+def parse_version(ver):
+    return [to_int(x) for x in ver.split('.')]
+
+def ge(v1, v2):
+    if parse_version(v1) >= parse_version(v2):
+        return True
+    return False
+
+def gt(v1, v2):
+    if parse_version(v1) > parse_version(v2):
+        return True
+    return False
+
+def le(v1, v2):
+    if parse_version(v1) <= parse_version(v2):
+        return True
+    return False
+
+def lt(v1, v2):
+    if parse_version(v1) < parse_version(v2):
+        return True
+    return False
+
 def jinja2_env():
     global JINJA2_ENV
     if not JINJA2_ENV:
@@ -33,6 +62,10 @@ def jinja2_env():
 def init_jinja2_env(template_dir):
     global JINJA2_ENV
     JINJA2_ENV = Environment(loader=FileSystemLoader(template_dir), undefined=StrictUndefined)
+    JINJA2_ENV.tests['ge'] = ge
+    JINJA2_ENV.tests['gt'] = gt
+    JINJA2_ENV.tests['le'] = le
+    JINJA2_ENV.tests['lt'] = lt
 
 def merge_templates(templates):
     merged = {}

@@ -8,6 +8,7 @@
       ]
     }
   ],
+{% if CDH_VERSION is lt('7.1.1') %}
   "products": [
     {
       "product": "STREAMS_REPLICATION_MANAGER",
@@ -17,6 +18,7 @@
   "repositories": [
     "{{CSP_PARCEL_REPO}}"
   ],
+{% endif %}
   "services": [
     {
       "refName": "streams_replication_manager",

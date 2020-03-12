@@ -7,6 +7,7 @@
       ]
     }
   ],
+{% if CDH_VERSION is lt('7.1.1') %}
   "products": [
     {
       "product": "SCHEMAREGISTRY",
@@ -16,6 +17,7 @@
   "repositories": [
     "{{CSP_PARCEL_REPO}}"
   ],
+{% endif %}
   "services": [
     {
       "refName": "schemaregistry",
@@ -26,6 +28,7 @@
           "roleType": "SCHEMA_REGISTRY_SERVER",
           "base": true,
           "configs": [
+{% if CDH_VERSION is lt('7.1.1') %}
             {
               "name" : "schema.registry.storage.connector.connectURI",
               "value" : "jdbc:postgresql://localhost:5432/registry"
@@ -34,14 +37,42 @@
               "name": "schema.registry.storage.connector.password",
               "value": "supersecret1"
             }
+{% endif %}
           ]
         }
       ],
       "serviceConfigs": [
+{% if CDH_VERSION is lt('7.1.1') %}
         {
           "name": "zookeeper_service",
           "ref": "zookeeper"
         }
+{% else %}
+        {
+          "name": "database_host",
+          "value": "{{CLUSTER_HOST}}"
+        }
+        ,{
+          "name": "database_name",
+          "value": "registry"
+        }
+        ,{
+          "name": "database_password",
+          "value": "supersecret1"
+        }
+        ,{
+          "name": "database_port",
+          "value": "5432"
+        }
+        ,{
+          "name": "database_type",
+          "value": "postgresql"
+        }
+        ,{
+          "name": "database_user",
+          "value": "registry"
+        }
+{% endif %}
       ]
     }
   ]
