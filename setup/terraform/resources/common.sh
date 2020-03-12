@@ -118,12 +118,14 @@ function validate_stack() {
     fi
   fi
 
-  if [ "${HAS_SCHEMAREGISTRY:-}" == "1" -o "${HAS_SMM:-}" == "1" -o "${HAS_SRM:-}" == "1" ]; then
-    if [ "$(check_vars "$stack_file" \
-              CSP_PARCEL_REPO SCHEMAREGISTRY_CSD_URL \
-              STREAMS_MESSAGING_MANAGER_CSD_URL \
-              STREAMS_REPLICATION_MANAGER_CSD_URL)" != "0" ]; then
-      errors=1
+  if [[ "${CDH_VERSION}" == *"6."* || "${CDH_VERSION}" == *"7.0."* || "${CDH_VERSION}" == *"7.1.0"* ]]; then
+    if [ "${HAS_SCHEMAREGISTRY:-}" == "1" -o "${HAS_SMM:-}" == "1" -o "${HAS_SRM:-}" == "1" ]; then
+      if [ "$(check_vars "$stack_file" \
+                CSP_PARCEL_REPO SCHEMAREGISTRY_CSD_URL \
+                STREAMS_MESSAGING_MANAGER_CSD_URL \
+                STREAMS_REPLICATION_MANAGER_CSD_URL)" != "0" ]; then
+        errors=1
+      fi
     fi
   fi
 

@@ -21,6 +21,10 @@ else
   exit 1
 fi
 
+if [[ "${CDH_VERSION}" != *"6."* && "${CDH_VERSION}" != *"7.0."* && "${CDH_VERSION}" != *"7.1.0"* ]]; then
+  exit 0
+fi
+
 # Check for required additional parcels
 missing_file=0
 for parcel in SCHEMAREGISTRY STREAMS_MESSAGING_MANAGER; do
