@@ -7,7 +7,7 @@
       ]
     }
   ],
-{% if CDH_VERSION is lt('7.1.1') %}
+{% if CM_VERSION is lt('7.1.1') %}
   "products": [
     {
       "product": "SCHEMAREGISTRY",
@@ -28,7 +28,7 @@
           "roleType": "SCHEMA_REGISTRY_SERVER",
           "base": true,
           "configs": [
-{% if CDH_VERSION is lt('7.1.1') %}
+{% if CM_VERSION is lt('7.1.1') %}
             {
               "name" : "schema.registry.storage.connector.connectURI",
               "value" : "jdbc:postgresql://localhost:5432/registry"
@@ -42,7 +42,7 @@
         }
       ],
       "serviceConfigs": [
-{% if CDH_VERSION is lt('7.1.1') %}
+{% if CM_VERSION is lt('7.1.1') %}
         {
           "name": "zookeeper_service",
           "ref": "zookeeper"

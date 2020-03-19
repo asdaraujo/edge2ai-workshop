@@ -8,7 +8,7 @@
       ]
     }
   ],
-{% if CDH_VERSION is lt('7.1.1') %}
+{% if CM_VERSION is lt('7.1.1') %}
   "products": [
     {
       "product": "STREAMS_REPLICATION_MANAGER",
