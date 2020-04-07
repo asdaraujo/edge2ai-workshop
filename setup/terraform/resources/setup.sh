@@ -85,10 +85,15 @@ EOF
   rm -rf /var/cache/yum/
   yum repolist
 
-  echo "-- Install and disable Cloudera Manager and Postgresql"
-  yum_install cloudera-manager-daemons cloudera-manager-agent cloudera-manager-server postgresql10-server postgresql10 postgresql-jdbc
+  echo "-- Install and disable Cloudera Manager"
+  # NOTE: must disable PG repos for this install due to some weird dependencies on psycopg2,
+  # which maps to Python 3 on the PG repo, but to Python 2 on base.
+  yum_install --disablerepo="pgdg*" cloudera-manager-daemons cloudera-manager-agent cloudera-manager-server
   systemctl disable cloudera-scm-agent
   systemctl disable cloudera-scm-server
+
+  echo "-- Install and disable PostgreSQL"
+  yum_install postgresql10-server postgresql10 postgresql-jdbc
   systemctl disable postgresql-10
 
   echo "-- Handle additional installs"
