@@ -32,7 +32,7 @@
           "configs": [
             {
               "name" : "streams.replication.manager.driver.target.cluster",
-              "value" : "local, remote"
+              "value" : "local"
             }
           ]
         },
