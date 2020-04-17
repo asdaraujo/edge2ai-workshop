@@ -318,8 +318,16 @@ case "${CLOUD_PROVIDER}" in
           exit 1
 esac
 
-PUBLIC_IP=$(curl https://api.ipify.org/ 2>/dev/null || curl https://ifconfig.me 2> /dev/null)
+PUBLIC_IP=$(curl https://ifconfig.me 2>/dev/null || curl https://api.ipify.org/ 2> /dev/null)
+if [[ ! $PUBLIC_IP =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+  echo "ERROR: Could not retrieve public IP for this instance. Probably a transient error. Please try again."
+  exit 1
+fi
 PUBLIC_DNS=$(dig -x ${PUBLIC_IP} +short | sed 's/\.$//')
+if [ "$PUBLIC_DNS" == "" ]; then
+  echo "ERROR: Could not retrieve public DNS for this instance. Probably a transient error. Please try again."
+  exit 1
+fi
 
 echo "-- Set /etc/hosts - Public DNS must come first"
 echo "$(hostname -I) $PUBLIC_DNS $(hostname -f) edge2ai-1.dim.local" >> /etc/hosts
