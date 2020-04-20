@@ -1,0 +1,30 @@
+{{REQUIRES_CDH_MAJOR_VERSION_7}}
+{
+  "hostTemplates": [
+    {
+      "refName": "HostTemplate-0-from-{{CLUSTER_HOST}}",
+      "roleConfigGroupsRefNames": [
+        "phoenix-PHOENIX_QUERY_SERVER-BASE"
+      ]
+    }
+  ],
+  "services": [
+    {
+      "refName": "phoenix",
+      "serviceType": "PHOENIX",
+      "roleConfigGroups": [
+        {
+          "refName": "phoenix-PHOENIX_QUERY_SERVER-BASE",
+          "roleType": "PHOENIX_QUERY_SERVER",
+          "base": true,
+          "configs": [
+            {
+              "name": "phoenix_queryserver_max_heap_size",
+              "value": "536870912"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
