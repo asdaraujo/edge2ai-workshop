@@ -237,10 +237,10 @@ function install_kerberos() {
   krb_realm_lc=$( echo $krb_realm | tr A-Z a-z )
 
   # Install Kerberos packages
-  yum -y install krb5-libs krb5-server krb5-workstation
+  yum_install krb5-libs krb5-server krb5-workstation
 
   # Ensure entropy
-  yum -y install rng-tools
+  yum_install rng-tools
   systemctl start rngd
   cat /proc/sys/kernel/random/entropy_avail
 
