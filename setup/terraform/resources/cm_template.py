@@ -224,7 +224,7 @@ def get_template(template_names, config_file):
     for template_name in template_names:
         chosen_templates.append(load_template(TEMPLATES[template_name], configs))
     merged = merge_templates(chosen_templates)
-    return json.dumps(merged, indent=2)
+    return json.dumps(merged, indent=2, sort_keys=True)
 
 def main():
     (options, args) = parse_args()
