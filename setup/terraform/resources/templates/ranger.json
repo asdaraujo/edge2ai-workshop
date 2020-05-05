@@ -31,6 +31,28 @@
           "name": "keyadmin_user_password",
           "value": "supersecret1"
         }
+{% if (CM_VERSION == '7.1.1' and (CM_BUILD_NUMBER|int) >= 2929688) or CM_VERSION is gt('7.1.1') %}
+        ,{
+          "name": "ranger_database_type",
+          "value": "postgresql"
+        },
+        {
+          "name": "ranger_database_host",
+          "value": "edge2ai-1.dim.local"
+        },
+        {
+          "name": "ranger_database_port",
+          "value": "5432"
+        },
+        {
+          "name": "ranger_database_user",
+          "value": "ranger"
+        },
+        {
+          "name": "ranger_database_password",
+          "value": "supersecret1"
+        }
+{% endif %}
       ],
       "roleConfigGroups": [
         {
@@ -47,6 +69,7 @@
           "refName": "ranger-RANGER_ADMIN-BASE",
           "roleType": "RANGER_ADMIN",
           "configs": [
+{% if (CM_VERSION == '7.1.1' and (CM_BUILD_NUMBER|int) < 2929688) or CM_VERSION is lt('7.1.1') %}
             {
               "name": "ranger_database_type",
               "value": "PostgreSQL"
@@ -63,6 +86,7 @@
               "name": "ranger_database_password",
               "value": "supersecret1"
             }
+{% endif %}
           ],
           "base": true
         }
