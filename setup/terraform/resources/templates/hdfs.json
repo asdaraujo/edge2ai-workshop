@@ -27,10 +27,6 @@
           "value" : "AES/CTR/NoPadding"
         },
         {
-          "name" : "hadoop_secure_web_ui",
-          "value" : "true"
-        },
-        {
           "name" : "hadoop_security_authentication",
           "value" : "kerberos"
         },
