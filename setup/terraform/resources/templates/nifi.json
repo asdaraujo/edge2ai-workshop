@@ -22,40 +22,62 @@
     {
       "refName": "nifitoolkitca",
       "serviceType": "NIFITOOLKITCA",
+      "serviceConfigs": [
+        {
+          "name": "nifi.toolkit.tls.ca.server.token",
+          "value": "ClouderaNiFi_123"
+        }
+      ],
       "roleConfigGroups": [
         {
           "refName": "nifitoolkitca-NIFI_TOOLKIT_SERVER-BASE",
           "roleType": "NIFI_TOOLKIT_SERVER",
           "base": true
         }
-      ],
-      "serviceConfigs": [
-        {
-          "name": "nifi.toolkit.tls.ca.server.token",
-          "value": "ClouderaNiFi_123"
-        }
       ]
     },
     {
       "refName": "nifiregistry",
       "serviceType": "NIFIREGISTRY",
+      "serviceConfigs": [
+{% if ENABLE_KERBEROS == 'yes' %}
+        {
+          "name": "kerberos.auth.enabled",
+          "value": "true"
+        },
+{% endif %}
+        {
+          "name": "nifitoolkitca_service",
+          "ref": "nifitoolkitca"
+        }
+      ],
       "roleConfigGroups": [
         {
           "refName": "nifiregistry-NIFI_REGISTRY_SERVER-BASE",
           "roleType": "NIFI_REGISTRY_SERVER",
           "base": true
         }
-      ],
-      "serviceConfigs": [
-        {
-          "name": "nifitoolkitca_service",
-          "ref": "nifitoolkitca"
-        }
       ]
     },
     {
       "refName": "nifi",
       "serviceType": "NIFI",
+      "serviceConfigs": [
+{% if ENABLE_KERBEROS == 'yes' %}
+        {
+          "name": "kerberos.auth.enabled",
+          "value": "true"
+        },
+{% endif %}
+        {
+          "name": "zookeeper_service",
+          "ref": "zookeeper"
+        },
+        {
+          "name": "nifitoolkitca_service",
+          "ref": "nifitoolkitca"
+        }
+      ],
       "roleConfigGroups": [
         {
           "refName": "nifi-NIFI_NODE-BASE",
@@ -79,16 +101,6 @@
               "value": "10 secs"
             }
           ]
-        }
-      ],
-      "serviceConfigs": [
-        {
-          "name": "zookeeper_service",
-          "ref": "zookeeper"
-        },
-        {
-          "name": "nifitoolkitca_service",
-          "ref": "nifitoolkitca"
         }
       ]
     }

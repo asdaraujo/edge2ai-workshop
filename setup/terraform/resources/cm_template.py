@@ -111,6 +111,7 @@ def update_list(base, template, breadcrumbs=''):
                     update_dict(namesake[0], item, breadcrumbs + '/[' + idempotent_id + '=' + item[idempotent_id] + ']')
                     continue
         base.append(item)
+    base.sort(key=lambda x: json.dumps(x, sort_keys=True))
 
 def load_template(json_file, configs):
     template = jinja2_env().get_template(json_file)

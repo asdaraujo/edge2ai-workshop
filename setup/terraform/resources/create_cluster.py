@@ -166,7 +166,7 @@ class ClusterCreator:
 
     def create_cluster(self):
 
-        # accept trial licence
+        # Accept trial licence
         try:
             self.cm_api.begin_trial()
         except ApiException as exc:
@@ -176,7 +176,7 @@ class ClusterCreator:
                 raise
         
         # Install CM Agent on host
-        with open (self.key_file, "r") as f:
+        with open(self.key_file, "r") as f:
             key = f.read()
         
         self._import_paywall_credentials()
@@ -193,7 +193,7 @@ class ClusterCreator:
         if not cmd.success:
             raise RuntimeError('Failed to add host to the cluster')
         
-        # create MGMT/CMS
+        # Create MGMT/CMS
         api_service = cm_client.ApiService()
         api_service.roles = [cm_client.ApiRole(type='SERVICEMONITOR'), 
             cm_client.ApiRole(type='HOSTMONITOR'), 
@@ -209,14 +209,21 @@ class ClusterCreator:
             raise RuntimeError('Failed to start Management Services')
         
         # Update host-level parameter required by SMM
-        self.all_hosts_api.update_config(message='Updating parameter for SMM',
-                                         body=cm_client.ApiConfigList([
-                                                  cm_client.ApiConfig(name='host_agent_safety_valve',
-                                                                      value='kafka_broker_topic_partition_metrics_for_smm_enabled=true')
-                                              ])
-                                        )
-        
-        # create the cluster using the template
+        self.all_hosts_api.update_config(
+            message='Updating parameter for SMM',
+            body=cm_client.ApiConfigList([
+                cm_client.ApiConfig(
+                    name='host_agent_safety_valve',
+                    value='kafka_broker_topic_partition_metrics_for_smm_enabled=true'
+                )
+            ])
+        )
+
+        # Enable kerberos
+        if self.use_kerberos:
+            self._enable_kerberos()
+
+        # Create the cluster using the template
         with open(self.template) as f:
             json_str = f.read()
         
@@ -230,9 +237,10 @@ class ClusterCreator:
         # All parcel downloads should've already been done at this point, so we can safely remove the paywall credentials
         self._reset_paywall_credentials()
 
-        if self.use_kerberos:
-            self._enable_kerberos()
-    
+        # Restart Mgmt Services
+        cmd = self.mgmt_api.restart_command()
+        cmd = self.wait(cmd)
+
     def _enable_kerberos(self):
         # Update Kerberos configuration
         self.cm_api.update_config(message='Updating Kerberos config',
@@ -251,43 +259,6 @@ class ClusterCreator:
         cmd = self.wait(cmd)
         if not cmd.success:
             raise RuntimeError('Failed to import admin credentials')
-        
-        # Configure Kerberos for the cluster
-        cluster_name = 'OneNodeCluster'
-        cmd = self.cluster_api.configure_for_kerberos(cluster_name, body=cm_client.ApiConfigureForKerberosArguments(datanode_transceiver_port=1004, datanode_web_port=1006))
-        cmd = self.wait(cmd)
-        if not cmd.success:
-            raise RuntimeError('Failed to configure services for Kerberos')
-        
-        # Stop cluster
-        cmd = self.cluster_api.stop_command(cluster_name)
-        cmd = self.wait(cmd)
-        if not cmd.success:
-            raise RuntimeError('Failed to stop cluster')
-        
-        # Stop Mgmt Services
-        cmd = self.mgmt_api.stop_command()
-        cmd = self.wait(cmd)
-        if not cmd.success:
-            raise RuntimeError('Failed to stop management services')
-        
-        # Start Mgmt Services
-        cmd = self.mgmt_api.start_command()
-        cmd = self.wait(cmd)
-        if not cmd.success:
-            raise RuntimeError('Failed to start management services')
-        
-        # Start cluster
-        cmd = self.cluster_api.start_command(cluster_name)
-        cmd = self.wait(cmd)
-        if not cmd.success:
-            raise RuntimeError('Failed to start cluster')
-        
-        # Deploy client config
-        cmd = self.cluster_api.deploy_client_config(cluster_name)
-        cmd = self.wait(cmd)
-        if not cmd.success:
-            raise RuntimeError('Failed to deploy client config')
 
 if __name__ == '__main__':
     (options, args) = parse_args()

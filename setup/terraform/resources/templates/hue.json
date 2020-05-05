@@ -5,6 +5,9 @@
       "roleConfigGroupsRefNames": [
          "hue-HUE_LOAD_BALANCER-BASE"
         ,"hue-HUE_SERVER-BASE"
+{% if ENABLE_KERBEROS == 'yes' %}
+        ,"hue-KT_RENEWER-BASE"
+{% endif %}
       ]
     }
   ],
@@ -12,18 +15,6 @@
     {
       "refName": "hue",
       "serviceType": "HUE",
-      "roleConfigGroups": [
-        {
-          "refName": "hue-HUE_SERVER-BASE",
-          "roleType": "HUE_SERVER",
-          "base": true
-        },
-        {
-          "refName": "hue-HUE_LOAD_BALANCER-BASE",
-          "roleType": "HUE_LOAD_BALANCER",
-          "base": true
-        }
-      ],
       "serviceConfigs": [
         {
           "name": "database_password",
@@ -40,6 +31,25 @@
         {
           "name" : "database_port",
           "value" : "5432"
+        }
+      ],
+      "roleConfigGroups": [
+{% if ENABLE_KERBEROS == 'yes' %}
+        {
+          "refName": "hue-KT_RENEWER-BASE",
+          "roleType": "KT_RENEWER",
+          "base": true
+        },
+{% endif %}
+        {
+          "refName": "hue-HUE_SERVER-BASE",
+          "roleType": "HUE_SERVER",
+          "base": true
+        },
+        {
+          "refName": "hue-HUE_LOAD_BALANCER-BASE",
+          "roleType": "HUE_LOAD_BALANCER",
+          "base": true
         }
       ]
     }

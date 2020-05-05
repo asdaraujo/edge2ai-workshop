@@ -27,29 +27,6 @@
     {
       "refName": "cdsw",
       "serviceType": "CDSW",
-      "roleConfigGroups": [
-        {
-          "refName": "cdsw-CDSW_APPLICATION-BASE",
-          "roleType": "CDSW_APPLICATION",
-          "base": true
-        },
-        {
-          "refName": "cdsw-CDSW_MASTER-BASE",
-          "roleType": "CDSW_MASTER",
-          "base": true
-        },
-        {
-          "refName": "cdsw-CDSW_DOCKER-BASE",
-          "roleType": "CDSW_DOCKER",
-          "base": true,
-          "configs": [
-            {
-              "name": "cdsw.docker.devices.config",
-              "value": "{{DOCKER_DEVICE}}"
-            }
-          ]
-        }
-      ],
       "serviceConfigs": [
         {
           "name": "yarn_service",
@@ -74,6 +51,29 @@
         {
           "name": "cdsw.master.ip.config",
           "value": "{{PRIVATE_IP}}"
+        }
+      ],
+      "roleConfigGroups": [
+        {
+          "refName": "cdsw-CDSW_APPLICATION-BASE",
+          "roleType": "CDSW_APPLICATION",
+          "base": true
+        },
+        {
+          "refName": "cdsw-CDSW_MASTER-BASE",
+          "roleType": "CDSW_MASTER",
+          "base": true
+        },
+        {
+          "refName": "cdsw-CDSW_DOCKER-BASE",
+          "roleType": "CDSW_DOCKER",
+          "base": true,
+          "configs": [
+            {
+              "name": "cdsw.docker.devices.config",
+              "value": "{{DOCKER_DEVICE}}"
+            }
+          ]
         }
       ]
     }

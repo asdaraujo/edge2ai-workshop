@@ -11,6 +11,18 @@
     {
       "serviceType": "ZOOKEEPER",
       "refName": "zookeeper",
+      "serviceConfigs": [
+{% if ENABLE_KERBEROS == 'yes' %}
+        {
+          "name": "enableSecurity",
+          "value": "true"
+        },
+        {
+          "name": "quorum_auth_enable_sasl",
+          "value": "true"
+        }
+{% endif %}
+      ],
       "roleConfigGroups": [
         {
           "refName": "zookeeper-SERVER-BASE",

@@ -13,6 +13,22 @@
     {
       "refName": "hbase",
       "serviceType": "HBASE",
+      "serviceConfigs": [
+{% if ENABLE_KERBEROS == 'yes' %}
+        {
+          "name": "hbase_security_authentication",
+          "value": "kerberos"
+        },
+        {
+          "name": "hbase_security_authorization",
+          "value": "true"
+        },
+        {
+          "name": "hbase_thriftserver_security_authentication",
+          "value": "auth-conf"
+        }
+{% endif %}
+      ],
       "roleConfigGroups": [
         {
           "refName": "hbase-REGIONSERVER-BASE",

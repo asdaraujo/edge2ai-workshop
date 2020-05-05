@@ -12,6 +12,14 @@
     {
       "refName": "atlas",
       "serviceType": "ATLAS",
+      "serviceConfigs": [
+{% if ENABLE_KERBEROS == 'yes' %}
+        {
+          "name": "kerberos.auth.enable",
+          "value": "true"
+        }
+{% endif %}
+      ],
       "roleConfigGroups": [
         {
           "refName": "atlas-ATLAS_SERVER-BASE",

@@ -11,6 +11,14 @@
     {
       "refName": "solr",
       "serviceType": "SOLR",
+      "serviceConfigs": [
+{% if ENABLE_KERBEROS == 'yes' %}
+        {
+          "name": "solr_security_authentication",
+          "value": "kerberos"
+        }
+{% endif %}
+      ],
       "roleConfigGroups": [
         {
           "refName": "solr-SOLR_SERVER-BASE",

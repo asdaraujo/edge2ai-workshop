@@ -12,6 +12,36 @@
     {
       "refName": "kafka",
       "serviceType": "KAFKA",
+      "serviceConfigs": [
+{% if ENABLE_KERBEROS == 'yes' %}
+        {
+          "name": "kerberos.auth.enable",
+          "value": "true"
+        },
+{% endif %}
+        {
+          "name" : "zookeeper.chroot",
+          "value" : "/kafka"
+        },
+        {
+          "name": "offsets.topic.replication.factor",
+          "value": "1"
+        },
+        {
+          "name": "producer.metrics.enable",
+          "value": "true"
+        }
+{% if CDH_MAJOR_VERSION == '7' %}
+       ,{
+          "name" : "transaction.state.log.min.isr",
+          "value" : "1"
+        },
+        {
+          "name" : "transaction.state.log.replication.factor",
+          "value" : "1"
+        }
+{% endif %}
+      ],
       "roleConfigGroups": [
         {
           "refName": "kafka-GATEWAY-BASE",
@@ -35,30 +65,6 @@
 {% endif %}
           ]
         }
-      ],
-      "serviceConfigs": [
-        {
-          "name" : "zookeeper.chroot",
-          "value" : "/kafka"
-        },
-        {
-          "name": "offsets.topic.replication.factor",
-          "value": "1"
-        },
-        {
-          "name": "producer.metrics.enable",
-          "value": "true"
-        }
-{% if CDH_MAJOR_VERSION == '7' %}
-        ,{
-          "name" : "transaction.state.log.min.isr",
-          "value" : "1"
-        },
-        {
-          "name" : "transaction.state.log.replication.factor",
-          "value" : "1"
-        }
-{% endif %}
       ]
     }
   ]

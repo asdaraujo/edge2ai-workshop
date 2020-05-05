@@ -13,6 +13,14 @@
     {
       "refName": "impala",
       "serviceType": "IMPALA",
+      "serviceConfigs": [
+{% if ENABLE_KERBEROS == 'yes' %}
+        {
+          "name" : "hadoop_secure_web_ui",
+          "value" : "true"
+        }
+{% endif %}
+      ],
       "roleConfigGroups": [
         {
           "refName": "impala-IMPALAD-BASE",

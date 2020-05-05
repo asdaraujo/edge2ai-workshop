@@ -22,6 +22,12 @@
       "refName": "flink",
       "serviceType": "FLINK",
       "serviceConfigs": [
+{% if ENABLE_KERBEROS == 'yes' %}
+        {
+          "name": "kerberos.auth.enabled",
+          "value": "true"
+        }
+{% endif %}
       ],
       "roleConfigGroups": [
         {

@@ -22,6 +22,45 @@
     {
       "refName": "schemaregistry",
       "serviceType": "SCHEMAREGISTRY",
+      "serviceConfigs": [
+{% if ENABLE_KERBEROS == 'yes' %}
+        {
+          "name": "kerberos.auth.enable",
+          "value": "true"
+        },
+{% endif %}
+{% if CM_VERSION is lt('7.1.1') %}
+        {
+          "name": "zookeeper_service",
+          "ref": "zookeeper"
+        }
+{% else %}
+        {
+          "name": "database_host",
+          "value": "{{CLUSTER_HOST}}"
+        },
+        {
+          "name": "database_name",
+          "value": "registry"
+        },
+        {
+          "name": "database_password",
+          "value": "supersecret1"
+        },
+        {
+          "name": "database_port",
+          "value": "5432"
+        },
+        {
+          "name": "database_type",
+          "value": "postgresql"
+        },
+        {
+          "name": "database_user",
+          "value": "registry"
+        }
+{% endif %}
+      ],
       "roleConfigGroups": [
         {
           "refName": "schemaregistry-SCHEMA_REGISTRY_SERVER-BASE",
@@ -40,39 +79,6 @@
 {% endif %}
           ]
         }
-      ],
-      "serviceConfigs": [
-{% if CM_VERSION is lt('7.1.1') %}
-        {
-          "name": "zookeeper_service",
-          "ref": "zookeeper"
-        }
-{% else %}
-        {
-          "name": "database_host",
-          "value": "{{CLUSTER_HOST}}"
-        }
-        ,{
-          "name": "database_name",
-          "value": "registry"
-        }
-        ,{
-          "name": "database_password",
-          "value": "supersecret1"
-        }
-        ,{
-          "name": "database_port",
-          "value": "5432"
-        }
-        ,{
-          "name": "database_type",
-          "value": "postgresql"
-        }
-        ,{
-          "name": "database_user",
-          "value": "registry"
-        }
-{% endif %}
       ]
     }
   ]

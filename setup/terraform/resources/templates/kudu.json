@@ -12,6 +12,14 @@
     {
       "refName": "kudu",
       "serviceType": "KUDU",
+      "serviceConfigs": [
+{% if ENABLE_KERBEROS == 'yes' %}
+        {
+          "name": "enable_security",
+          "value": "true"
+        }
+{% endif %}
+      ],
       "roleConfigGroups": [
         {
           "refName": "kudu-KUDU_MASTER-BASE",
