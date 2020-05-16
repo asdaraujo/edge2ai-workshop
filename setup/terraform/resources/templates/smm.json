@@ -112,6 +112,11 @@
               "name" : "streams.messaging.manager.storage.connector.password",
               "value" : "supersecret1"
             }
+{% else %}
+            ,{
+            "name" : "cm.metrics.service.monitor.host",
+            "value" : "{{CLUSTER_HOST}}"
+            }
 {% endif %}
           ]
         },
