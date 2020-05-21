@@ -49,7 +49,7 @@ export CDSW_DOMAIN=cdsw.${PUBLIC_IP}.nip.io
 export PRIVATE_IP=$(hostname -I | tr -d '[:space:]')
 
 function enable_py3() {
-  if [[ $(type python) != /opt/rh/rh-python36/root/usr/bin/python ]]; then
+  if [[ $(which python) != /opt/rh/rh-python36/root/usr/bin/python ]]; then
     export MANPATH=
     source /opt/rh/rh-python36/enable
   fi
