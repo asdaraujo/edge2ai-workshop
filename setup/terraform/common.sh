@@ -105,7 +105,7 @@ function check_stack_version() {
     echo "$latest_stack" > $LAST_STACK_CHECK_FILE
     if [[ $latest_stack != "" ]]; then
       if [[ $last_stack_check == "" || $last_stack_check < $latest_stack ]]; then
-        echo "$C_YELLO"
+        echo "$C_YELLOW"
         echo "There are new STACK definitions available at the URL below (VPN required):"
         echo ""
         echo "   http://tiny.cloudera.com/workshop-templates/"
