@@ -513,6 +513,17 @@ if [ "$(is_kerberos_enabled)" == "yes" ]; then
   install_kerberos
 fi
 
+# Add users - after Kerberos installation so that principals are also created correctly, if needed
+add_user workshop users
+add_user admin admins,shadow
+add_user alice users
+add_user bob users
+
+# Set shadow permissions - needed by Knox when using PAM authentication
+chgrp shadow /etc/shadow
+chmod g+r /etc/shadow
+usermod -G knox,hadoop,shadow knox || true
+
 wait_for_cm
 
 echo "-- Generate cluster template"

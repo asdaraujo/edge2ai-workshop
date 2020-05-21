@@ -93,7 +93,7 @@
             },
             {
               "name" : "gateway_knox_admin_groups",
-              "value" : "workshop"
+              "value" : "admins"
             },
             {
               "name" : "gateway_port",

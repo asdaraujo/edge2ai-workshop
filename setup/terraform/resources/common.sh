@@ -262,20 +262,38 @@ function unauth() {
   fi
 }
 
-function add_kerberos_principal() {
+function add_user() {
   local princ=$1
+  local groups=${2:-}
+
+  # Ensure OS user exists
   local username=${princ%%/*}
   username=${username%%@*}
   if [ "$(getent passwd $username > /dev/null && echo exists || echo does_not_exist)" == "does_not_exist" ]; then
     useradd -U $username
+    echo -e "supersecret1\nsupersecret1" | passwd $username
   fi
-  (sleep 1 && echo -e "supersecret1\nsupersecret1") | /usr/sbin/kadmin.local -q "addprinc $princ"
-  mkdir -p ${KEYTABS_DIR}
-  echo -e "addent -password -p $princ -k 0 -e aes256-cts\nsupersecret1\nwrite_kt ${KEYTABS_DIR}/$username.keytab" | ktutil
-  chmod 444 ${KEYTABS_DIR}/$username.keytab
 
-  # Create a jaas.conf file
-  cat > ${KEYTABS_DIR}/jaas-${username}.conf <<EOF
+  # Add user to groups
+  if [[ $groups != "" ]]; then
+    # Ensure groups exist
+    for group in $(echo "$groups" | sed 's/,/ /g'); do
+      groupadd -f $group
+    done
+    usermod -G $groups $username
+  fi
+
+  if [ "$(is_kerberos_enabled)" == "yes" ]; then
+    # Create Kerberos principal
+    (sleep 1 && echo -e "supersecret1\nsupersecret1") | /usr/sbin/kadmin.local -q "addprinc $princ"
+    mkdir -p ${KEYTABS_DIR}
+
+    # Create keytab
+    echo -e "addent -password -p $princ -k 0 -e aes256-cts\nsupersecret1\nwrite_kt ${KEYTABS_DIR}/$username.keytab" | ktutil
+    chmod 444 ${KEYTABS_DIR}/$username.keytab
+
+    # Create a jaas.conf file
+    cat > ${KEYTABS_DIR}/jaas-${username}.conf <<EOF
 KafkaClient {
   com.sun.security.auth.module.Krb5LoginModule required
   useKeyTab=true
@@ -283,7 +301,7 @@ KafkaClient {
   principal="${princ}@${KRB_REALM}";
 };
 EOF
-
+  fi
 }
 
 function install_kerberos() {
@@ -320,7 +338,7 @@ function install_kerberos() {
   diff /var/kerberos/krb5kdc/kadm5.acl /var/kerberos/krb5kdc/kadm5.acl.bak || true
 
   # Create CM principal
-  add_kerberos_principal scm/admin
+  add_user scm/admin
 
   # Set maxrenewlife for krbtgt
   # IMPORTANT: You must explicitly set this, even if the default is already set correctly.
@@ -334,16 +352,11 @@ function install_kerberos() {
   systemctl start krb5kdc
   systemctl start kadmin
 
-  # Add principals
-  add_kerberos_principal hdfs
-  add_kerberos_principal yarn
-  add_kerberos_principal kafka
-  add_kerberos_principal flink
-
-  add_kerberos_principal workshop
-  add_kerberos_principal admin
-  add_kerberos_principal alice
-  add_kerberos_principal bob
+  # Add service principals
+  add_user hdfs
+  add_user yarn
+  add_user kafka
+  add_user flink
 }
 
 function create_ca() {
