@@ -1,6 +1,12 @@
 #!/bin/bash
 
 DEFAULT_DOCKER_IMAGE=asdaraujo/edge2ai-workshop:latest
+GITHUB_REPO=asdaraujo/edge2ai-workshop
+GITHUB_BRANCH=master
+
+BUILD_FILE=.build
+STACK_BUILD_FILE=.stack.build
+LAST_STACK_CHECK_FILE=$BASE_DIR/.last.stack.build.check
 
 # Color codes
 C_NORMAL="$(echo -e "\033[0m")"
@@ -11,6 +17,110 @@ C_YELLOW="$(echo -e "\033[33m")"
 
 function log() {
   echo "[$(date)] [$(basename $0): $BASH_LINENO] : $*"
+}
+
+function check_version() {
+  if [[ ! -f $BASE_DIR/NO_VERSION_CHECK ]]; then
+
+    # First, try automated refresh using git
+
+    if [[ $(which git 2>/dev/null) ]]; then
+      # git is installed
+      remote=$(git status | grep "Your branch" | egrep -o "[^']*/${GITHUB_BRANCH}\>" | sed 's#/.*##')
+      if [[ $remote != "" ]]; then
+        # current branch points to the remote $GITHUB_BRANCH branch
+        uri=$(git remote -v | egrep "^ *$remote\s.*\(fetch\)" | awk '{print $2}')
+        if [[ $uri =~ "$GITHUB_REPO" ]]; then
+          # remote repo is the official repo
+          git fetch > /dev/null 2>&1 || true
+          if [[ $(git status) =~ "Your branch is up to date" ]]; then
+            echo "edge2ai-workshop repo is up to date."
+            return
+          elif [[ $(git status) =~ "can be fast-forwarded" ]]; then
+            echo "$C_RED"
+            echo "There is an update available for the edge2ai-workshop."
+            echo -n "Do you want to refresh your local repo now? (y|n) $C_NORMAL"
+            read confirm
+            if [[ $confirm == Y || $confirm == y ]]; then
+              git reset --hard || true
+              git pull || true
+              if [[ $(git status) =~ "Your branch is up to date" ]]; then
+                echo "$C_YELLOW"
+                echo "   Congratulations! The update completed successfully! Please run the launch command again."
+                echo "$C_NORMAL"
+              else
+                echo "$C_RED"
+                echo "Oops! Apparently something went wrong during the update."
+                echo "Try refreshing it manually with the commands below and run launch again when finished:"
+                echo ""
+                echo "   git fetch"
+                echo "   git pull"
+                echo "$C_NORMAL"
+              fi
+              exit
+            fi
+            return
+          fi
+        fi
+      fi
+    fi
+
+    # Cannot use git. Will check using curl and suggest manual refresh is needed
+
+    # Get current build timestamp
+    dir=$PWD
+    while [[ $dir != / && ! -f $dir/$BUILD_FILE ]]; do
+      dir=$(dirname $dir)
+    done
+    this_build=$(head -1 $dir/$BUILD_FILE 2>/dev/null | grep -o "^[0-9]\{14\}" | head -1)
+    latest_build=$(curl "https://raw.githubusercontent.com/$GITHUB_REPO/$GITHUB_BRANCH/$BUILD_FILE" 2>/dev/null | head -1 | grep -o "^[0-9]\{14\}" | head -1)
+    if [[ $latest_build != "" ]]; then
+      if [[ $this_build == "" || $this_build < $latest_build ]]; then
+        echo "$C_RED"
+        echo "There is an update available for the edge2ai-workshop."
+        echo "Please check the GitHub repository below and get the latest version from there:"
+        echo ""
+        echo "   https://github.com/$GITHUB_REPO/"
+        echo ""
+        echo -n "Do you want to perform the update now? (Y|n) $C_NORMAL"
+        read confirm
+        if [[ $confirm == Y || $confirm == y ]]; then
+          echo "Ok. Please re-run the launch command after you finish the update."
+          exit
+        fi
+      else
+        echo "edge2ai-workshop repo is up to date."
+      fi
+    else
+      echo "Cannot check for updates now. Continuing with the current version."
+    fi
+  fi
+}
+
+function check_stack_version() {
+  if [[ ! -f $BASE_DIR/NO_VERSION_CHECK ]]; then
+    # Get last check timestamp
+    last_stack_check=$(head -1 $LAST_STACK_CHECK_FILE 2>/dev/null | grep -o "^[0-9]\{14\}" | head -1)
+    latest_stack=$(curl "https://raw.githubusercontent.com/$GITHUB_REPO/$GITHUB_BRANCH/$STACK_BUILD_FILE" 2>/dev/null | head -1 | grep -o "^[0-9]\{14\}" | head -1)
+    echo "$latest_stack" > $LAST_STACK_CHECK_FILE
+    if [[ $latest_stack != "" ]]; then
+      if [[ $last_stack_check == "" || $last_stack_check < $latest_stack ]]; then
+        echo "$C_YELLO"
+        echo "There are new STACK definitions available at the URL below (VPN required):"
+        echo ""
+        echo "   http://tiny.cloudera.com/workshop-templates/"
+        echo ""
+        echo "Please consider downloading and updating your stack files to the latest ones."
+        echo ""
+        echo -n "Do you want to proceed with the launch now? (y|N) $C_NORMAL"
+        read confirm
+        if [[ $confirm != Y && $confirm != y ]]; then
+          echo "Ok. Please re-run the launch command after you finish the stack update."
+          exit
+        fi
+      fi
+    fi
+  fi
 }
 
 function _find_docker_image() {
@@ -54,7 +164,7 @@ function check_docker_launch() {
 }
 
 function check_env_files() {
-  if [ -f $BASE_DIR/.env.default ]; then
+  if [[ -f $BASE_DIR/.env.default ]]; then
     echo 'ERROR: An enviroment file cannot be called ".env.default". Please renamed it to ".env".'
     exit 1
   fi
@@ -275,8 +385,12 @@ function presign_urls() {
 function validate_env() {
   local template_file=$BASE_DIR/.env.template
   local compare_file=$(get_env_file_path $NAMESPACE)
+  if [[ $compare_file != "" && ! -f $compare_file ]]; then
+    echo "${C_RED}ERROR: The specified enviroment file ($compare_file) does not exist.${C_NORMAL}" > /dev/stderr
+    exit 1
+  fi
   if [ ! -f $template_file ]; then
-    echo "ERROR: Cannot find the template file $template_file." > /dev/stderr
+    echo "${C_RED}ERROR: Cannot find the template file $template_file.${C_NORMAL}" > /dev/stderr
     exit 1
   fi
   if [ "$(check_file_staleness $template_file $compare_file)" != "0" ]; then

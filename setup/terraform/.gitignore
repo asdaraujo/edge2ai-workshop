@@ -1,3 +1,4 @@
+NO_VERSION_CHECK
 *.signed
 *.urls
 *tfstate*
@@ -11,6 +12,7 @@
 .instance.list
 .instance.web
 .key.file.name
+.last.stack.build.check
 .model
 .nifi
 .nifireg

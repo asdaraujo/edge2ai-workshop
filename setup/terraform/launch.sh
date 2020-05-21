@@ -1,6 +1,8 @@
 #!/bin/bash
 BASE_DIR=$(cd $(dirname $0); pwd -L)
 source ${BASE_DIR}/common.sh
+check_version
+check_stack_version
 
 mkdir -p "${BASE_DIR}"/logs
 (
