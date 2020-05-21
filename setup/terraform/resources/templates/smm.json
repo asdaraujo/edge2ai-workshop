@@ -71,6 +71,32 @@
           "roleType": "STREAMS_MESSAGING_MANAGER_SERVER",
           "base": true,
           "configs": [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name": "ssl_client_truststore_location",
+              "value": "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name": "ssl_client_truststore_password",
+              "value": "supersecret1"
+            },
+            {
+              "name": "ssl_enabled",
+              "value": "true"
+            },
+            {
+              "name": "ssl_server_keystore_keypassword",
+              "value": "supersecret1"
+            },
+            {
+              "name": "ssl_server_keystore_location",
+              "value": "/opt/cloudera/security/jks/keystore.jks"
+            },
+            {
+              "name": "ssl_server_keystore_password",
+              "value": "supersecret1"
+            },
+{% endif %}
             {
               "name" : "SMM_HEAP_SIZE",
               "value" : "2048"
@@ -124,7 +150,34 @@
           "refName": "streams_messaging_manager-STREAMS_MESSAGING_MANAGER_UI-BASE",
           "roleType": "STREAMS_MESSAGING_MANAGER_UI",
           "base": true,
-          "configs": []
+          "configs": [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name": "ssl_client_truststore_location",
+              "value": "/opt/cloudera/security/x509/truststore.pem"
+            },
+            {
+              "name": "ssl_enabled",
+              "value": "true"
+            },
+            {
+              "name": "ssl_server_ca_certificate_location",
+              "value": "/opt/cloudera/security/x509/truststore.pem"
+            },
+            {
+              "name": "ssl_server_certificate_location",
+              "value": "/opt/cloudera/security/x509/cert.pem"
+            },
+            {
+              "name": "ssl_server_privatekey_location",
+              "value": "/opt/cloudera/security/x509/key.pem"
+            },
+            {
+              "name": "ssl_server_privatekey_password",
+              "value": "supersecret1"
+            }
+{% endif %}
+          ]
         }
       ]
     }

@@ -17,12 +17,40 @@
         {
           "refName": "livy-GATEWAY-BASE",
           "roleType": "GATEWAY",
-          "base": true
+          "base": true,
+          "configs": [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name": "ssl_client_truststore_location",
+              "value": "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name": "ssl_client_truststore_password",
+              "value": "supersecret1"
+            }
+{% endif %}
+          ]
         },
         {
           "refName": "livy-LIVY_SERVER-BASE",
           "roleType": "LIVY_SERVER",
-          "base": true
+          "base": true,
+          "configs": [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name": "ssl_enabled",
+              "value": "true"
+            },
+            {
+              "name": "ssl_server_keystore_location",
+              "value": "/opt/cloudera/security/jks/keystore.jks"
+            },
+            {
+              "name": "ssl_server_keystore_password",
+              "value": "supersecret1"
+            }
+{% endif %}
+          ]
         }
       ]
     }

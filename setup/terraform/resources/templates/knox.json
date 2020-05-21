@@ -1,0 +1,114 @@
+{{REQUIRES_CDH_MAJOR_VERSION_7}}
+{
+  "hostTemplates": [
+    {
+      "refName": "HostTemplate-0-from-{{CLUSTER_HOST}}",
+      "roleConfigGroupsRefNames": [
+        "knox-IDBROKER-BASE",
+        "knox-KNOX_GATEWAY-BASE",
+        "knox-GATEWAY-BASE"
+      ]
+    }
+  ],
+  "services": [
+    {
+      "refName": "knox",
+      "serviceType": "KNOX",
+      "serviceConfigs": [
+{% if ENABLE_KERBEROS == 'yes' %}
+        {
+          "name" : "kerberos.auth.enabled",
+          "value" : "true"
+        }
+{% endif %}
+      ],
+      "roleConfigGroups": [
+        {
+          "refName": "knox-IDBROKER-BASE",
+          "roleType": "IDBROKER",
+          "base": true,
+          "configs": [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name": "ssl_client_truststore_location",
+              "value": "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name": "ssl_client_truststore_password",
+              "value": "supersecret1"
+            },
+            {
+              "name": "ssl_enabled",
+              "value": "true"
+            },
+            {
+              "name": "ssl_server_keystore_location",
+              "value": "/opt/cloudera/security/jks/keystore.jks"
+            },
+            {
+              "name": "ssl_server_keystore_password",
+              "value": "supersecret1"
+            },
+{% endif %}
+            {
+              "name": "idbroker_master_secret",
+              "value": "supersecret1"
+            }
+          ]
+        },
+        {
+          "refName": "knox-KNOX_GATEWAY-BASE",
+          "roleType": "KNOX_GATEWAY",
+          "base": true,
+          "configs": [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name": "ssl_client_truststore_location",
+              "value": "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name": "ssl_client_truststore_password",
+              "value": "supersecret1"
+            },
+            {
+              "name": "ssl_enabled",
+              "value": "true"
+            },
+            {
+              "name": "ssl_server_keystore_location",
+              "value": "/opt/cloudera/security/jks/keystore.jks"
+            },
+            {
+              "name": "ssl_server_keystore_password",
+              "value": "supersecret1"
+            },
+{% endif %}
+            {
+              "name": "gateway_master_secret",
+              "value": "supersecret1"
+            },
+            {
+              "name" : "gateway_dispatch_whitelist",
+              "value" : "^/.*$;^http.*$"
+            },
+            {
+              "name" : "gateway_knox_admin_groups",
+              "value" : "workshop"
+            },
+            {
+              "name" : "gateway_port",
+              "value" : "9443"
+            }
+          ]
+        },
+        {
+          "refName": "knox-GATEWAY-BASE",
+          "roleType": "GATEWAY",
+          "base": true,
+          "configs": [
+          ]
+        }
+      ]
+    }
+  ]
+}

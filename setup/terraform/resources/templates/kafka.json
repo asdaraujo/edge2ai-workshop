@@ -53,6 +53,36 @@
           "roleType": "KAFKA_BROKER",
           "base": true,
           "configs": [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name": "jmx.ssl.enabled",
+              "value": "true"
+            },
+            {
+              "name": "ssl_client_truststore_location",
+              "value": "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name": "ssl_client_truststore_password",
+              "value": "supersecret1"
+            },
+            {
+              "name": "ssl_enabled",
+              "value": "true"
+            },
+            {
+              "name": "ssl_server_keystore_keypassword",
+              "value": "supersecret1"
+            },
+            {
+              "name": "ssl_server_keystore_location",
+              "value": "/opt/cloudera/security/jks/keystore.jks"
+            },
+            {
+              "name": "ssl_server_keystore_password",
+              "value": "supersecret1"
+            },
+{% endif %}
             {
               "name": "broker_max_heap_size",
               "value": "512"
@@ -61,6 +91,78 @@
             ,{
               "name" : "kafka.properties_role_safety_valve",
               "value" : "transaction.state.log.min.isr=1\ntransaction.state.log.replication.factor=1"
+            }
+{% endif %}
+          ]
+        },
+{% if CDH_MAJOR_VERSION == '7' %}
+        {
+          "refName": "kafka-KAFKA_CONNECT-BASE",
+          "roleType": "KAFKA_CONNECT",
+          "base": true,
+          "configs": [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name": "ssl_client_truststore_location",
+              "value": "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name": "ssl_client_truststore_password",
+              "value": "supersecret1"
+            },
+            {
+              "name": "ssl_enabled",
+              "value": "true"
+            },
+            {
+              "name": "ssl_server_keystore_keypassword",
+              "value": "supersecret1"
+            },
+            {
+              "name": "ssl_server_keystore_location",
+              "value": "/opt/cloudera/security/jks/keystore.jks"
+            },
+            {
+              "name": "ssl_server_keystore_password",
+              "value": "supersecret1"
+            }
+{% endif %}
+          ]
+        },
+{% endif %}
+        {
+          "refName": "kafka-KAFKA_MIRROR_MAKER-BASE",
+          "roleType": "KAFKA_MIRROR_MAKER",
+          "base": true,
+          "configs": [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name": "jmx.ssl.enabled",
+              "value": "true"
+            },
+            {
+              "name": "ssl_client_truststore_location",
+              "value": "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name": "ssl_client_truststore_password",
+              "value": "supersecret1"
+            },
+            {
+              "name": "ssl_enabled",
+              "value": "true"
+            },
+            {
+              "name": "ssl_server_keystore_keypassword",
+              "value": "supersecret1"
+            },
+            {
+              "name": "ssl_server_keystore_location",
+              "value": "/opt/cloudera/security/jks/keystore.jks"
+            },
+            {
+              "name": "ssl_server_keystore_password",
+              "value": "supersecret1"
             }
 {% endif %}
           ]

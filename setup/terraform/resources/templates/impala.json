@@ -14,6 +14,39 @@
       "refName": "impala",
       "serviceType": "IMPALA",
       "serviceConfigs": [
+{% if ENABLE_TLS == 'yes' %}
+        {
+          "name": "client_services_ssl_enabled",
+          "value": "true"
+        },
+        {
+          "name": "impala_truststore_file",
+          "value": "/opt/cloudera/security/jks/truststore.jks"
+        },
+        {
+          "name": "impala_truststore_password",
+          "value": "supersecret1"
+        },
+        {
+          "name": "ssl_client_ca_certificate",
+          "value": "/opt/cloudera/security/x509/truststore.pem"
+        },
+        {
+          "name": "ssl_private_key",
+          "value": "/opt/cloudera/security/x509/key.pem"
+        },
+        {
+          "name": "ssl_private_key_password",
+          "value": "supersecret1"
+        },
+        {
+          "name": "ssl_server_certificate",
+          "value": "/opt/cloudera/security/x509/cert.pem"
+        }
+{% endif %}
+{% if ENABLE_KERBEROS == 'yes' and ENABLE_TLS == 'yes' %}
+        ,
+{% endif %}
 {% if ENABLE_KERBEROS == 'yes' %}
         {
           "name" : "hadoop_secure_web_ui",
@@ -25,17 +58,74 @@
         {
           "refName": "impala-IMPALAD-BASE",
           "roleType": "IMPALAD",
-          "base": true
+          "base": true,
+          "configs": [
+{% if ENABLE_KERBEROS == 'yes' %}
+            {
+              "name" : "enable_audit_event_log",
+              "value" : "true"
+            }
+{% endif %}
+{% if ENABLE_KERBEROS == 'yes' and ENABLE_TLS == 'yes' %}
+            ,
+{% endif %}
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name": "webserver_certificate_file",
+              "value": "/opt/cloudera/security/x509/cert.pem"
+            },
+            {
+              "name": "webserver_private_key_file",
+              "value": "/opt/cloudera/security/x509/key.pem"
+            },
+            {
+              "name": "webserver_private_key_password_cmd",
+              "value": "supersecret1"
+            }
+{% endif %}
+          ]
         },
         {
           "refName": "impala-STATESTORE-BASE",
           "roleType": "STATESTORE",
-          "base": true
+          "base": true,
+          "configs": [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name": "webserver_certificate_file",
+              "value": "/opt/cloudera/security/x509/cert.pem"
+            },
+            {
+              "name": "webserver_private_key_file",
+              "value": "/opt/cloudera/security/x509/key.pem"
+            },
+            {
+              "name": "webserver_private_key_password_cmd",
+              "value": "supersecret1"
+            }
+{% endif %}
+          ]
         },
         {
           "refName": "impala-CATALOGSERVER-BASE",
           "roleType": "CATALOGSERVER",
-          "base": true
+          "base": true,
+          "configs": [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name": "webserver_certificate_file",
+              "value": "/opt/cloudera/security/x509/cert.pem"
+            },
+            {
+              "name": "webserver_private_key_file",
+              "value": "/opt/cloudera/security/x509/key.pem"
+            },
+            {
+              "name": "webserver_private_key_password_cmd",
+              "value": "supersecret1"
+            }
+{% endif %}
+          ]
         }
       ]
     }

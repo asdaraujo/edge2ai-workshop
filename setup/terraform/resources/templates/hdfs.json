@@ -5,6 +5,7 @@
       "roleConfigGroupsRefNames": [
          "hdfs-BALANCER-BASE"
         ,"hdfs-DATANODE-BASE"
+        ,"hdfs-HTTPFS-BASE"
         ,"hdfs-NAMENODE-BASE"
         ,"hdfs-SECONDARYNAMENODE-BASE"
       ]
@@ -15,6 +16,48 @@
       "refName": "hdfs",
       "serviceType": "HDFS",
       "serviceConfigs": [
+{% if ENABLE_TLS == 'yes' %}
+        {
+          "name": "dfs_data_transfer_protection",
+          "value": "privacy"
+        },
+        {
+          "name": "dfs_encrypt_data_transfer",
+          "value": "true"
+        },
+        {
+          "name": "hadoop_rpc_protection",
+          "value": "privacy"
+        },
+        {
+          "name": "hadoop_secure_web_ui",
+          "value": "true"
+        },
+        {
+          "name": "hdfs_hadoop_ssl_enabled",
+          "value": "true"
+        },
+        {
+          "name": "ssl_client_truststore_location",
+          "value": "/opt/cloudera/security/jks/truststore.jks"
+        },
+        {
+          "name": "ssl_client_truststore_password",
+          "value": "supersecret1"
+        },
+        {
+          "name": "ssl_server_keystore_keypassword",
+          "value": "supersecret1"
+        },
+        {
+          "name": "ssl_server_keystore_location",
+          "value": "/opt/cloudera/security/jks/keystore.jks"
+        },
+        {
+          "name": "ssl_server_keystore_password",
+          "value": "supersecret1"
+        },
+{% endif %}
 {% if HAS_RANGER %}
         {
           "name" : "enable_ranger_authorization",
@@ -52,7 +95,19 @@
         {
           "refName": "hdfs-NAMENODE-BASE",
           "roleType": "NAMENODE",
-          "base": true
+          "base": true,
+          "configs": [
+{% if ENABLE_TLS == 'yes' %}
+        {
+          "name": "namenode_truststore_file",
+          "value": "/opt/cloudera/security/jks/truststore.jks"
+        },
+        {
+          "name": "namenode_truststore_password",
+          "value": "supersecret1"
+        }
+{% endif %}
+          ]
         },
         {
           "refName": "hdfs-SECONDARYNAMENODE-BASE",
@@ -68,8 +123,9 @@
             {
               "name" : "dfs_datanode_data_dir_perm",
               "value" : "700"
-            },
-            {
+            }
+{% if ENABLE_TLS != 'yes' %}
+            ,{
               "name" : "dfs_datanode_http_port",
               "value" : "1006"
             },
@@ -77,6 +133,36 @@
               "name" : "dfs_datanode_port",
               "value" : "1004"
             }
+{% endif %}
+{% endif %}
+          ]
+        },
+        {
+          "refName": "hdfs-HTTPFS-BASE",
+          "roleType": "HTTPFS",
+          "base": true,
+          "configs": [
+{% if ENABLE_TLS == 'yes' %}
+        {
+          "name": "httpfs_https_keystore_file",
+          "value": "/opt/cloudera/security/jks/keystore.jks"
+        },
+        {
+          "name": "httpfs_https_keystore_password",
+          "value": "supersecret1"
+        },
+        {
+          "name": "httpfs_https_truststore_file",
+          "value": "/opt/cloudera/security/jks/truststore.jks"
+        },
+        {
+          "name": "httpfs_https_truststore_password",
+          "value": "supersecret1"
+        },
+        {
+          "name": "httpfs_use_ssl",
+          "value": "true"
+        }
 {% endif %}
           ]
         },

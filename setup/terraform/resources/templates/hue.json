@@ -44,12 +44,60 @@
         {
           "refName": "hue-HUE_SERVER-BASE",
           "roleType": "HUE_SERVER",
-          "base": true
+          "base": true,
+          "configs": [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name": "hue_server_hue_safety_valve",
+              "value": "[beeswax]\n[[ssl]]\nenabled=true\nvalidate=true\ncacerts=/opt/cloudera/security/x509/truststore.pem\n[desktop]\nssl_certificate_chain=/opt/cloudera/security/x509/cert.pem\n[[session]]\nsecure=true\n[impala]\n[[ssl]]\ncacerts=/opt/cloudera/security/x509/truststore.pem"
+            },
+            {
+              "name": "ssl_cacerts",
+              "value": "/opt/cloudera/security/x509/truststore.pem"
+            },
+            {
+              "name": "ssl_certificate",
+              "value": "/opt/cloudera/security/x509/cert.pem"
+            },
+            {
+              "name": "ssl_enable",
+              "value": "true"
+            },
+            {
+              "name": "ssl_private_key",
+              "value": "/opt/cloudera/security/x509/key.pem"
+            },
+            {
+              "name": "ssl_private_key_password",
+              "value": "supersecret1"
+            }
+{% endif %}
+          ]
         },
         {
           "refName": "hue-HUE_LOAD_BALANCER-BASE",
           "roleType": "HUE_LOAD_BALANCER",
-          "base": true
+          "base": true,
+          "configs": [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name": "hue_load_balancer_safety_valve",
+              "value": "SSLCertificateChainFile /opt/cloudera/security/x509/cert.pem"
+            },
+            {
+              "name": "passphrasefile_location",
+              "value": "/opt/cloudera/security/hue/loadbalancer.pw"
+            },
+            {
+              "name": "ssl_certificate",
+              "value": "/opt/cloudera/security/x509/cert.pem"
+            },
+            {
+              "name": "ssl_certificate_key",
+              "value": "/opt/cloudera/security/x509/key.pem"
+            }
+{% endif %}
+          ]
         }
       ]
     }

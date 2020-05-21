@@ -16,7 +16,23 @@
         {
           "refName": "spark_on_yarn-SPARK_YARN_HISTORY_SERVER-BASE",
           "roleType": "SPARK_YARN_HISTORY_SERVER",
-          "base": true
+          "base": true,
+          "configs": [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name": "ssl_enabled",
+              "value": "true"
+            },
+            {
+              "name": "ssl_server_keystore_location",
+              "value": "/opt/cloudera/security/jks/keystore.jks"
+            },
+            {
+              "name": "ssl_server_keystore_password",
+              "value": "supersecret1"
+            }
+{% endif %}
+          ]
         },
         {
           "refName": "spark_on_yarn-GATEWAY-BASE",

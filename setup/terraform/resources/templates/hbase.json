@@ -16,6 +16,10 @@
       "serviceConfigs": [
 {% if ENABLE_KERBEROS == 'yes' %}
         {
+          "name": "hadoop_secure_web_ui",
+          "value": "true"
+        },
+        {
           "name": "hbase_security_authentication",
           "value": "kerberos"
         },
@@ -28,22 +32,112 @@
           "value": "auth-conf"
         }
 {% endif %}
+{% if ENABLE_TLS == 'yes' and ENABLE_KERBEROS == 'yes' %}
+        ,
+{% endif %}
+{% if ENABLE_TLS == 'yes' %}
+        {
+          "name": "hbase_hadoop_ssl_enabled",
+          "value": "true"
+        },
+        {
+          "name": "ssl_server_keystore_keypassword",
+          "value": "supersecret1"
+        },
+        {
+          "name": "ssl_server_keystore_location",
+          "value": "/opt/cloudera/security/jks/keystore.jks"
+        },
+        {
+          "name": "ssl_server_keystore_password",
+          "value": "supersecret1"
+        }
+{% endif %}
       ],
       "roleConfigGroups": [
         {
           "refName": "hbase-REGIONSERVER-BASE",
           "roleType": "REGIONSERVER",
-          "base": true
+          "base": true,
+          "configs": [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name": "regionserver_truststore_file",
+              "value": "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name": "regionserver_truststore_password",
+              "value": "supersecret1"
+            }
+{% endif %}
+          ]
         },
         {
           "refName": "hbase-MASTER-BASE",
           "roleType": "MASTER",
-          "base": true
+          "base": true,
+          "configs": [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name": "master_truststore_file",
+              "value": "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name": "master_truststore_password",
+              "value": "supersecret1"
+            }
+{% endif %}
+          ]
         },
         {
           "refName": "hbase-HBASETHRIFTSERVER-BASE",
           "roleType": "HBASETHRIFTSERVER",
-          "base": true
+          "base": true,
+          "configs": [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name": "hbase_thriftserver_http_keystore_file",
+              "value": "/opt/cloudera/security/jks/keystore.jks"
+            },
+            {
+              "name": "hbase_thriftserver_http_keystore_keypassword",
+              "value": "supersecret1"
+            },
+            {
+              "name": "hbase_thriftserver_http_keystore_password",
+              "value": "supersecret1"
+            },
+            {
+              "name": "hbase_thriftserver_http_use_ssl",
+              "value": "true"
+            }
+{% endif %}
+          ]
+        },
+        {
+          "refName": "hbase-HBASERESTSERVER-BASE",
+          "roleType": "HBASERESTSERVER",
+          "base": true,
+          "configs": [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name": "hbase_restserver_keystore_file",
+              "value": "/opt/cloudera/security/jks/keystore.jks"
+            },
+            {
+              "name": "hbase_restserver_keystore_keypassword",
+              "value": "supersecret1"
+            },
+            {
+              "name": "hbase_restserver_keystore_password",
+              "value": "supersecret1"
+            },
+            {
+              "name": "hbase_restserver_ssl_enable",
+              "value": "true"
+            }
+{% endif %}
+          ]
         }
       ]
     }

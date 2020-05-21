@@ -10,19 +10,50 @@ if [ "$USER" != "root" ]; then
   exit 1
 fi
 
+#########  Set variables upfront
+
 CLOUD_PROVIDER=${1:-aws}
 SSH_USER=${2:-}
 SSH_PWD=${3:-}
 NAMESPACE=${4:-}
 DOCKER_DEVICE=${5:-}
+export NAMESPACE DOCKER_DEVICE
 
-export NAMESPACE
+BASE_DIR=$(cd "$(dirname $0)"; pwd -L)
+# Save params
+if [[ ! -f $BASE_DIR/.setup.params ]]; then
+  echo "bash -x $0 '$CLOUD_PROVIDER' '$SSH_USER' '$SSH_PWD' '$NAMESPACE' '$DOCKER_DEVICE'" > $BASE_DIR/.setup.params
+fi
 
-BASE_DIR=$(cd $(dirname $0); pwd -L)
 source $BASE_DIR/common.sh
 KEY_FILE=${BASE_DIR}/myRSAkey
+TEMPLATE_FILE=$BASE_DIR/cluster_template.${NAMESPACE}.json
 
 load_stack $NAMESPACE
+
+CM_REPO_FILE=/etc/yum.repos.d/cloudera-manager.repo
+
+export PUBLIC_IP=$(curl https://ifconfig.me 2>/dev/null || curl https://api.ipify.org/ 2> /dev/null)
+if [[ ! $PUBLIC_IP =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+  echo "ERROR: Could not retrieve public IP for this instance. Probably a transient error. Please try again."
+  exit 1
+fi
+export PUBLIC_DNS=$(curl http://169.254.169.254/latest/meta-data/public-hostname)
+if [ "$PUBLIC_DNS" == "" ]; then
+  echo "ERROR: Could not retrieve public DNS for this instance. Probably a transient error. Please try again."
+  exit 1
+fi
+export PRIVATE_DNS=$(curl http://169.254.169.254/latest/meta-data/local-hostname)
+export CLUSTER_HOST=$PUBLIC_DNS
+export CDSW_DOMAIN=cdsw.${PUBLIC_IP}.nip.io
+export PRIVATE_IP=$(hostname -I | tr -d '[:space:]')
+
+function enable_py3() {
+  if [[ $(type python) != /opt/rh/rh-python36/root/usr/bin/python ]]; then
+    export MANPATH=
+    source /opt/rh/rh-python36/enable
+  fi
+}
 
 #########  Start Packer Installation
 
@@ -41,7 +72,6 @@ else
 fi
 
 echo "-- Testing if this is a pre-packed image by looking for existing Cloudera Manager repo"
-CM_REPO_FILE=/etc/yum.repos.d/cloudera-manager.repo
 if [[ ! -f $CM_REPO_FILE ]]; then
   echo "-- Cloudera Manager repo not found, assuming not prepacked"
   echo "-- Installing base dependencies"
@@ -65,7 +95,7 @@ if [[ ! -f $CM_REPO_FILE ]]; then
     # In some versions the allkeys.asc file is missing from the repo-as-tarball
     KEYS_FILE=/var/www/html/${CM_REPO_ROOT_DIR}/allkeys.asc
     if [ ! -f "$KEYS_FILE" ]; then
-      KEYS_URL="$(dirname $(dirname "$CM_REPO_AS_TARBALL_URL"))/allkeys.asc"
+      KEYS_URL="$(dirname "$(dirname "$CM_REPO_AS_TARBALL_URL")")/allkeys.asc"
       wget --progress=dot:giga $wget_basic_auth "${KEYS_URL}" -O $KEYS_FILE
     fi
 
@@ -92,14 +122,24 @@ EOF
   systemctl disable cloudera-scm-agent
   systemctl disable cloudera-scm-server
 
+  echo "-- Hack KNOX CSD to include [knoxsso.cookie.domain.suffix] property"
+  KNOX_CSD=/opt/cloudera/cm/csd/KNOX-${CM_VERSION}.jar
+  if [[ -f $KNOX_CSD ]]; then
+    mkdir -p /tmp/knoxcsd
+    pushd /tmp/knoxcsd
+    jar xvf $KNOX_CSD
+    sed -i.bak 's/knoxsso.token.ttl/knoxsso.cookie.domain.suffix": "*", "knoxsso.token.ttl/' aux/descriptors/knoxsso.json
+    jar cvf $KNOX_CSD *
+    popd
+  fi
+
   echo "-- Install and disable PostgreSQL"
   yum_install postgresql10-server postgresql10 postgresql-jdbc
   systemctl disable postgresql-10
 
   echo "-- Handle additional installs"
   npm install --quiet forever -g
-  export MANPATH=
-  source /opt/rh/rh-python36/enable
+  enable_py3
   pip install --quiet --upgrade pip
   pip install --progress-bar off cm_client paho-mqtt pytest nipyapi psycopg2-binary pyyaml jinja2 impyla
   ln -s /opt/rh/rh-python36/root/bin/python3 /usr/bin/python3
@@ -112,10 +152,10 @@ EOF
   echo "-- Install Maven"
   curl "$MAVEN_BINARY_URL" > /tmp/apache-maven-bin.tar.gz
 
-  tar -C $(get_homedir $SSH_USER) -zxvf /tmp/apache-maven-bin.tar.gz
+  tar -C "$(get_homedir $SSH_USER)" -zxvf /tmp/apache-maven-bin.tar.gz
   rm -f /tmp/apache-maven-bin.tar.gz
-  MAVEN_BIN=$(ls -d1tr $(get_homedir $SSH_USER)/apache-maven-*/bin | tail -1)
-  echo "export PATH=\$PATH:$MAVEN_BIN" >> $(get_homedir $SSH_USER)/.bash_profile
+  MAVEN_BIN=$(ls -d1tr "$(get_homedir $SSH_USER)"/apache-maven-*/bin | tail -1)
+  echo "export PATH=\$PATH:$MAVEN_BIN" >> "$(get_homedir $SSH_USER)"/.bash_profile
 
   echo "-- Get and extract CEM tarball to /opt/cloudera/cem"
   mkdir -p /opt/cloudera/cem
@@ -132,7 +172,6 @@ EOF
       wget --progress=dot:giga $wget_basic_auth "${url}" -O $TARBALL_PATH
     done
   fi
-
 
   echo "-- Install and configure EFM"
   EFM_TARBALL=$(find /opt/cloudera/cem/ -name "efm-*-bin.tar.gz")
@@ -267,8 +306,7 @@ systemctl enable rngd
 systemctl start rngd
 
 # Enable Python3
-export MANPATH=
-source /opt/rh/rh-python36/enable
+enable_py3
 
 echo "-- Configure kernel parameters"
 echo never > /sys/kernel/mm/transparent_hugepage/enabled
@@ -318,26 +356,21 @@ case "${CLOUD_PROVIDER}" in
           exit 1
 esac
 
-PUBLIC_IP=$(curl https://ifconfig.me 2>/dev/null || curl https://api.ipify.org/ 2> /dev/null)
-if [[ ! $PUBLIC_IP =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-  echo "ERROR: Could not retrieve public IP for this instance. Probably a transient error. Please try again."
-  exit 1
-fi
-PUBLIC_DNS=$(dig -x ${PUBLIC_IP} +short | sed 's/\.$//')
-if [ "$PUBLIC_DNS" == "" ]; then
-  echo "ERROR: Could not retrieve public DNS for this instance. Probably a transient error. Please try again."
-  exit 1
-fi
-
 echo "-- Set /etc/hosts - Public DNS must come first"
-echo "$(hostname -I) $PUBLIC_DNS $(hostname -f) edge2ai-1.dim.local" >> /etc/hosts
+echo "$PRIVATE_IP $PUBLIC_DNS $PRIVATE_DNS edge2ai-1.dim.local" >> /etc/hosts
 
 echo "-- Configure networking"
-hostnamectl set-hostname $PUBLIC_DNS
+hostnamectl set-hostname ${CLUSTER_HOST}
 if [[ -f /etc/sysconfig/network ]]; then
   sed -i "/HOSTNAME=/ d" /etc/sysconfig/network
 fi
-echo "HOSTNAME=$PUBLIC_DNS" >> /etc/sysconfig/network
+echo "HOSTNAME=${CLUSTER_HOST}" >> /etc/sysconfig/network
+
+# Create certs is TLS is enabled
+if [[ $ENABLE_TLS == yes ]]; then
+  create_ca
+  create_certs
+fi
 
 echo "-- Generate self-signed certificate for ShellInABox with the needed SAN entries"
 # Generate self-signed certificate for ShellInABox with the needed SAN entries
@@ -348,7 +381,7 @@ openssl req \
   -keyout key.pem \
   -out cert.pem \
   -days 365 \
-  -subj "/C=US/ST=California/L=San Francisco/O=Cloudera/OU=Data in Motion/CN=$(hostname -f)" \
+  -subj "/C=US/ST=California/L=San Francisco/O=Cloudera/OU=Data in Motion/CN=${CLUSTER_HOST}" \
   -extensions 'v3_user_req' \
   -config <( cat <<EOF
 [ req ]
@@ -372,7 +405,7 @@ basicConstraints = CA:FALSE
 subjectKeyIdentifier = hash
 keyUsage = digitalSignature, keyEncipherment
 extendedKeyUsage = serverAuth, clientAuth
-subjectAltName = DNS:$(hostname -f),IP:$(hostname -I),IP:${PUBLIC_IP},DNS:edge2ai-1.dim.local
+subjectAltName = DNS:${CLUSTER_HOST},IP:${PRIVATE_IP},IP:${PUBLIC_IP},DNS:edge2ai-1.dim.local
 EOF
 )
 cat key.pem cert.pem > /var/lib/shellinabox/certificate.pem
@@ -416,7 +449,7 @@ echo 'LC_ALL="en_US.UTF-8"' >> /etc/locale.conf
 sed -i '/host *all *all *127.0.0.1\/32 *ident/ d' /var/lib/pgsql/10/data/pg_hba.conf
 cat >> /var/lib/pgsql/10/data/pg_hba.conf <<EOF
 host all all 127.0.0.1/32 md5
-host all all $(hostname -I | sed 's/ //g')/32 md5
+host all all ${PRIVATE_IP}/32 md5
 host all all 127.0.0.1/32 ident
 host ranger rangeradmin 0.0.0.0/0 md5
 EOF
@@ -480,19 +513,10 @@ if [ "$(is_kerberos_enabled)" == "yes" ]; then
   install_kerberos
 fi
 
-echo "-- Wait for CM to be ready before proceeding"
-until $(curl --output /dev/null --silent --head --fail -u "admin:admin" http://localhost:7180/api/version); do
-  echo "waiting 10s for CM to come up.."
-  sleep 10
-done
-echo "-- CM has finished starting"
+wait_for_cm
 
 echo "-- Generate cluster template"
-TEMPLATE_FILE=$BASE_DIR/cluster_template.${NAMESPACE}.json
-export CDSW_DOMAIN=cdsw.${PUBLIC_IP}.nip.io
-export CLUSTER_HOST=$(hostname -f)
-export PRIVATE_IP=$(hostname -I | tr -d '[:space:]')
-export DOCKER_DEVICE PUBLIC_DNS
+enable_py3
 python $BASE_DIR/cm_template.py --cdh-major-version $CDH_MAJOR_VERSION $CM_SERVICES > $TEMPLATE_FILE
 
 echo "-- Create cluster"
@@ -502,8 +526,52 @@ else
   KERBEROS_OPTION=""
 fi
 CM_REPO_URL=$(grep baseurl $CM_REPO_FILE | sed 's/.*=//;s/ //g')
-export CM_MAJOR_VERSION REMOTE_REPO_USR REMOTE_REPO_PWD
-python $BASE_DIR/create_cluster.py $KERBEROS_OPTION $(hostname -f) $TEMPLATE_FILE $KEY_FILE $CM_REPO_URL
+# In case this is a re-run and TLS was already enabled, provide the TLS truststore option
+TRUSTSTORE_OPTION=$([[ $(netstat -anp | grep ':7183 .*LISTEN ' | wc -l) > 0 ]] && echo "--tls-ca-cert /opt/cloudera/security/x509/truststore.pem" || echo "")
+if [ "$(is_tls_enabled)" != "yes" ]; then
+  python $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
+    $TRUSTSTORE_OPTION \
+    --setup-cm \
+      --key-file $KEY_FILE \
+      --cm-repo-url $CM_REPO_URL \
+      $KERBEROS_OPTION \
+    --create-cluster \
+      --template $TEMPLATE_FILE
+else
+  python $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
+    $TRUSTSTORE_OPTION \
+    --setup-cm \
+      --key-file $KEY_FILE \
+      --cm-repo-url $CM_REPO_URL \
+      --use-tls \
+      $KERBEROS_OPTION
+
+  # Restart CM
+  systemctl restart cloudera-scm-server
+  # Reconfigure agent
+  sed -i.bak \
+"s%^[# ]*server_host=.*%server_host=${CLUSTER_HOST}%;"\
+'s%^[# ]*use_tls=.*%use_tls=1%;'\
+'s%^[# ]*verify_cert_file=.*%verify_cert_file=/opt/cloudera/security/x509/truststore.pem%;'\
+'s%^[# ]*client_key_file=.*%client_key_file=/opt/cloudera/security/x509/key.pem%;'\
+'s%^[# ]*client_keypw_file=.*%client_keypw_file=/opt/cloudera/security/x509/pwfile%;'\
+'s%^[# ]*client_cert_file=.*%client_cert_file=/opt/cloudera/security/x509/cert.pem%'\
+     /etc/cloudera-scm-agent/config.ini
+  # Restart agent
+  systemctl restart cloudera-scm-agent
+  # Wait for CM to be ready
+  wait_for_cm
+
+  python $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
+    --create-cluster \
+      --template $TEMPLATE_FILE \
+      --tls-ca-cert /opt/cloudera/security/x509/truststore.pem
+fi
+
+# Tighten permissions
+if [[ $ENABLE_TLS == yes ]]; then
+  tighten_keystores_permissions
+fi
 
 echo "-- Configure and start EFM"
 retries=0
@@ -544,13 +612,18 @@ systemctl start minifi
 if [[ ",${CM_SERVICES}," == *",KAFKA,"* ]]; then
   echo "-- Create Kafka topic (iot)"
   auth kafka
-  if [ "$(is_kerberos_enabled)" == "yes" ]; then
+  if [[ -f $KAFKA_CLIENT_PROPERTIES ]]; then
     CLIENT_CONFIG_OPTION="--command-config $KAFKA_CLIENT_PROPERTIES"
   else
     CLIENT_CONFIG_OPTION=""
   fi
-  kafka-topics $CLIENT_CONFIG_OPTION --bootstrap-server $(hostname -f):9092 --create --topic iot --partitions 10 --replication-factor 1
-  kafka-topics $CLIENT_CONFIG_OPTION --bootstrap-server $(hostname -f):9092 --describe --topic iot
+  if [ "$(is_tls_enabled)" == "yes" ]; then
+    KAFKA_PORT="9093"
+  else
+    KAFKA_PORT="9092"
+  fi
+  kafka-topics $CLIENT_CONFIG_OPTION --bootstrap-server ${CLUSTER_HOST}:${KAFKA_PORT} --create --topic iot --partitions 10 --replication-factor 1
+  kafka-topics $CLIENT_CONFIG_OPTION --bootstrap-server ${CLUSTER_HOST}:${KAFKA_PORT} --describe --topic iot
   unauth
 fi
 

@@ -44,9 +44,25 @@ def print_cmd(cmd, indent=0):
 def _get_parser():
     global OPT_PARSER
     if OPT_PARSER is None:
-        OPT_PARSER = OptionParser(usage='%prog [options] <host> <template> <key_file> <cm_repo_url>')
+        OPT_PARSER = OptionParser(usage='%prog [options] <host>')
+        OPT_PARSER.add_option('--setup-cm', action='store_true', dest='setup_cm',
+                              help='Setup Cloudera Manager.')
+        OPT_PARSER.add_option('--create-cluster', action='store_true', dest='create_cluster',
+                              help='Create cluster.')
+        # Create cluster options
+        OPT_PARSER.add_option('--template', action='store', dest='template',
+                              help='Cluster template file.')
+        # CM setup options
+        OPT_PARSER.add_option('--key-file', action='store', dest='key_file',
+                              help='SSH key file.')
+        OPT_PARSER.add_option('--cm-repo-url', action='store', dest='cm_repo_url',
+                              help='CM repo URL.')
         OPT_PARSER.add_option('--use-kerberos', action='store_true', dest='use_kerberos',
                               help='Enable Kerberos for the cluster.')
+        OPT_PARSER.add_option('--use-tls', action='store_true', dest='use_tls',
+                              help='Enable TLS for the cluster.')
+        OPT_PARSER.add_option('--tls-ca-cert', action='store', dest='tls_ca_cert', default=None,
+                              help='TLS truststore.')
     return OPT_PARSER
 
 def parse_args():
@@ -56,24 +72,21 @@ def cm_major_version():
     return int(os.environ.get('CM_MAJOR_VERSION', '7'))
 
 class ClusterCreator:
-    def __init__(self, host, template, key_file, cm_repo_url, use_kerberos,
-                 krb_princ='scm/admin@WORKSHOP.COM', krb_pass='supersecret1'):
+    def __init__(self, host, krb_princ='scm/admin@WORKSHOP.COM', krb_pass='supersecret1', tls_ca_cert=None):
         self.host = host
-        self.template = template
-        self.key_file = key_file
-        self.cm_repo_url = cm_repo_url
-        self.use_kerberos = use_kerberos
         self.krb_princ = krb_princ
         self.krb_pass = krb_pass
         
         self._api_client = None
         self._cm_api = None
         self._mgmt_api = None
+        self._hosts_api = None
         self._all_hosts_api = None
         self._cluster_api = None
 
         cm_client.configuration.username = 'admin'
         cm_client.configuration.password = 'admin'
+        cm_client.configuration.ssl_ca_cert = tls_ca_cert
 
     def _import_paywall_credentials(self):
         if cm_major_version() >= 7:
@@ -106,7 +119,11 @@ class ClusterCreator:
     @property
     def api_client(self):
         if self._api_client is None:
-            self._api_client = cm_client.ApiClient("http://localhost:7180/api/v32")
+            if cm_client.configuration.ssl_ca_cert:
+                url = "https://" + self.host + ":7183/api/v32"
+            else:
+                url = "http://" + self.host + ":7180/api/v32"
+            self._api_client = cm_client.ApiClient(url)
         return self._api_client
 
     @property
@@ -120,6 +137,12 @@ class ClusterCreator:
         if self._mgmt_api is None:
             self._mgmt_api = cm_client.MgmtServiceResourceApi(self.api_client)
         return self._mgmt_api
+
+    @property
+    def hosts_api(self):
+        if self._hosts_api is None:
+            self._hosts_api = cm_client.HostsResourceApi(self.api_client)
+        return self._hosts_api
 
     @property
     def all_hosts_api(self):
@@ -164,7 +187,7 @@ class ClusterCreator:
         except ApiException as e:
             print("Exception when calling ClouderaManagerResourceApi->import_cluster_template: %s\n" % e)
 
-    def create_cluster(self):
+    def setup_cm(self, key_file, cm_repo_url, use_kerberos, use_tls):
 
         # Accept trial licence
         try:
@@ -174,39 +197,47 @@ class ClusterCreator:
                 pass # This can be ignored
             else:
                 raise
-        
+
         # Install CM Agent on host
-        with open(self.key_file, "r") as f:
+        with open(key_file, "r") as f:
             key = f.read()
-        
-        self._import_paywall_credentials()
-        instargs = cm_client.ApiHostInstallArguments(host_names=[self.host], 
-                                                     user_name='root', 
-                                                     private_key=key, 
-                                                     cm_repo_url=self.cm_repo_url,
-                                                     java_install_strategy='NONE', 
-                                                     ssh_port=22, 
-                                                     passphrase='')
-        
-        cmd = self.cm_api.host_install_command(body=instargs)
-        cmd = self.wait(cmd)
-        if not cmd.success:
-            raise RuntimeError('Failed to add host to the cluster')
+
+        if self.host not in [h.hostname for h in self.hosts_api.read_hosts().items]:
+            instargs = cm_client.ApiHostInstallArguments(host_names=[self.host],
+                                                         user_name='root',
+                                                         private_key=key,
+                                                         cm_repo_url=cm_repo_url,
+                                                         java_install_strategy='NONE',
+                                                         ssh_port=22,
+                                                         passphrase='')
+
+            cmd = self.cm_api.host_install_command(body=instargs)
+            cmd = self.wait(cmd)
+            if not cmd.success:
+                raise RuntimeError('Failed to add host to the cluster')
         
         # Create MGMT/CMS
-        api_service = cm_client.ApiService()
-        api_service.roles = [cm_client.ApiRole(type='SERVICEMONITOR'), 
-            cm_client.ApiRole(type='HOSTMONITOR'), 
-            cm_client.ApiRole(type='EVENTSERVER'),  
-            cm_client.ApiRole(type='ALERTPUBLISHER')]
-        
-        self.mgmt_api.auto_assign_roles()  # needed?
-        self.mgmt_api.auto_configure()    # needed?
-        self.mgmt_api.setup_cms(body=api_service)
-        cmd = self.mgmt_api.start_command()
-        cmd = self.wait(cmd)
-        if not cmd.success:
-            raise RuntimeError('Failed to start Management Services')
+        try:
+            self.mgmt_api.read_service()
+            print("Cloudera Management Services already installed")
+            cms_exists = True
+        except cm_client.rest.ApiException as e:
+            cms_exists = False
+
+        if not cms_exists:
+            print("Installing Cloudera Management Services")
+            api_service = cm_client.ApiService()
+            api_service.roles = [cm_client.ApiRole(type='SERVICEMONITOR'),
+                cm_client.ApiRole(type='HOSTMONITOR'),
+                cm_client.ApiRole(type='EVENTSERVER'),
+                cm_client.ApiRole(type='ALERTPUBLISHER')]
+            self.mgmt_api.auto_assign_roles()  # needed?
+            self.mgmt_api.auto_configure()    # needed?
+            self.mgmt_api.setup_cms(body=api_service)
+            cmd = self.mgmt_api.start_command()
+            cmd = self.wait(cmd)
+            if not cmd.success:
+                raise RuntimeError('Failed to start Management Services')
         
         # Update host-level parameter required by SMM
         self.all_hosts_api.update_config(
@@ -220,11 +251,24 @@ class ClusterCreator:
         )
 
         # Enable kerberos
-        if self.use_kerberos:
+        if use_kerberos:
             self._enable_kerberos()
 
+        # Enable TLS
+        if use_tls:
+            self._enable_tls()
+
+        # Restart Mgmt Services
+        cmd = self.mgmt_api.restart_command()
+        cmd = self.wait(cmd)
+
+
+    def create_cluster(self, template):
+
+        self._import_paywall_credentials()
+
         # Create the cluster using the template
-        with open(self.template) as f:
+        with open(template) as f:
             json_str = f.read()
         
         Response = namedtuple("Response", "data")
@@ -244,29 +288,53 @@ class ClusterCreator:
     def _enable_kerberos(self):
         # Update Kerberos configuration
         self.cm_api.update_config(message='Updating Kerberos config',
-                                    body=cm_client.ApiConfigList([
-                                             cm_client.ApiConfig(name='KDC_ADMIN_HOST', value='edge2ai-1.dim.local'),
-                                             cm_client.ApiConfig(name='KDC_HOST', value='edge2ai-1.dim.local'),
-                                             cm_client.ApiConfig(name='KDC_TYPE', value='MIT KDC'),
-                                             cm_client.ApiConfig(name='KRB_ENC_TYPES', value='aes256-cts rc4-hmac'),
-                                             cm_client.ApiConfig(name='PUBLIC_CLOUD_STATUS', value='ON_PUBLIC_CLOUD'),
-                                             cm_client.ApiConfig(name='SECURITY_REALM', value='WORKSHOP.COM'),
-                                         ]))
-        
-        
+                                  body=cm_client.ApiConfigList([
+                                      cm_client.ApiConfig(name='KDC_ADMIN_HOST', value='edge2ai-1.dim.local'),
+                                      cm_client.ApiConfig(name='KDC_HOST', value='edge2ai-1.dim.local'),
+                                      cm_client.ApiConfig(name='KDC_TYPE', value='MIT KDC'),
+                                      cm_client.ApiConfig(name='KRB_AUTH_ENABLE', value='true'),
+                                      cm_client.ApiConfig(name='KRB_ENC_TYPES', value='aes256-cts rc4-hmac'),
+                                      cm_client.ApiConfig(name='PUBLIC_CLOUD_STATUS', value='ON_PUBLIC_CLOUD'),
+                                      cm_client.ApiConfig(name='SECURITY_REALM', value='WORKSHOP.COM'),
+                                  ]))
+
         # Import Kerberos credentials
         cmd = self.cm_api.import_admin_credentials(password=self.krb_pass, username=self.krb_princ)
         cmd = self.wait(cmd)
         if not cmd.success:
             raise RuntimeError('Failed to import admin credentials')
 
+    def _enable_tls(self):
+        # Update TLS configuration
+        self.cm_api.update_config(
+            message='Updating TLS config',
+            body=cm_client.ApiConfigList([
+                cm_client.ApiConfig(name='AGENT_TLS', value='true'),
+                cm_client.ApiConfig(name='KEYSTORE_PASSWORD', value='supersecret1'),
+                cm_client.ApiConfig(name='KEYSTORE_PATH', value='/opt/cloudera/security/jks/keystore.jks'),
+                cm_client.ApiConfig(name='NEED_AGENT_VALIDATION', value='true'),
+                cm_client.ApiConfig(name='SCM_PROXY_TIMEOUT', value='30000'),
+                cm_client.ApiConfig(name='TRUSTSTORE_PASSWORD', value='supersecret1'),
+                cm_client.ApiConfig(name='TRUSTSTORE_PATH', value='/opt/cloudera/security/jks/truststore.jks'),
+                cm_client.ApiConfig(name='WEB_TLS', value='true'),
+            ]))
+        self.mgmt_api.update_service_config(
+            message='Updating TLS config for Mgmt Services',
+            body=cm_client.ApiServiceConfig([
+                cm_client.ApiConfig(name='ssl_client_truststore_location', value='/opt/cloudera/security/jks/truststore.jks'),
+                cm_client.ApiConfig(name='ssl_client_truststore_password', value='supersecret1'),
+            ]))
+
 if __name__ == '__main__':
     (options, args) = parse_args()
 
-    if len(args) != 4:
+    if len(args) != 1:
         _get_parser().print_help()
         exit(1)
+    HOST = args[0]
 
-    CLUSTER_CREATOR = ClusterCreator(*args, use_kerberos=options.use_kerberos)
-    CLUSTER_CREATOR.create_cluster()
-    
+    CLUSTER_CREATOR = ClusterCreator(HOST, tls_ca_cert=options.tls_ca_cert)
+    if (options.setup_cm):
+        CLUSTER_CREATOR.setup_cm(options.key_file, options.cm_repo_url, options.use_kerberos, options.use_tls)
+    if (options.create_cluster):
+        CLUSTER_CREATOR.create_cluster(options.template)

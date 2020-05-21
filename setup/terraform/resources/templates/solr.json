@@ -12,6 +12,31 @@
       "refName": "solr",
       "serviceType": "SOLR",
       "serviceConfigs": [
+{% if ENABLE_TLS == 'yes' %}
+        {
+          "name": "solr_https_keystore_file",
+          "value": "/opt/cloudera/security/jks/keystore.jks"
+        },
+        {
+          "name": "solr_https_keystore_password",
+          "value": "supersecret1"
+        },
+        {
+          "name": "solr_https_truststore_file",
+          "value": "/opt/cloudera/security/jks/truststore.jks"
+        },
+        {
+          "name": "solr_https_truststore_password",
+          "value": "supersecret1"
+        },
+        {
+          "name": "solr_use_ssl",
+          "value": "true"
+        }
+{% endif %}
+{% if ENABLE_KERBEROS == 'yes' and ENABLE_TLS == 'yes' %}
+        ,
+{% endif %}
 {% if ENABLE_KERBEROS == 'yes' %}
         {
           "name": "solr_security_authentication",

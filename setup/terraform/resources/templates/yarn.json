@@ -6,6 +6,10 @@
          "yarn-JOBHISTORY-BASE"
         ,"yarn-NODEMANAGER-BASE"
         ,"yarn-RESOURCEMANAGER-BASE"
+{% if CDH_MAJOR_VERSION == '7' %}
+        ,"queuemanager-QUEUEMANAGER_WEBAPP-BASE"
+        ,"queuemanager-QUEUEMANAGER_STORE-BASE"
+{% endif %}
       ]
     }
   ],
@@ -13,6 +17,34 @@
     {
       "refName": "yarn",
       "serviceType": "YARN",
+      "serviceConfigs": [
+{% if ENABLE_TLS == 'yes' %}
+        {
+          "name": "hadoop_secure_web_ui",
+          "value": "true"
+        },
+        {
+          "name": "ssl_client_truststore_location",
+          "value": "/opt/cloudera/security/jks/truststore.jks"
+        },
+        {
+          "name": "ssl_client_truststore_password",
+          "value": "supersecret1"
+        },
+        {
+          "name": "ssl_server_keystore_keypassword",
+          "value": "supersecret1"
+        },
+        {
+          "name": "ssl_server_keystore_location",
+          "value": "/opt/cloudera/security/jks/keystore.jks"
+        },
+        {
+          "name": "ssl_server_keystore_password",
+          "value": "supersecret1"
+        }
+{% endif %}
+      ],
       "roleConfigGroups": [
         {
           "refName": "yarn-RESOURCEMANAGER-BASE",
@@ -43,5 +75,72 @@
         }
       ]
     }
+{% if CDH_MAJOR_VERSION == '7' %}
+    ,
+    {
+      "refName": "queuemanager",
+      "serviceType": "QUEUEMANAGER",
+      "serviceConfigs": [
+{% if ENABLE_KERBEROS == 'yes' %}
+        {
+          "name": "kerberos.auth.enabled",
+          "value": "true"
+        }
+{% endif %}
+      ],
+      "roleConfigGroups": [
+        {
+          "refName": "queuemanager-QUEUEMANAGER_WEBAPP-BASE",
+          "roleType": "QUEUEMANAGER_WEBAPP",
+          "base": true,
+          "configs": [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name": "ssl_client_truststore_location",
+              "value": "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name": "ssl_client_truststore_password",
+              "value": "supersecret1"
+            },
+            {
+              "name": "ssl_enabled",
+              "value": "true"
+            },
+            {
+              "name": "ssl_server_keystore_location",
+              "value": "/opt/cloudera/security/jks/keystore.jks"
+            },
+            {
+              "name": "ssl_server_keystore_password",
+              "value": "supersecret1"
+            }
+{% endif %}
+          ]
+        },
+        {
+          "refName": "queuemanager-QUEUEMANAGER_STORE-BASE",
+          "roleType": "QUEUEMANAGER_STORE",
+          "base": true,
+          "configs": [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name": "ssl_enabled",
+              "value": "true"
+            },
+            {
+              "name": "ssl_server_keystore_location",
+              "value": "/opt/cloudera/security/jks/keystore.jks"
+            },
+            {
+              "name": "ssl_server_keystore_password",
+              "value": "supersecret1"
+            }
+{% endif %}
+          ]
+        }
+      ]
+    }
+{% endif %}
   ]
 }

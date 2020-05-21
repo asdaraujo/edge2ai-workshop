@@ -20,6 +20,36 @@
       "refName": "hive",
       "serviceType": "HIVE",
       "serviceConfigs": [
+{% if ENABLE_TLS == 'yes' %}
+        {
+          "name": "hiveserver2_enable_ssl",
+          "value": "true"
+        },
+        {
+          "name": "hiveserver2_keystore_password",
+          "value": "supersecret1"
+        },
+        {
+          "name": "hiveserver2_keystore_path",
+          "value": "/opt/cloudera/security/jks/keystore.jks"
+        },
+        {
+          "name": "hiveserver2_truststore_file",
+          "value": "/opt/cloudera/security/jks/truststore.jks"
+        },
+        {
+          "name": "hiveserver2_truststore_password",
+          "value": "supersecret1"
+        },
+        {
+          "name": "ssl_client_truststore_location",
+          "value": "/opt/cloudera/security/jks/truststore.jks"
+        },
+        {
+          "name": "ssl_client_truststore_password",
+          "value": "supersecret1"
+        },
+{% endif %}
         {
           "name": "hive_metastore_database_password",
           "value": "supersecret1"
@@ -52,7 +82,23 @@
         ,{
           "refName": "hive-HIVESERVER2-BASE",
           "roleType": "HIVESERVER2",
-          "base": true
+          "base": true,
+          "configs": [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name": "ssl_enabled",
+              "value": "true"
+            },
+            {
+              "name": "ssl_server_keystore_location",
+              "value": "/opt/cloudera/security/jks/keystore.jks"
+            },
+            {
+              "name": "ssl_server_keystore_password",
+              "value": "supersecret1"
+            }
+{% endif %}
+          ]
         }
 {% endif %}
       ]

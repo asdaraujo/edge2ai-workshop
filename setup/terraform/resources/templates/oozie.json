@@ -11,12 +11,38 @@
     {
       "refName": "oozie",
       "serviceType": "OOZIE",
+      "serviceConfigs": [
+{% if ENABLE_TLS == 'yes' %}
+        {
+          "name": "oozie_use_ssl",
+          "value": "true"
+        }
+{% endif %}
+      ],
       "roleConfigGroups": [
         {
           "refName": "oozie-OOZIE_SERVER-BASE",
           "roleType": "OOZIE_SERVER",
           "base": true,
           "configs": [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name": "oozie_https_keystore_file",
+              "value": "/opt/cloudera/security/jks/keystore.jks"
+            },
+            {
+              "name": "oozie_https_keystore_password",
+              "value": "supersecret1"
+            },
+            {
+              "name": "oozie_https_truststore_file",
+              "value": "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name": "oozie_https_truststore_password",
+              "value": "supersecret1"
+            },
+{% endif %}
             {
               "name": "oozie_database_user",
               "value": "oozie"

@@ -4,7 +4,8 @@
     {
       "refName": "HostTemplate-0-from-{{CLUSTER_HOST}}",
       "roleConfigGroupsRefNames": [
-        "atlas-ATLAS_SERVER-BASE"
+        "atlas-ATLAS_SERVER-BASE",
+        "atlas-GATEWAY-BASE"
       ]
     }
   ],
@@ -26,6 +27,32 @@
           "roleType": "ATLAS_SERVER",
           "base": true,
           "configs": [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name": "ssl_client_truststore_location",
+              "value": "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name": "ssl_client_truststore_password",
+              "value": "supersecret1"
+            },
+            {
+              "name": "ssl_enabled",
+              "value": "true"
+            },
+            {
+              "name": "ssl_server_keystore_keypassword",
+              "value": "supersecret1"
+            },
+            {
+              "name": "ssl_server_keystore_location",
+              "value": "/opt/cloudera/security/jks/keystore.jks"
+            },
+            {
+              "name": "ssl_server_keystore_password",
+              "value": "supersecret1"
+            },
+{% endif %}
             {
               "name": "conf/atlas-application.properties_role_safety_valve",
               "value": "atlas.audit.hbase.zookeeper.quorum={{CLUSTER_HOST}}:2181\natlas.graph.storage.hostname={{CLUSTER_HOST}}"
@@ -38,6 +65,23 @@
               "name" : "atlas_authentication_method_file",
               "value" : "true"
             }
+          ]
+        },
+        {
+          "refName": "atlas-GATEWAY-BASE",
+          "roleType": "GATEWAY",
+          "base": true,
+          "configs": [
+{% if ENABLE_TLS == 'yes' %}
+            {
+            "name": "ssl_client_truststore_location",
+            "value": "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+            "name": "ssl_client_truststore_password",
+            "value": "supersecret1"
+            }
+{% endif %}
           ]
         }
       ]

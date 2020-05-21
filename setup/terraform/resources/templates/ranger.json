@@ -58,17 +58,79 @@
         {
           "refName": "ranger-RANGER_USERSYNC-BASE",
           "roleType": "RANGER_USERSYNC",
-          "base": true
+          "base": true,
+          "configs": [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name": "ssl_client_truststore_location",
+              "value": "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name": "ssl_client_truststore_password",
+              "value": "supersecret1"
+            }
+{% endif %}
+          ]
         },
         {
           "refName": "ranger-RANGER_TAGSYNC-BASE",
           "roleType": "RANGER_TAGSYNC",
-          "base": true
+          "base": true,
+          "configs": [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name": "ssl_client_truststore_location",
+              "value": "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name": "ssl_client_truststore_password",
+              "value": "supersecret1"
+            },
+            {
+              "name": "ssl_enabled",
+              "value": "true"
+            },
+            {
+              "name": "ssl_server_keystore_location",
+              "value": "/opt/cloudera/security/jks/keystore.jks"
+            },
+            {
+              "name": "ssl_server_keystore_password",
+              "value": "supersecret1"
+            }
+{% endif %}
+          ]
         },
         {
           "refName": "ranger-RANGER_ADMIN-BASE",
           "roleType": "RANGER_ADMIN",
+          "base": true,
           "configs": [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name": "ssl_client_truststore_location",
+              "value": "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name": "ssl_client_truststore_password",
+              "value": "supersecret1"
+            },
+            {
+              "name": "ssl_enabled",
+              "value": "true"
+            },
+            {
+              "name": "ssl_server_keystore_location",
+              "value": "/opt/cloudera/security/jks/keystore.jks"
+            },
+            {
+              "name": "ssl_server_keystore_password",
+              "value": "supersecret1"
+            }
+{% endif %}
+{% if ((CM_VERSION == '7.1.1' and (CM_BUILD_NUMBER|int) < 2929688) or CM_VERSION is lt('7.1.1')) and ENABLE_TLS == 'yes' %}
+        ,
+{% endif %}
 {% if (CM_VERSION == '7.1.1' and (CM_BUILD_NUMBER|int) < 2929688) or CM_VERSION is lt('7.1.1') %}
             {
               "name": "ranger_database_type",
@@ -87,8 +149,7 @@
               "value": "supersecret1"
             }
 {% endif %}
-          ],
-          "base": true
+          ]
         }
       ]
     }
