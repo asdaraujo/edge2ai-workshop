@@ -33,7 +33,11 @@
           "value" : "kafka"
         }, {
           "name" : "streams.replication.manager.config",
+{% if CM_VERSION is lt('7.1.1') %}
           "value" : "local.bootstrap.servers={{CLUSTER_HOST}}:9092;remote.bootstrap.servers={{CLUSTER_HOST}}:9092;remote->local.enabled=false;replication.factor=1;heartbeats.topic.replication.factor=1;checkpoints.topic.replication.factor=1;offset-syncs.topic.replication.factor=1;offset.storage.replication.factor=1;config.storage.replication.factor=1;status.storage.replication.factor=1"
+{% else %}
+          "value" : "local.bootstrap.servers={{CLUSTER_HOST}}:9092|remote.bootstrap.servers={{CLUSTER_HOST}}:9092|remote->local.enabled=false|replication.factor=1|heartbeats.topic.replication.factor=1|checkpoints.topic.replication.factor=1|offset-syncs.topic.replication.factor=1|offset.storage.replication.factor=1|config.storage.replication.factor=1|status.storage.replication.factor=1"
+{% endif %}
         }, {
           "name" : "refresh.groups.interval.seconds",
           "value" : "30"
