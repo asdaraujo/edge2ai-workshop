@@ -592,6 +592,7 @@ function tighten_keystores_permissions() {
   chmod 440 $KEY_PEM $KEYSTORE_JKS
 
   sudo setfacl -m user:atlas:r--,group:atlas:r-- $KEYSTORE_JKS
+  sudo setfacl -m user:cruisecontrol:r--,group:cruisecontrol:r-- $KEYSTORE_JKS
   sudo setfacl -m user:flink:r--,group:flink:r-- $KEYSTORE_JKS
   sudo setfacl -m user:hbase:r--,group:hbase:r-- $KEYSTORE_JKS
   sudo setfacl -m user:hdfs:r--,group:hdfs:r-- $KEYSTORE_JKS

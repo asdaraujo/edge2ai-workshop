@@ -71,8 +71,28 @@
           "roleType": "STREAMS_MESSAGING_MANAGER_SERVER",
           "base": true,
           "configs": [
-{% if ENABLE_TLS == 'yes' %}
             {
+              "name" : "SMM_HEAP_SIZE",
+              "value" : "2048"
+            },
+            {
+              "name" : "consumer.group.refresh.interval.ms",
+              "value" : "1000"
+            },
+            {
+              "name" : "inactive.group.timeout.ms",
+              "value" : "180000"
+            },
+            {
+              "name" : "inactive.producer.timeout.ms",
+              "value" : "180000"
+            },
+            {
+              "name" : "kafka.connect.host",
+              "value" : "{{CLUSTER_HOST}}"
+            }
+{% if ENABLE_TLS == 'yes' %}
+            ,{
               "name": "ssl_client_truststore_location",
               "value": "/opt/cloudera/security/jks/truststore.jks"
             },
@@ -96,23 +116,20 @@
               "name": "ssl_server_keystore_password",
               "value": "supersecret1"
             },
-{% endif %}
             {
-              "name" : "SMM_HEAP_SIZE",
-              "value" : "2048"
+              "name" : "kafka.connect.protocol",
+              "value" : "https"
             },
             {
-              "name" : "consumer.group.refresh.interval.ms",
-              "value" : "1000"
-            },
-            {
-              "name" : "inactive.group.timeout.ms",
-              "value" : "180000"
-            },
-            {
-              "name" : "inactive.producer.timeout.ms",
-              "value" : "180000"
+              "name" : "kafka.connect.port",
+              "value" : "38085"
             }
+{% else %}
+            ,{
+              "name" : "kafka.connect.port",
+              "value" : "38083"
+            }
+{% endif %}
 {% if HAS_SRM %}
             ,{
               "name" : "streams.replication.manager.configure",

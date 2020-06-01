@@ -5,6 +5,12 @@
       "roleConfigGroupsRefNames": [
          "kafka-GATEWAY-BASE"
         ,"kafka-KAFKA_BROKER-BASE"
+{% if CDH_MAJOR_VERSION == '7' %}
+        ,"kafka-KAFKA_CONNECT-BASE"
+{% endif %}
+{% if CM_VERSION is ge('7.1.1') %}
+        ,"cruise_control-CRUISE_CONTROL_SERVER-BASE"
+{% endif %}
       ]
     }
   ],
@@ -125,8 +131,23 @@
             {
               "name": "ssl_server_keystore_password",
               "value": "supersecret1"
-            }
+            },
 {% endif %}
+            {
+              "name" : "bootstrap.servers",
+              "value" : "{{CLUSTER_HOST}}:{% if ENABLE_TLS == 'yes' %}9093{% else %}9092{% endif %}"
+            },
+            {
+              "name" : "config.storage.replication.factor",
+              "value" : "1"
+            }, {
+              "name" : "offset.storage.replication.factor",
+              "value" : "1"
+            },
+            {
+              "name" : "status.storage.replication.factor",
+              "value" : "1"
+            }
           ]
         },
 {% endif %}
@@ -169,5 +190,76 @@
         }
       ]
     }
+{% if CM_VERSION is ge('7.1.1') %}
+    ,{
+      "refName": "cruise_control",
+      "serviceType": "CRUISE_CONTROL",
+      "serviceConfigs": [],
+      "roleConfigGroups": [
+        {
+          "refName": "cruise_control-CRUISE_CONTROL_SERVER-BASE",
+          "roleType": "CRUISE_CONTROL_SERVER",
+          "base": true,
+          "configs": [
+            {
+              "name" : "cruisecontrol.properties_role_safety_valve",
+              "value" : "sample.store.topic.replication.factor=1"
+            }
+{% if ENABLE_TLS == 'yes' %}
+            ,{
+              "name": "ssl_client_truststore_location",
+              "value": "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name": "ssl_client_truststore_password",
+              "value": "supersecret1"
+            },
+            {
+              "name": "ssl_enabled",
+              "value": "true"
+            },
+            {
+              "name": "ssl_server_keystore_keypassword",
+              "value": "supersecret1"
+            },
+            {
+              "name": "ssl_server_keystore_location",
+              "value": "/opt/cloudera/security/jks/keystore.jks"
+            },
+            {
+              "name": "ssl_server_keystore_password",
+              "value": "supersecret1"
+            }
+{% endif %}
+{% if ENABLE_TLS == 'yes' %}
+{% if ENABLE_KERBEROS == 'yes' %}
+            ,{
+              "name" : "security.protocol",
+              "value" : "SASL_SSL"
+            }
+{% else  %}
+            ,{
+              "name" : "security.protocol",
+              "value" : "SSL"
+            }
+{% endif  %}
+{% else  %}
+{% if ENABLE_KERBEROS == 'yes' %}
+            ,{
+              "name" : "security.protocol",
+              "value" : "SASL_PLAINTEXT"
+            }
+{% else  %}
+            ,{
+              "name" : "security.protocol",
+              "value" : "PLAINTEXT"
+            }
+{% endif  %}
+{% endif  %}
+          ]
+        }
+      ]
+    }
+{% endif %}
   ]
 }

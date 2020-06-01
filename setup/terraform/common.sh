@@ -25,6 +25,7 @@ function check_version() {
     # First, try automated refresh using git
 
     if [[ $(which git 2>/dev/null) ]]; then
+      #
       mkdir -p ~/.ssh
       ssh-keyscan "github.com" >> ~/.ssh/known_hosts 2>/dev/null
       # git is installed
