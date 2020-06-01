@@ -122,6 +122,16 @@
               "name" : "streams.replication.manager.host",
               "value" : "{{CLUSTER_HOST}}"
             }
+{% if ENABLE_TLS == 'yes' %}
+            ,{
+              "name" : "streams.replication.manager.port",
+              "value" : "6671"
+            },
+            {
+              "name" : "streams.replication.manager.protocol",
+              "value" : "https"
+            }
+{% endif %}
 {% endif %}
 {% if CDH_MAJOR_VERSION == '6' %}
             ,{

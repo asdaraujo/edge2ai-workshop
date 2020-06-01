@@ -29,14 +29,11 @@
           "name" : "clusters",
           "value" : "local, remote"
         }, {
-          "name" : "kafka_service",
-          "value" : "kafka"
-        }, {
           "name" : "streams.replication.manager.config",
 {% if CM_VERSION is lt('7.1.1') %}
-          "value" : "local.bootstrap.servers={{CLUSTER_HOST}}:9092;remote.bootstrap.servers={{CLUSTER_HOST}}:9092;remote->local.enabled=false;replication.factor=1;heartbeats.topic.replication.factor=1;checkpoints.topic.replication.factor=1;offset-syncs.topic.replication.factor=1;offset.storage.replication.factor=1;config.storage.replication.factor=1;status.storage.replication.factor=1"
+          "value" : "local.bootstrap.servers={{CLUSTER_HOST}}:{% if ENABLE_TLS == 'yes' %}9093{% else %}9092{% endif %};remote.bootstrap.servers={{CLUSTER_HOST}}:9092;remote->local.enabled=false;replication.factor=1;heartbeats.topic.replication.factor=1;checkpoints.topic.replication.factor=1;offset-syncs.topic.replication.factor=1;offset.storage.replication.factor=1;config.storage.replication.factor=1;status.storage.replication.factor=1"
 {% else %}
-          "value" : "local.bootstrap.servers={{CLUSTER_HOST}}:9092|remote.bootstrap.servers={{CLUSTER_HOST}}:9092|remote->local.enabled=false|replication.factor=1|heartbeats.topic.replication.factor=1|checkpoints.topic.replication.factor=1|offset-syncs.topic.replication.factor=1|offset.storage.replication.factor=1|config.storage.replication.factor=1|status.storage.replication.factor=1"
+          "value" : "local.bootstrap.servers={{CLUSTER_HOST}}:{% if ENABLE_TLS == 'yes' %}9093{% else %}9092{% endif %}|remote.bootstrap.servers={{CLUSTER_HOST}}:9092|remote->local.enabled=false|replication.factor=1|heartbeats.topic.replication.factor=1|checkpoints.topic.replication.factor=1|offset-syncs.topic.replication.factor=1|offset.storage.replication.factor=1|config.storage.replication.factor=1|status.storage.replication.factor=1"
 {% endif %}
         }, {
           "name" : "refresh.groups.interval.seconds",
@@ -48,6 +45,12 @@
           "name" : "metrics.topic.replication.factor",
           "value" : "1"
         }
+{% if ENABLE_KERBEROS == 'yes' %}
+        ,{
+          "name" : "kerberos.auth.enable",
+          "value" : "true"
+        }
+{% endif %}
       ],
       "roleConfigGroups": [
         {
@@ -59,6 +62,32 @@
               "name" : "streams.replication.manager.driver.target.cluster",
               "value" : "local"
             }
+{% if ENABLE_TLS == 'yes' %}
+            ,{
+              "name": "ssl_client_truststore_location",
+              "value": "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name": "ssl_client_truststore_password",
+              "value": "supersecret1"
+            },
+            {
+              "name": "ssl_enabled",
+              "value": "true"
+            },
+            {
+              "name": "ssl_server_keystore_keypassword",
+              "value": "supersecret1"
+            },
+            {
+              "name": "ssl_server_keystore_location",
+              "value": "/opt/cloudera/security/jks/keystore.jks"
+            },
+            {
+              "name": "ssl_server_keystore_password",
+              "value": "supersecret1"
+            }
+{% endif %}
           ]
         },
         {
@@ -70,6 +99,32 @@
               "name" : "streams.replication.manager.service.target.cluster",
               "value" : "local"
             }
+{% if ENABLE_TLS == 'yes' %}
+            ,{
+              "name": "ssl_client_truststore_location",
+              "value": "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name": "ssl_client_truststore_password",
+              "value": "supersecret1"
+            },
+            {
+              "name": "ssl_enabled",
+              "value": "true"
+            },
+            {
+              "name": "ssl_server_keystore_keypassword",
+              "value": "supersecret1"
+            },
+            {
+              "name": "ssl_server_keystore_location",
+              "value": "/opt/cloudera/security/jks/keystore.jks"
+            },
+            {
+              "name": "ssl_server_keystore_password",
+              "value": "supersecret1"
+            }
+{% endif %}
           ]
         }
       ]
