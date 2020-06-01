@@ -25,6 +25,8 @@ function check_version() {
     # First, try automated refresh using git
 
     if [[ $(which git 2>/dev/null) ]]; then
+      mkdir -p ~/.ssh
+      ssh-keyscan "github.com" >> ~/.ssh/known_hosts 2>/dev/null
       # git is installed
       remote=$(git status | grep "Your branch" | egrep -o "[^']*/${GITHUB_BRANCH}\>" | sed 's#/.*##')
       if [[ $remote != "" ]]; then
@@ -151,7 +153,7 @@ function check_docker_launch() {
     if [ "$docker_img" != "" ]; then
       local cmd=./$(basename $0)
       echo -e "${C_DIM}Using docker image: ${docker_img}${C_NORMAL}"
-      exec docker run -ti --rm --entrypoint="" -v $BASE_DIR:/edge2ai-workshop/setup/terraform $docker_img $cmd $*
+      exec docker run -ti --rm --entrypoint="" -v $BASE_DIR/../..:/edge2ai-workshop $docker_img $cmd $*
     fi
   fi
   if [ "${EDGE2AI_DOCKER_IMAGE:-}" != "" ]; then
