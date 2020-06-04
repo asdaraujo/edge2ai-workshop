@@ -81,7 +81,7 @@ echo ""
 echo "Health checks:"
 "${BASE_DIR}/check-services.sh" "${NAMESPACE}"
 
-if [ "$TF_VAR_deploy_cdsw_model" == "true" ]; then
+if [[ ${HAS_CDSW:-0} == 1 && $TF_VAR_deploy_cdsw_model == true ]]; then
   echo "${C_YELLOW}    NOTE: CDSW model is being deployed in the background."
   echo "          Execute the following command later to check on the status of"
   echo "          CDSW and the Model deployment:"
