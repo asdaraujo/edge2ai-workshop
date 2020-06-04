@@ -90,13 +90,18 @@ if [[ ! -f $CM_REPO_FILE ]]; then
     wget --progress=dot:giga $wget_basic_auth "${CM_REPO_AS_TARBALL_URL}" -O $CM_REPO_AS_TARBALL_FILE
     tar -C /var/www/html -xvf $CM_REPO_AS_TARBALL_FILE
     CM_REPO_ROOT_DIR=$(tar -tvf $CM_REPO_AS_TARBALL_FILE | head -1 | awk '{print $NF}')
+    if [[ $CM_MAJOR_VERSION == 5 ]]; then
+      CM_REPO_ROOT_DIR=${CM_REPO_ROOT_DIR}/${CM_VERSION}
+    fi
     rm -f $CM_REPO_AS_TARBALL_FILE
 
-    # In some versions the allkeys.asc file is missing from the repo-as-tarball
-    KEYS_FILE=/var/www/html/${CM_REPO_ROOT_DIR}/allkeys.asc
-    if [ ! -f "$KEYS_FILE" ]; then
-      KEYS_URL="$(dirname "$(dirname "$CM_REPO_AS_TARBALL_URL")")/allkeys.asc"
-      wget --progress=dot:giga $wget_basic_auth "${KEYS_URL}" -O $KEYS_FILE
+    if [[ $CM_MAJOR_VERSION != 5 ]]; then
+      # In some versions the allkeys.asc file is missing from the repo-as-tarball
+      KEYS_FILE=/var/www/html/${CM_REPO_ROOT_DIR}/allkeys.asc
+      if [ ! -f "$KEYS_FILE" ]; then
+        KEYS_URL="$(dirname "$(dirname "$CM_REPO_AS_TARBALL_URL")")/allkeys.asc"
+        wget --progress=dot:giga $wget_basic_auth "${KEYS_URL}" -O $KEYS_FILE
+      fi
     fi
 
     cat > /etc/yum.repos.d/cloudera-manager.repo <<EOF
@@ -222,7 +227,7 @@ EOF
       echo ">>> $component - $version - $url"
       # Download parcel manifest
       manifest_url="$(check_for_presigned_url "${url%%/}/manifest.json")"
-      curl $curl_basic_auth --silent "$manifest_url" > /tmp/manifest.json
+      curl --referer "${BASE_URI%/}/" $curl_basic_auth --silent "$manifest_url" > /tmp/manifest.json
       # Find the parcel name for the specific component and version
       parcel_name=$(jq -r '.parcels[] | select(.parcelName | contains("'"$version"'-el7.parcel")) | select(.components[] | .name == "'"$component"'").parcelName' /tmp/manifest.json)
       # Create the hash file
@@ -230,7 +235,7 @@ EOF
       echo "$hash" > "/opt/cloudera/parcel-repo/${parcel_name}.sha"
       # Download the parcel file - in the background
       parcel_url="$(check_for_presigned_url "${url%%/}/${parcel_name}")"
-      wget --no-clobber --progress=dot:giga $wget_basic_auth "${parcel_url}" -O "/opt/cloudera/parcel-repo/${parcel_name}" &
+      wget --referer="${BASE_URI%/}/" --no-clobber --progress=dot:giga $wget_basic_auth "${parcel_url}" -O "/opt/cloudera/parcel-repo/${parcel_name}" &
     done
     wait
     # Create the torrent file for the parcel
@@ -263,7 +268,7 @@ EOF
     else
       auth=""
     fi
-    wget --progress=dot:giga $wget_basic_auth "${url}" -O /opt/cloudera/csd/${file_name}
+    wget --referer="${BASE_URI%/}/" --progress=dot:giga $wget_basic_auth "${url}" -O /opt/cloudera/csd/${file_name}
     # Patch CDSW CSD so that we can use it on CDP
     if [ "${HAS_CDSW:-1}" == "1" -a "$url" == "$CDSW_CSD_URL" -a "$CM_MAJOR_VERSION" == "7" ]; then
       jar xvf /opt/cloudera/csd/CLOUDERA_DATA_SCIENCE_WORKBENCH-*.jar descriptor/service.sdl
@@ -470,7 +475,12 @@ echo "-- Create DBs required by CM"
 sudo -u postgres psql < ${BASE_DIR}/create_db_pg.sql
 
 echo "-- Prepare CM database 'scm'"
-/opt/cloudera/cm/schema/scm_prepare_database.sh postgresql scm scm supersecret1
+if [[ $CM_MAJOR_VERSION != 5 ]]; then
+  SCM_PREP_DB=/opt/cloudera/cm/schema/scm_prepare_database.sh
+else
+  SCM_PREP_DB=/usr/share/cmf/schema/scm_prepare_database.sh
+fi
+$SCM_PREP_DB postgresql scm scm supersecret1
 
 echo "-- Install additional CSDs"
 for csd in $(find $BASE_DIR/csds -name "*.jar"); do

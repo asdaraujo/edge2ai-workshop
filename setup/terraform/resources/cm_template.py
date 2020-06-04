@@ -171,7 +171,7 @@ def parse_args():
                       dest='cdh_major_version',
                       metavar='VERSION',
                       help='Major version of the CDH cluster for which the template will be generated. '
-                           'Valid values: 6 and 7')
+                           'Valid values: 5, 6 and 7')
     parser.add_option('--validate-only', action='store_true',
                       dest='validate_only',
                       help='Only validate if the specified services are valid.')
@@ -236,9 +236,9 @@ def main():
     load_templates(options.template_dir)
 
     if options.cdh_major_version is None:
-        LOG.error('The --cdh-major-version must be specified. Valid values are: 6 and 7')
+        LOG.error('The --cdh-major-version must be specified. Valid values are: 5, 6 and 7')
         exit(1)
-    elif options.cdh_major_version not in ['6', '7']:
+    elif options.cdh_major_version not in ['5', '6', '7']:
         LOG.error('The only valid values for --cdh-major-version are 6 and 7')
         exit(1)
     os.environ['CDH_MAJOR_VERSION'] = options.cdh_major_version

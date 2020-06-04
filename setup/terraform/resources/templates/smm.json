@@ -86,11 +86,13 @@
             {
               "name" : "inactive.producer.timeout.ms",
               "value" : "180000"
-            },
-            {
+            }
+{% if CM_VERSION is ge('7') %}
+            ,{
               "name" : "kafka.connect.host",
               "value" : "{{CLUSTER_HOST}}"
             }
+{% endif %}
 {% if ENABLE_TLS == 'yes' %}
             ,{
               "name": "ssl_client_truststore_location",
@@ -115,8 +117,9 @@
             {
               "name": "ssl_server_keystore_password",
               "value": "supersecret1"
-            },
-            {
+            }
+{% if CM_VERSION is ge('7') %}
+            ,{
               "name" : "kafka.connect.protocol",
               "value" : "https"
             },
@@ -124,11 +127,14 @@
               "name" : "kafka.connect.port",
               "value" : "38085"
             }
+{% endif %}
 {% else %}
+{% if CM_VERSION is ge('7') %}
             ,{
               "name" : "kafka.connect.port",
               "value" : "38083"
             }
+{% endif %}
 {% endif %}
 {% if HAS_SRM %}
             ,{

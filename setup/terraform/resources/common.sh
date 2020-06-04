@@ -175,7 +175,7 @@ function validate_stack() {
 
   if [ "${HAS_NIFI:-}" == "1" ]; then
     if [ "$(check_vars "$stack_file" \
-              CFM_NIFICA_CSD_URL CFM_NIFIREG_CSD_URL CFM_NIFI_CSD_URL)" != "0" ]; then
+              CFM_NIFIREG_CSD_URL CFM_NIFI_CSD_URL)" != "0" ]; then
       errors=1
     fi
   fi

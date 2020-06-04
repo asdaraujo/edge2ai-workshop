@@ -10,6 +10,7 @@ from optparse import OptionParser
 import cm_client
 import json
 import os
+import requests
 import sys
 import time
 import urllib3
@@ -25,7 +26,7 @@ def print_cmd(cmd, indent=0):
     cmd_msg = (' (' + cmd.result_message + ')') if cmd.result_message else ''
     indent_str = ' '*(indent-2) + ' +- ' if indent > 1 else ''
     details = [
-        'Cluster: ' + cmd.cluster_ref.display_name if cmd.cluster_ref else '',
+        'Cluster: ' + (cmd.cluster_ref.display_name if cmd.cluster_ref.display_name else cmd.cluster_ref.cluster_name) if cmd.cluster_ref else '',
         'Service: ' + cmd.service_ref.service_name if cmd.service_ref else '',
         'Role: ' + cmd.role_ref.role_name if cmd.role_ref else '',
         'Host: ' + cmd.host_ref.hostname if cmd.host_ref else '',
@@ -116,14 +117,20 @@ class ClusterCreator:
             except ApiException:
                 pass
 
+    def _get_api_version(self):
+        resp = requests.get("http://" + self.host + ":7180/api/version", verify=False, auth=('admin', 'admin'))
+        if resp.status_code == 200 and resp.text:
+            return resp.text
+        return requests.get("https://" + self.host + ":7183/api/version", verify=False, auth=('admin', 'admin')).text
+
     @property
     def api_client(self):
         if self._api_client is None:
             if cm_client.configuration.ssl_ca_cert:
-                url = "https://" + self.host + ":7183/api/v32"
+                api_url = "https://" + self.host + ":7183/api"
             else:
-                url = "http://" + self.host + ":7180/api/v32"
-            self._api_client = cm_client.ApiClient(url)
+                api_url = "http://" + self.host + ":7180/api"
+            self._api_client = cm_client.ApiClient(api_url + '/' + self._get_api_version())
         return self._api_client
 
     @property
@@ -231,8 +238,8 @@ class ClusterCreator:
                 cm_client.ApiRole(type='HOSTMONITOR'),
                 cm_client.ApiRole(type='EVENTSERVER'),
                 cm_client.ApiRole(type='ALERTPUBLISHER')]
-            self.mgmt_api.auto_assign_roles()  # needed?
-            self.mgmt_api.auto_configure()    # needed?
+            #self.mgmt_api.auto_assign_roles()  # needed?
+            #self.mgmt_api.auto_configure()    # needed?
             self.mgmt_api.setup_cms(body=api_service)
             cmd = self.mgmt_api.start_command()
             cmd = self.wait(cmd)

@@ -5,7 +5,9 @@
       "roleConfigGroupsRefNames": [
          "nifi-NIFI_NODE-BASE"
         ,"nifiregistry-NIFI_REGISTRY_SERVER-BASE"
+{% if CM_VERSION is lt('7') %}
         ,"nifitoolkitca-NIFI_TOOLKIT_SERVER-BASE"
+{% endif %}
       ]
     }
   ],
@@ -19,6 +21,7 @@
     "{{CFM_PARCEL_REPO}}"
   ],
   "services": [
+{% if CM_VERSION is lt('7') %}
     {
       "refName": "nifitoolkitca",
       "serviceType": "NIFITOOLKITCA",
@@ -36,6 +39,7 @@
         }
       ]
     },
+{% endif %}
     {
       "refName": "nifiregistry",
       "serviceType": "NIFIREGISTRY",
@@ -44,12 +48,8 @@
         {
           "name": "kerberos.auth.enabled",
           "value": "true"
-        },
-{% endif %}
-        {
-          "name": "nifitoolkitca_service",
-          "ref": "nifitoolkitca"
         }
+{% endif %}
       ],
       "roleConfigGroups": [
         {
@@ -95,16 +95,8 @@
         {
           "name": "kerberos.auth.enabled",
           "value": "true"
-        },
-{% endif %}
-        {
-          "name": "zookeeper_service",
-          "ref": "zookeeper"
-        },
-        {
-          "name": "nifitoolkitca_service",
-          "ref": "nifitoolkitca"
         }
+{% endif %}
       ],
       "roleConfigGroups": [
         {
