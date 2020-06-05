@@ -27,6 +27,8 @@ RUN curl -sSLo /tmp/packer.zip https://releases.hashicorp.com/packer/${PACKERVER
     && unzip /tmp/packer.zip -d /usr/local/bin \
     && rm /tmp/packer.zip
 
+RUN which python || ln -s $(which python3) /usr/bin/python
+
 WORKDIR /edge2ai-workshop/setup/terraform
 
 ENTRYPOINT ["/bin/bash"]
