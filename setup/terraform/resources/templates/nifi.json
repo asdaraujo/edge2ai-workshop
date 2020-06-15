@@ -145,6 +145,34 @@
             {
               "name": "nifi.cluster.flow.election.max.wait.time",
               "value": "10 secs"
+            },
+            {
+              "name": "nifi.security.identity.mapping.pattern.kerb",
+              "value": "^(.*?)(/.*?)?@(.*?)$"
+            },
+            {
+              "name": "nifi.security.identity.mapping.transform.kerb",
+              "value": "LOWER"
+            },
+            {
+              "name": "nifi.security.identity.mapping.value.kerb",
+              "value": "$1"
+            },
+            {
+              "name": "xml.authorizers.userGroupProvider.composite-configurable-user-group-provider.property.User Group Provider 1",
+              "value": "cm-user-group-provider</property><property name=\"User Group Provider 2\">shell-user-group-provider"
+            },
+            {
+              "name": "xml.authorizers.userGroupProvider.shell-user-group-provider.enabled",
+              "value": "true"
+            },
+            {
+              "name": "xml.authorizers.userGroupProvider.shell-user-group-provider.property.Exclude Groups",
+              "value": "nifi"
+            },
+            {
+              "name": "xml.authorizers.userGroupProvider.shell-user-group-provider.property.Refresh Delay",
+              "value": "30 secs"
             }
           ]
         }

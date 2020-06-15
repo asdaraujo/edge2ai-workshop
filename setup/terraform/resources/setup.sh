@@ -589,13 +589,18 @@ else
       --tls-ca-cert /opt/cloudera/security/x509/truststore.pem
 fi
 
-# Ensure Zepellin is on the shadow group for PAM auth to work (service needs restarting)
+echo "-- Ensure Zepellin is on the shadow group for PAM auth to work (service needs restarting)"
 usermod -G shadow zeppelin
 curl -k -L -X POST -u admin:admin "http://${CLUSTER_HOST}:7180/api/v19/clusters/OneNodeCluster/services/zeppelin/commands/restart"
 
-# Tighten permissions
+echo "-- Tighten permissions"
 if [[ $ENABLE_TLS == yes ]]; then
   tighten_keystores_permissions
+fi
+
+echo "-- Set Ranger policies for NiFi"
+if [[ ${HAS_RANGER:-0} == 1 && ${HAS_NIFI:-0} == 1 ]]; then
+  $BASE_DIR/ranger_policies.sh
 fi
 
 echo "-- Configure and start EFM"
