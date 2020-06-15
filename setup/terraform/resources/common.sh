@@ -5,7 +5,7 @@ KAFKA_CLIENT_PROPERTIES=${KEYTABS_DIR}/kafka-client.properties
 KRB_REALM=WORKSHOP.COM
 
 function is_kerberos_enabled() {
-  echo $ENABLE_TLS
+  echo $ENABLE_KERBEROS
 }
 
 function is_tls_enabled() {
