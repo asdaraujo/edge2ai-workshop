@@ -133,7 +133,9 @@ EOF
     mkdir -p /tmp/knoxcsd
     pushd /tmp/knoxcsd
     jar xvf $KNOX_CSD
-    sed -i.bak 's/knoxsso.token.ttl/knoxsso.cookie.domain.suffix": "*", "knoxsso.token.ttl/' aux/descriptors/knoxsso.json
+    if [[ -f aux/descriptors/knoxsso.json ]]; then
+      sed -i.bak 's/knoxsso.token.ttl/knoxsso.cookie.domain.suffix": "*", "knoxsso.token.ttl/' aux/descriptors/knoxsso.json
+    fi
     jar cvf $KNOX_CSD *
     popd
   fi

@@ -1,2 +1,2 @@
-20200615091912
-Previous commit: 330d426 Fix bug in Kerberos check
+20200618144753
+Previous commit: 3752846 Changed NiFi template to support Kerberos and Ranger
