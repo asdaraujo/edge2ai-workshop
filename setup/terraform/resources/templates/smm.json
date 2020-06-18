@@ -87,7 +87,7 @@
               "name" : "inactive.producer.timeout.ms",
               "value" : "180000"
             }
-{% if CM_VERSION is ge('7') %}
+{% if CM_VERSION is ge('7.1.1') %}
             ,{
               "name" : "kafka.connect.host",
               "value" : "{{CLUSTER_HOST}}"
@@ -118,7 +118,7 @@
               "name": "ssl_server_keystore_password",
               "value": "supersecret1"
             }
-{% if CM_VERSION is ge('7') %}
+{% if CM_VERSION is ge('7.1.1') %}
             ,{
               "name" : "kafka.connect.protocol",
               "value" : "https"
@@ -129,7 +129,7 @@
             }
 {% endif %}
 {% else %}
-{% if CM_VERSION is ge('7') %}
+{% if CM_VERSION is ge('7.1.1') %}
             ,{
               "name" : "kafka.connect.port",
               "value" : "38083"

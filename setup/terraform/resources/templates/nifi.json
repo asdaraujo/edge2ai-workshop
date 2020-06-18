@@ -145,8 +145,9 @@
             {
               "name": "nifi.cluster.flow.election.max.wait.time",
               "value": "10 secs"
-            },
-            {
+            }
+{% if CDH_VERSION is ge('7.1') %}
+            ,{
               "name": "nifi.security.identity.mapping.pattern.kerb",
               "value": "^(.*?)(/.*?)?@(.*?)$"
             },
@@ -174,6 +175,7 @@
               "name": "xml.authorizers.userGroupProvider.shell-user-group-provider.property.Refresh Delay",
               "value": "30 secs"
             }
+{% endif %}
           ]
         }
       ]

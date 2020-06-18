@@ -1,2 +1,2 @@
-20200618144753
-Previous commit: 3752846 Changed NiFi template to support Kerberos and Ranger
+20200618161125
+Previous commit: 58ef369 Fix KNOX JAR modification steps to avoid breaking when version < 7.1

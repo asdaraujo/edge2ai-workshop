@@ -5,7 +5,7 @@
       "roleConfigGroupsRefNames": [
          "kafka-GATEWAY-BASE"
         ,"kafka-KAFKA_BROKER-BASE"
-{% if CDH_MAJOR_VERSION == '7' %}
+{% if CDH_VERSION is ge('7.1.1') %}
         ,"kafka-KAFKA_CONNECT-BASE"
 {% endif %}
 {% if CM_VERSION is ge('7.1.1') %}
@@ -101,7 +101,7 @@
 {% endif %}
           ]
         },
-{% if CDH_MAJOR_VERSION == '7' %}
+{% if CDH_VERSION is ge('7.1.1') %}
         {
           "refName": "kafka-KAFKA_CONNECT-BASE",
           "roleType": "KAFKA_CONNECT",
