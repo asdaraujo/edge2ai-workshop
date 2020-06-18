@@ -1,2 +1,2 @@
-20200618161125
-Previous commit: 58ef369 Fix KNOX JAR modification steps to avoid breaking when version < 7.1
+20200618165937
+Previous commit: c6a5ded Fix CDP 7.0.3 issue introduced by latest template updates
