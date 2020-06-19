@@ -121,7 +121,7 @@ resource "aws_instance" "web" {
   provisioner "remote-exec" {
     inline = [
       "cd web/",
-      "bash ./start-web.sh",
+      "bash ./start-web.sh > ./start-web.log 2>&1",
     ]
 
     connection {

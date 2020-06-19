@@ -4,18 +4,20 @@ source ${BASE_DIR}/common.sh
 check_version
 check_stack_version
 
-mkdir -p "${BASE_DIR}"/logs
-(
-set -o errexit
-set -o nounset
-set -o pipefail
-
 if [ $# != 1 ]; then
   echo "Syntax: $0 <namespace>"
   show_namespaces
   exit 1
 fi
 NAMESPACE=$1
+LOG_NAME=$BASE_DIR/logs/setup.log.${NAMESPACE}.$(date +%Y%m%d%H%M%S)
+
+mkdir -p "${BASE_DIR}"/logs
+(
+set -o errexit
+set -o nounset
+set -o pipefail
+
 validate_env
 load_env $NAMESPACE
 check_python_modules
@@ -97,4 +99,4 @@ END_TIME=$(date +%s)
 DURATION=$((END_TIME-START_TIME))
 log "Deployment completed in $(printf "%d:%02d" "$((DURATION/60))" "$((DURATION%60))") minutes"
 
-) 2>&1 | tee $BASE_DIR/logs/setup.log.${1:-unknown}.$(date +%Y%m%d%H%M%S)
+) 2>&1 | tee $LOG_NAME

@@ -430,9 +430,39 @@ print((datetime.strptime('$enddate', '%m%d%Y') - dt).days)
 "
 }
 
+function collect_logs() {
+  local namespace=$1
+  if [[ $0 != *"/launch.sh" ]]; then
+    return
+  fi
+  success=$(grep "Deployment completed" $LOG_NAME | wc -l || true)
+  if [[ $success -eq 1 ]]; then
+    return
+  fi
+  load_env "$namespace"
+  local tmp_file=/tmp/list-details.$$
+  local log_name=""
+  set +e
+  $BASE_DIR/list-details.sh "$namespace" > $tmp_file 2>/dev/null
+  echo "Collecting logs:"
+  grep "${namespace}-web" $tmp_file | awk '{print $2}' | while read host_name; do
+    log_name=${LOG_NAME}.web
+    scp -q -o StrictHostKeyChecking=no -i "$TF_VAR_web_ssh_private_key" $TF_VAR_ssh_username@$host_name:./web/start-web.log "$log_name"
+    echo "  Saved log from web server as $log_name"
+  done
+  idx=0
+  grep "${namespace}-cluster" $tmp_file | awk '{print $2}' | while read host_name; do
+    log_name=${LOG_NAME}.cluster-$idx
+    scp -q -o StrictHostKeyChecking=no -i "$TF_VAR_ssh_private_key" $TF_VAR_ssh_username@$host_name:/tmp/resources/setup.log ${LOG_NAME}.cluster-$idx
+    echo "  Saved log from cluster-$idx server as $log_name"
+    idx=$((idx+1))
+  done
+  rm -f $tmp_file
+}
+
 function set_traps() {
   for sig in {0..16} {18..31}; do
-    trap 'RET=$?; reset_traps; if [ $RET != 0 ]; then echo -e "\n   FAILED!!! (signal: '$sig', exit code: $RET)\n"; fi; set +e; kdestroy > /dev/null 2>&1' $sig
+    trap 'RET=$?; reset_traps; if [ $RET != 0 ]; then echo -e "\n   FAILED!!! (signal: '$sig', exit code: $RET)\n"; fi; collect_logs $NAMESPACE; set +e; kdestroy > /dev/null 2>&1' $sig
   done
 }
 
