@@ -15,10 +15,12 @@
       "serviceType": "HBASE",
       "serviceConfigs": [
 {% if ENABLE_KERBEROS == 'yes' %}
+{% if CDH_VERSION is ge('7.1') %}
         {
           "name": "hadoop_secure_web_ui",
           "value": "true"
         },
+{% endif %}
         {
           "name": "hbase_security_authentication",
           "value": "kerberos"

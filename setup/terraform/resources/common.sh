@@ -630,3 +630,26 @@ function wait_for_cm() {
   done
   echo "-- CM has finished starting"
 }
+
+function retry_if_needed() {
+  local retries=$1
+  local wait_secs=$2
+  local cmd=$3
+  local ret=0
+  while [[ $retries -ge 0 ]]; do
+    set +e
+    eval "$cmd"
+    ret=$?
+    set -e
+    if [[ $ret -eq 0 ]]; then
+      return 0
+    else
+      retries=$((retries-1))
+      if [[ $retries -lt 0 ]]; then
+        return $ret
+      fi
+    fi
+    sleep $wait_secs
+    echo "Retrying command [$cmd]"
+  done
+}

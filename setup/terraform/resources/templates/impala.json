@@ -47,7 +47,7 @@
 {% if ENABLE_KERBEROS == 'yes' and ENABLE_TLS == 'yes' %}
         ,
 {% endif %}
-{% if ENABLE_KERBEROS == 'yes' %}
+{% if ENABLE_KERBEROS == 'yes' and CDH_VERSION is ge('7') %}
         {
           "name" : "hadoop_secure_web_ui",
           "value" : "true"

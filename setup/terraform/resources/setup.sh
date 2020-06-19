@@ -80,14 +80,14 @@ if [[ ! -f $CM_REPO_FILE ]]; then
 
   echo "-- Install CM repo"
   if [ "${CM_REPO_AS_TARBALL_URL:-}" == "" ]; then
-    wget --progress=dot:giga $wget_basic_auth ${CM_REPO_FILE_URL} -O $CM_REPO_FILE
+    retry_if_needed 5 5 "wget --progress=dot:giga $wget_basic_auth '${CM_REPO_FILE_URL}' -O '$CM_REPO_FILE'"
     sed -i -E "s#https?://[^/]*#${CM_BASE_URL}#g" $CM_REPO_FILE
   else
     sed -i.bak 's/^ *Listen  *.*/Listen 3333/' /etc/httpd/conf/httpd.conf
     systemctl start httpd
 
     CM_REPO_AS_TARBALL_FILE=/tmp/cm-repo-as-a-tarball.tar.gz
-    wget --progress=dot:giga $wget_basic_auth "${CM_REPO_AS_TARBALL_URL}" -O $CM_REPO_AS_TARBALL_FILE
+    retry_if_needed 5 5 "wget --progress=dot:giga $wget_basic_auth '${CM_REPO_AS_TARBALL_URL}' -O '$CM_REPO_AS_TARBALL_FILE'"
     tar -C /var/www/html -xvf $CM_REPO_AS_TARBALL_FILE
     CM_REPO_ROOT_DIR=$(tar -tvf $CM_REPO_AS_TARBALL_FILE | head -1 | awk '{print $NF}')
     if [[ $CM_MAJOR_VERSION == 5 ]]; then
@@ -100,7 +100,7 @@ if [[ ! -f $CM_REPO_FILE ]]; then
       KEYS_FILE=/var/www/html/${CM_REPO_ROOT_DIR}/allkeys.asc
       if [ ! -f "$KEYS_FILE" ]; then
         KEYS_URL="$(dirname "$(dirname "$CM_REPO_AS_TARBALL_URL")")/allkeys.asc"
-        wget --progress=dot:giga $wget_basic_auth "${KEYS_URL}" -O $KEYS_FILE
+        retry_if_needed 5 5 "wget --progress=dot:giga $wget_basic_auth '${KEYS_URL}' -O '$KEYS_FILE'"
       fi
     fi
 
@@ -157,7 +157,7 @@ EOF
   chmod 644 /usr/share/java/postgresql-connector-java.jar
 
   echo "-- Install Maven"
-  curl "$MAVEN_BINARY_URL" > /tmp/apache-maven-bin.tar.gz
+  retry_if_needed 5 5 "curl '$MAVEN_BINARY_URL' > /tmp/apache-maven-bin.tar.gz"
 
   tar -C "$(get_homedir $SSH_USER)" -zxvf /tmp/apache-maven-bin.tar.gz
   rm -f /tmp/apache-maven-bin.tar.gz
@@ -169,14 +169,14 @@ EOF
   if [ "$CEM_URL" != "" ]; then
     CEM_TARBALL_NAME=$(basename ${CEM_URL%%\?*})
     CEM_TARBALL_PATH=/opt/cloudera/cem/${CEM_TARBALL_NAME}
-    wget --progress=dot:giga $wget_basic_auth "${CEM_URL}" -O $CEM_TARBALL_PATH
+    retry_if_needed 5 5 "wget --progress=dot:giga $wget_basic_auth '${CEM_URL}' -O '$CEM_TARBALL_PATH'"
     tar -zxf $CEM_TARBALL_PATH -C /opt/cloudera/cem
     rm -f $CEM_TARBALL_PATH
   else
     for url in "$EFM_TARBALL_URL" "$MINIFITK_TARBALL_URL" "$MINIFI_TARBALL_URL"; do
       TARBALL_NAME=$(basename ${url%%\?*})
       TARBALL_PATH=/opt/cloudera/cem/${TARBALL_NAME}
-      wget --progress=dot:giga $wget_basic_auth "${url}" -O $TARBALL_PATH
+      retry_if_needed 5 5 "wget --progress=dot:giga $wget_basic_auth '${url}' -O '$TARBALL_PATH'"
     done
   fi
 
@@ -210,7 +210,7 @@ EOF
   systemctl disable minifi
 
   echo "-- Download and install MQTT Processor NAR file"
-  wget --progress=dot:giga https://repo1.maven.org/maven2/org/apache/nifi/nifi-mqtt-nar/1.8.0/nifi-mqtt-nar-1.8.0.nar -P /opt/cloudera/cem/minifi/lib
+  retry_if_needed 5 5 "wget --progress=dot:giga https://repo1.maven.org/maven2/org/apache/nifi/nifi-mqtt-nar/1.8.0/nifi-mqtt-nar-1.8.0.nar -P /opt/cloudera/cem/minifi/lib"
   chown root:root /opt/cloudera/cem/minifi/lib/nifi-mqtt-nar-1.8.0.nar
   chmod 660 /opt/cloudera/cem/minifi/lib/nifi-mqtt-nar-1.8.0.nar
 
@@ -229,7 +229,7 @@ EOF
       echo ">>> $component - $version - $url"
       # Download parcel manifest
       manifest_url="$(check_for_presigned_url "${url%%/}/manifest.json")"
-      curl --referer "${BASE_URI%/}/" $curl_basic_auth --silent "$manifest_url" > /tmp/manifest.json
+      retry_if_needed 5 5 "curl --referer '${BASE_URI%/}/' $curl_basic_auth --silent '$manifest_url' > /tmp/manifest.json"
       # Find the parcel name for the specific component and version
       parcel_name=$(jq -r '.parcels[] | select(.parcelName | contains("'"$version"'-el7.parcel")) | select(.components[] | .name == "'"$component"'").parcelName' /tmp/manifest.json)
       # Create the hash file
@@ -237,7 +237,7 @@ EOF
       echo "$hash" > "/opt/cloudera/parcel-repo/${parcel_name}.sha"
       # Download the parcel file - in the background
       parcel_url="$(check_for_presigned_url "${url%%/}/${parcel_name}")"
-      wget --referer="${BASE_URI%/}/" --no-clobber --progress=dot:giga $wget_basic_auth "${parcel_url}" -O "/opt/cloudera/parcel-repo/${parcel_name}" &
+      retry_if_needed 5 5 "wget --referer='${BASE_URI%/}/' --no-clobber --progress=dot:giga $wget_basic_auth '${parcel_url}' -O '/opt/cloudera/parcel-repo/${parcel_name}'" &
     done
     wait
     # Create the torrent file for the parcel
@@ -270,7 +270,7 @@ EOF
     else
       auth=""
     fi
-    wget --referer="${BASE_URI%/}/" --progress=dot:giga $wget_basic_auth "${url}" -O /opt/cloudera/csd/${file_name}
+    retry_if_needed 5 5 "wget --referer='${BASE_URI%/}/' --progress=dot:giga $wget_basic_auth '${url}' -O '/opt/cloudera/csd/${file_name}'"
     # Patch CDSW CSD so that we can use it on CDP
     if [ "${HAS_CDSW:-1}" == "1" -a "$url" == "$CDSW_CSD_URL" -a "$CM_MAJOR_VERSION" == "7" ]; then
       jar xvf /opt/cloudera/csd/CLOUDERA_DATA_SCIENCE_WORKBENCH-*.jar descriptor/service.sdl
@@ -535,6 +535,7 @@ add_user bob users
 chgrp shadow /etc/shadow
 chmod g+r /etc/shadow
 usermod -G knox,hadoop,shadow knox || true
+id knox > /dev/null 2>&1 && usermod -G knox,hadoop,shadow knox || echo "User knox does not exist. Skipping usermod"
 
 wait_for_cm
 
@@ -592,7 +593,7 @@ else
 fi
 
 echo "-- Ensure Zepellin is on the shadow group for PAM auth to work (service needs restarting)"
-usermod -G shadow zeppelin
+id zeppelin > /dev/null 2>&1 && usermod -G shadow zeppelin || echo "User zeppelin does not exist. Skipping usermod"
 curl -k -L -X POST -u admin:admin "http://${CLUSTER_HOST}:7180/api/v19/clusters/OneNodeCluster/services/zeppelin/commands/restart"
 
 echo "-- Tighten permissions"

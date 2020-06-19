@@ -413,8 +413,34 @@ function kerb_auth_for_cluster() {
   local public_dns=$(public_dns $cluster_id)
   if [ "$ENABLE_KERBEROS" == "yes" ]; then
     export KRB5_CONFIG=$NAMESPACE_DIR/krb5.conf.$cluster_id
-    scp -q -o StrictHostKeyChecking=no -i $TF_VAR_ssh_private_key $TF_VAR_ssh_username@$public_dns:/etc/krb5.conf $KRB5_CONFIG
-    sed -i.bak "s/kdc *=.*internal/kdc = $public_dns/;s/admin_server *=.*internal/admin_server = $public_dns/;/includedir/ d" $KRB5_CONFIG
+    cat > $KRB5_CONFIG <<EOF
+[logging]
+ default = FILE:/var/log/krb5libs.log
+ kdc = FILE:/var/log/krb5kdc.log
+ admin_server = FILE:/var/log/kadmind.log
+
+[libdefaults]
+ dns_lookup_realm = false
+ ticket_lifetime = 24h
+ renew_lifetime = 7d
+ forwardable = true
+ rdns = false
+ pkinit_anchors = FILE:/etc/pki/tls/certs/ca-bundle.crt
+ default_realm = WORKSHOP.COM
+ udp_preference_limit = 1
+ kdc_timeout = 3
+
+[realms]
+ WORKSHOP.COM = {
+  kdc = tcp/$public_dns
+  kdc = $public_dns
+  admin_server = $public_dns
+ }
+
+[domain_realm]
+ .workshop.com = WORKSHOP.COM
+ workshop.com = WORKSHOP.COM
+EOF
     export KRB5CCNAME=/tmp/workshop.$$
     echo supersecret1 | kinit workshop 2>&1 | grep -v "Password for" | true
   fi
@@ -438,7 +464,7 @@ function collect_logs() {
   if [[ $0 != *"/launch.sh" ]]; then
     return
   fi
-  success=$(grep "Deployment completed" $LOG_NAME | wc -l || true)
+  success=$(grep "Deployment completed successfully" $LOG_NAME | wc -l || true)
   if [[ $success -eq 1 ]]; then
     return
   fi
