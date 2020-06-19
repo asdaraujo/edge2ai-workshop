@@ -432,6 +432,9 @@ print((datetime.strptime('$enddate', '%m%d%Y') - dt).days)
 
 function collect_logs() {
   local namespace=$1
+  if [[ $namespace == "" ]]; then
+    return
+  fi
   if [[ $0 != *"/launch.sh" ]]; then
     return
   fi
@@ -462,7 +465,7 @@ function collect_logs() {
 
 function set_traps() {
   for sig in {0..16} {18..31}; do
-    trap 'RET=$?; reset_traps; if [ $RET != 0 ]; then echo -e "\n   FAILED!!! (signal: '$sig', exit code: $RET)\n"; fi; collect_logs $NAMESPACE; set +e; kdestroy > /dev/null 2>&1' $sig
+    trap 'RET=$?; reset_traps; if [ $RET != 0 ]; then echo -e "\n   FAILED!!! (signal: '$sig', exit code: $RET)\n"; fi; collect_logs "${NAMESPACE:-}"; set +e; kdestroy > /dev/null 2>&1' $sig
   done
 }
 
