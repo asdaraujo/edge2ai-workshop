@@ -1,2 +1,2 @@
-20200619144934
-Previous commit: 2dd5bba Fix underfined namespace variable
+20200625230134
+Previous commit: 12c6bcc Fixed some issues with Kerberos parameters for 703 and made some reliability improvements to the launch scripts

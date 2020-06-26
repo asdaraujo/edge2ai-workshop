@@ -14,7 +14,7 @@ CLUSTER_ID=$2
 load_env $NAMESPACE
 
 LOG_DIR=$BASE_DIR/logs
-LOG_FILE=$LOG_DIR/command.$(date +%s).log
+LOG_FILE=$LOG_DIR/command.${NAMESPACE}.$(date +%s).log
 
 PUBLIC_DNS=$(public_dns $CLUSTER_ID)
 

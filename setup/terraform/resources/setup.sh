@@ -187,10 +187,17 @@ EOF
   ln -s /opt/cloudera/cem/${EFM_BASE_NAME} /opt/cloudera/cem/efm
   ln -s /opt/cloudera/cem/efm/bin/efm.sh /etc/init.d/efm
   chown -R root:root /opt/cloudera/cem/${EFM_BASE_NAME}
-  rm -f /opt/cloudera/cem/efm/conf/efm.properties
-  rm -f /opt/cloudera/cem/efm/conf/efm.conf
-  cp $BASE_DIR/efm.properties /opt/cloudera/cem/efm/conf
-  cp $BASE_DIR/efm.conf /opt/cloudera/cem/efm/conf
+  sed -i.bak 's#APP_EXT_LIB_DIR=.*#APP_EXT_LIB_DIR=/usr/share/java#' /opt/cloudera/cem/efm/conf/efm.conf
+  sed -i.bak \
+'s#^efm.server.address=.*#efm.server.address=edge2ai-1.dim.local#;'\
+'s#^efm.security.user.certificate.enabled=.*#efm.security.user.certificate.enabled=false#;'\
+'s#^efm.nifi.registry.enabled=.*#efm.nifi.registry.enabled=true#;'\
+'s#^efm.nifi.registry.url=.*#efm.nifi.registry.url=http://edge2ai-1.dim.local:18080#;'\
+'s#^efm.nifi.registry.bucketName=.*#efm.nifi.registry.bucketName=IoT#;'\
+'s#^efm.db.url=.*#efm.db.url=jdbc:postgresql://edge2ai-1.dim.local:5432/efm#;'\
+'s#^efm.db.driverClass=.*#efm.db.driverClass=org.postgresql.Driver#;'\
+'s#^efm.db.password=.*#efm.db.password=supersecret1#' /opt/cloudera/cem/efm/conf/efm.properties
+  echo -e "\nefm.encryption.password=supersecret1supersecret1" >> /opt/cloudera/cem/efm/conf/efm.properties
 
   echo "-- Install and configure MiNiFi"
   MINIFI_TARBALL=$(find /opt/cloudera/cem/ -name "minifi-[0-9]*-bin.tar.gz")
