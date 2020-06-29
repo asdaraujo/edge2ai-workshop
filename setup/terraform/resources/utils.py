@@ -13,6 +13,7 @@ import os
 import sys
 from inspect import getmembers
 from contextlib import contextmanager
+from datetime import datetime
 from impala.dbapi import connect
 from nipyapi import config, canvas, versioning, nifi
 from nipyapi.nifi.rest import ApiException
@@ -97,7 +98,7 @@ def exception_context(obj):
     try:
         yield
     except:
-        print('Exception context: %s' % (obj,))
+        print('%s - Exception context: %s' % (datetime.strftime(datetime.now(), '%Y-%m-%d %H:%M:%S'), obj))
         raise
 
 
@@ -115,7 +116,7 @@ def retry_test(max_retries=0, wait_time_secs=0):
                     else:
                         retries += 1
                         time.sleep(wait_time_secs)
-                        print('Retry #%d' % (retries,))
+                        print('%s - Retry #%d' % (datetime.strftime(datetime.now(), '%Y-%m-%d %H:%M:%S'), retries))
         return wrapped_f
     return wrap
 

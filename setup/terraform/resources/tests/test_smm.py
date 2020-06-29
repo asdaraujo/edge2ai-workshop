@@ -10,7 +10,7 @@ from ..utils import CONSUMER_GROUP_ID, PRODUCER_CLIENT_ID
 from ..utils import smm_api_get, exception_context, retry_test
 
 
-@retry_test(max_retries=120, wait_time_secs=1)
+@retry_test(max_retries=300, wait_time_secs=1)
 def test_smm_topic():
     resp = smm_api_get('/api/v1/admin/metrics/aggregated/topics', params={'from': '-1', 'to': '-1'})
     topics = resp.json()
@@ -28,7 +28,7 @@ def test_smm_topic():
         assert metrics[0]['topicSummary']['preferredReplicasPercent'] == 100.0
 
 
-@retry_test(max_retries=120, wait_time_secs=1)
+@retry_test(max_retries=300, wait_time_secs=1)
 def test_smm_broker():
     resp = smm_api_get('/api/v1/admin/metrics/aggregated/brokers', params={'from': '-1', 'to': '-1'})
     brokers = resp.json()
@@ -40,7 +40,7 @@ def test_smm_broker():
         assert metrics['messageIn'] > 0
 
 
-@retry_test(max_retries=120, wait_time_secs=1)
+@retry_test(max_retries=300, wait_time_secs=1)
 def test_smm_group():
     resp = smm_api_get('/api/v1/admin/metrics/aggregated/groups', params={'from': '-1', 'to': '-1'})
     groups = [g for g in resp.json() if g['consumerGroupInfo']['id'] == CONSUMER_GROUP_ID]
@@ -59,7 +59,7 @@ def test_smm_group():
             assert metrics[partition]['producerIdToOutMessagesCount'][PRODUCER_CLIENT_ID] > 0
 
 
-@retry_test(max_retries=120, wait_time_secs=1)
+@retry_test(max_retries=300, wait_time_secs=1)
 def test_smm_producer():
     resp = smm_api_get('/api/v1/admin/metrics/aggregated/producers', params={'from': '-1', 'to': '-1'})
     producers = [p for p in resp.json() if p['clientId'] == PRODUCER_CLIENT_ID]
