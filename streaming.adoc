@@ -56,13 +56,15 @@ image::images/NiFiDataProvenance.png[width=800]
 [[lab_2, Lab2]]
 == Lab 2 - Configuring Edge Flow Management
 
-Cloudera Edge Flow Management gives you a visual overview of all MiNiFi agents in your environment, and allows you to update the flow configuration for each one, with versioning control thanks to the **NiFi Registry** integration. In this lab, you will create the MiNiFi flow and publish it for the MiNiFi agent to pick it up.
+Cloudera Edge Flow Management (EFM) gives you a visual overview of all MiNiFi agents in your environment, and allows you to update the flow configuration for each one, with versioning control thanks to the **NiFi Registry** integration. In this lab, you will create the MiNiFi flow and publish it for the MiNiFi agent to pick it up.
 
-. Open the EFM Web UI at http://<public_dns>:10080/efm/ui/. Ensure you see your minifi agent's heartbeat messages in the **Events Monitor**. Click on the info icon on a heartbeat record to see the details of the heartbeat.
+. Open the EFM Web UI at http://<public_dns>:10080/efm/ui/ and select the Dashboard tab (image:images/dashboard_icon.png[width=30])
+
+. Click on the *EVENTS* header and verify that your EFM server is receiving heartbeats from the MiNiFi agent. Click on the info icon on a heartbeat record to see the details of the heartbeat.
 +
 image::images/cem_heartbeats.png[width=800]
 
-. You can then select the **Flow Designer** tab (image:images/flow_designer_icon.png[width=30]). To build a dataflow, select the desired class (`iot-1`) from the table and click *OPEN*.  Alternatively, you can double-click on the desired class.
+. Select the **Flow Designer** tab (image:images/flow_designer_icon.png[width=30]). To build a dataflow, select the desired class (`iot-1`) from the table and click *OPEN*.  Alternatively, you can double-click on the desired class.
 
 . Add a _ConsumeMQTT_ Processor to the canvas, by dragging the processor icon to the canvas, selecting the _ConsumeMQTT_ processor type and clicking on the *Add* button. Once the processor is on the canvas, double-click it and configure it with below settings:
 +
@@ -114,9 +116,16 @@ image::images/input_port_id.png[width=800]
 +
 image::images/connect_to_rpg.png[width=800]
 +
-Double-click the connection to check the configuration:
+. Double-click the connection and update the following configuration:
 +
-image::images/efmSetCloudConfiguration.png[width=400]
+[source]
+----
+Flowfile Expiration:            60 seconds
+Back Pressure Object Threshold: 10000
+Connection Name:                Sensor data
+----
++
+image::images/efm_set_cloude_config.png[width=400]
 
 . The Flow is now complete, but before publishing it, create the Bucket in the _NiFi Registry_ so that all versions of your flows are stored for review and audit. Open the NiFi Registry at `\http://<public_dns>:18080/nifi-registry`, click on the wrench/spanner icon (image:images/spanner_icon.png[width=20]) on the top-right corner on and create a bucket called `IoT` (*ATTENTION*: the bucket name is *CASE-SENSITIVE*).
 +
@@ -443,7 +452,7 @@ Processor Name: Extract sensor_0 and sensor1 values
 Destination:    flowfile-attribute
 ----
 +
-image::images/EvaluateJsonPath.png[width=800]
+image::images/evaluate_json_path.png[width=800]
 
 . Click on the *Add Property* button and enter the following properties:
 +
@@ -491,9 +500,18 @@ image::images/reconnect_consume_mqtt.png[width=800]
 . Connect the _Extract sensor_0 and sensor1 values_ to the _Filter errors_ processor. When the *Create Connection* dialog appear, select "*matched*" and click *Create*.
 +
 image::images/connect_extract_to_route.png[width-800]
-
 +
 image::images/create_connection.png[width=800]
+
+. Double-click the connection, update the following configuration and *Apply* the changes:
++
+[source]
+----
+Flowfile Expiration:            60 seconds
+Back Pressure Object Threshold: 10000
+Connection Name:                Extracted attributes
+----
++
 
 . Double-click the _Extract sensor_0 and sensor1 values_ and check the following values in the *AUTOMATICALLY TERMINATED RELATIONSHIPS* section and click *Apply*:
 ** failure
@@ -515,6 +533,16 @@ image::images/connect_filter_ro_rpg.png[width=800]
 . In the *Create Connection* dialog, check the "*unmatched*" checkbox and enter the copied input port ID, and click on *Create*:
 +
 image::images/create_last_connection.png[width=800]
+
+. Double-click the connection, update the following configuration and *Apply* the changes:
++
+[source]
+----
+Flowfile Expiration:            60 seconds
+Back Pressure Object Threshold: 10000
+Connection Name:                Valid data
+----
++
 
 . To ignore the errors, double-click on the _Filter errors_ processor, check the *error* checkbox under the *AUTOMATICALLY TERMINATED RELATIONSHIPS* section and click *Apply*:
 +
@@ -574,12 +602,12 @@ On the *PROPERTIES* tab:
 +
 [source]
 ----
-URL:           http://cdsw.<YOUR_CLUSTER_PUBLIC_IP>.nip.io/api/altus-ds-1/models/call-model
+URL:           http://modelservice.cdsw.<YOUR_CLUSTER_PUBLIC_IP>.nip.io/model
 Record Reader: JsonTreeReader
 Record Path:   /response
 ----
 +
-NOTE: `<YOUR_CLUSTER_PUBLIC_IP>` above must be replaced with your cluster's public IP, *not* DNS name. The final URL should look something like this: `\http://cdsw.12.34.56.78.nip.io/api/altus-ds-1/models/call-model`
+NOTE: `<YOUR_CLUSTER_PUBLIC_IP>` above must be replaced with your cluster's public IP, *not* DNS name. The final URL should look something like this: `\http://modelservice.cdsw.12.34.56.78.nip.io/model`
 
 . Click on the _lightning bolt_ icon (image:images/enable_icon.png[width=20]) to *enable* the *RestLookupService* controller service.
 +

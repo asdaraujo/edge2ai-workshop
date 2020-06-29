@@ -131,6 +131,10 @@ def get_cdsw_altus_api():
     return 'http://cdsw.%s.nip.io/api/altus-ds-1' % (get_public_ip(),)
 
 
+def get_model_endpoint():
+    return 'http://modelservice.cdsw.%s.nip.io/model' % (get_public_ip(),)
+
+
 def get_cdsw_model_access_key():
     def _open_cdsw_session():
         s = requests.Session()
@@ -383,7 +387,8 @@ def efm_delete_all(flow_id):
             efm_delete_by_type(flow_id, conn, obj_type)
 
 
-def efm_create_connection(flow_id, pg_id, source_id, source_type, destination_id, destination_type, relationships, source_port=None, destination_port=None):
+def efm_create_connection(flow_id, pg_id, source_id, source_type, destination_id, destination_type, relationships, source_port=None, destination_port=None,
+                          name=None, flow_file_expiration=None):
     def _get_endpoint(endpoint_id, endpoint_type, endpoint_port):
         if endpoint_type == 'PROCESSOR':
             return {'id': endpoint_id, 'type': 'PROCESSOR'}
@@ -402,6 +407,10 @@ def efm_create_connection(flow_id, pg_id, source_id, source_type, destination_id
         'source': _get_endpoint(source_id, source_type, source_port),
         'destination': _get_endpoint(destination_id, destination_type, destination_port),
         'selectedRelationships': relationships,
+        'name': name,
+        'flowFileExpiration': flow_file_expiration,
+        'backPressureObjectThreshold': None,
+        'backPressureDataSizeThreshold': None,
       }
     }
     resp = efm_api_post(endpoint, requests.codes.created, headers={'Content-Type': 'application/json'}, json=body)
@@ -681,7 +690,7 @@ def lab2_edge_flow(env):
             'Max Queue Size': '60',
         })
     env.nifi_rpg = efm_create_remote_processor_group(env.flow_id, env.efm_pg_id, 'Remote PG', _NIFI_URL, 'HTTP', (100, 400))
-    env.consume_conn = efm_create_connection(env.flow_id, env.efm_pg_id, env.consume_mqtt, 'PROCESSOR', env.nifi_rpg, 'REMOTE_INPUT_PORT', ['Message'], destination_port=env.from_gw.id)
+    env.consume_conn = efm_create_connection(env.flow_id, env.efm_pg_id, env.consume_mqtt, 'PROCESSOR', env.nifi_rpg, 'REMOTE_INPUT_PORT', ['Message'], destination_port=env.from_gw.id, name='Sensor data', flow_file_expiration='60 seconds')
 
     # Create a bucket in NiFi Registry to save the edge flow versions
     if not versioning.get_registry_bucket('IoT'):
@@ -782,9 +791,9 @@ def lab6_expand_edge_flow(env):
         },
         auto_terminate=['error'])
     efm_delete_by_type(env.flow_id, env.consume_conn, 'connections')
-    env.consume_conn = efm_create_connection(env.flow_id, env.efm_pg_id, env.consume_mqtt, 'PROCESSOR', extract_proc, 'PROCESSOR', ['Message'])
-    extract_conn = efm_create_connection(env.flow_id, env.efm_pg_id, extract_proc, 'PROCESSOR', filter_proc, 'PROCESSOR', ['matched'])
-    filter_conn = efm_create_connection(env.flow_id, env.efm_pg_id, filter_proc, 'PROCESSOR', env.nifi_rpg, 'REMOTE_INPUT_PORT', ['unmatched'], destination_port=env.from_gw.id)
+    env.consume_conn = efm_create_connection(env.flow_id, env.efm_pg_id, env.consume_mqtt, 'PROCESSOR', extract_proc, 'PROCESSOR', ['Message'], name='Sensor data', flow_file_expiration='60 seconds')
+    extract_conn = efm_create_connection(env.flow_id, env.efm_pg_id, extract_proc, 'PROCESSOR', filter_proc, 'PROCESSOR', ['matched'], name='Extracted attributes', flow_file_expiration='60 seconds')
+    filter_conn = efm_create_connection(env.flow_id, env.efm_pg_id, filter_proc, 'PROCESSOR', env.nifi_rpg, 'REMOTE_INPUT_PORT', ['unmatched'], destination_port=env.from_gw.id, name='Valid data', flow_file_expiration='60 seconds')
 
     # Publish/version flow
     efm_publish_flow(env.flow_id, 'Second version - ' + str(env.run_id))
@@ -800,7 +809,7 @@ def lab7_rest_and_kudu(env):
                                                     name='JsonTreeReader - With schema identifier')
     rest_lookup_svc = create_controller(env.sensor_pg,
                                         'org.apache.nifi.lookup.RestLookupService',
-                                        {'rest-lookup-url': get_cdsw_altus_api() + '/models/call-model', 'rest-lookup-record-reader': env.json_reader_svc.id, 'rest-lookup-record-path': '/response'},
+                                        {'rest-lookup-url': get_model_endpoint(), 'rest-lookup-record-reader': env.json_reader_svc.id, 'rest-lookup-record-path': '/response'},
                                         True)
 
     # Build flow
