@@ -4,6 +4,9 @@ set -o nounset
 BASE_DIR=$(cd $(dirname $0); pwd -L)
 source $BASE_DIR/common.sh
 
+EC2_PRICES_URL_TEMPLATE=https://raw.githubusercontent.com/yeo/ec2.shop/master/data/REGION-ondemand.json
+WEB_INSTANCE_TYPE=t2.medium
+
 if [ $# -gt 1 ]; then
   echo "Syntax: $0 [namespace]"
   show_namespaces
@@ -32,6 +35,31 @@ function enddate() {
   if [ -s $tf_json_file ]; then
     cat $tf_json_file | jq -r '.values.root_module.resources[0].values.tags.enddate' | sed 's/null//'
   fi
+}
+
+function calc() {
+  local expression=$1
+  echo "$expression" | bc -l
+}
+
+function show_costs() {
+  local ec2_prices_url=$(echo "$EC2_PRICES_URL_TEMPLATE" | sed "s/REGION/$TF_VAR_aws_region/")
+  local tmp_file=/tmp/list-details.cost.$$
+
+  local ret=$(curl -w "%{http_code}" "$ec2_prices_url" -o $tmp_file --stderr /dev/null)
+  if [[ $ret == 200 ]]; then
+    local web_price=$(jq -r '.prices[] | select(.attributes["aws:ec2:instanceType"] == "'"$WEB_INSTANCE_TYPE"'").price.USD' $tmp_file)
+    local cluster_price=$(jq -r '.prices[] | select(.attributes["aws:ec2:instanceType"] == "'"$TF_VAR_cluster_instance_type"'").price.USD' $tmp_file)
+    echo -e "\nCLOUD COSTS:"
+    echo "============"
+    printf "%-11s %-15s %3s %15s %15s %15s\n" "Purpose" "Instance Type" "Qty" "Unit USD/Hr" "Total USD/Hr" "Total USD/Day"
+    printf "%-11s %-15s %3d %15.4f %15.4f %15.4f\n" "Web" "$WEB_INSTANCE_TYPE" "1" "$web_price" "$web_price" "$(calc "24*$web_price")"
+    printf "%-11s %-15s %3d %15.4f %15.4f %15.4f\n" "Cluster" "$TF_VAR_cluster_instance_type" "$TF_VAR_cluster_count" "$cluster_price" "$(calc "$TF_VAR_cluster_count*$cluster_price")" "$(calc "24*$TF_VAR_cluster_count*$cluster_price")"
+    printf "%-11s %35s %15.4f ${C_BG_MAGENTA}${C_WHITE}%15.4f${C_NORMAL}\n" "GRAND TOTAL" "---------------------------------->" "$(calc "$web_price+$TF_VAR_cluster_count*$cluster_price")" "$(calc "24*($web_price+$TF_VAR_cluster_count*$cluster_price)")"
+  else
+    echo -e "\nUnable to retrieve cloud costs."
+  fi
+  rm -f $tmp_file
 }
 
 function show_details() {
@@ -110,6 +138,8 @@ function show_details() {
     echo "============"
     printf "%-40s %-55s %-15s %-15s\n" "Cluster Name" "Public DNS Name" "Public IP" "Private IP"
     cat $INSTANCE_LIST_FILE
+
+    show_costs
 
     echo ""
     if [ "$warning" != "" ]; then

@@ -14,6 +14,9 @@ C_BOLD="$(echo -e "\033[1m")"
 C_DIM="$(echo -e "\033[2m")"
 C_RED="$(echo -e "\033[31m")"
 C_YELLOW="$(echo -e "\033[33m")"
+C_WHITE="$(echo -e "\033[97m")"
+C_BG_RED="$(echo -e "\033[101m")"
+C_BG_MAGENTA="$(echo -e "\033[105m")"
 
 function log() {
   echo "[$(date)] [$(basename $0): $BASH_LINENO] : $*"
