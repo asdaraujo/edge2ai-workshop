@@ -809,7 +809,7 @@ def lab7_rest_and_kudu(env):
                                                     name='JsonTreeReader - With schema identifier')
     rest_lookup_svc = create_controller(env.sensor_pg,
                                         'org.apache.nifi.lookup.RestLookupService',
-                                        {'rest-lookup-url': get_model_endpoint(), 'rest-lookup-record-reader': env.json_reader_svc.id, 'rest-lookup-record-path': '/response'},
+                                        {'rest-lookup-url': get_cdsw_altus_api() + '/models/call-model', 'rest-lookup-record-reader': env.json_reader_svc.id, 'rest-lookup-record-path': '/response'},
                                         True)
 
     # Build flow

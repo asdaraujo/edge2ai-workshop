@@ -602,9 +602,11 @@ On the *PROPERTIES* tab:
 +
 [source]
 ----
-URL:           http://modelservice.cdsw.<YOUR_CLUSTER_PUBLIC_IP>.nip.io/model
-Record Reader: JsonTreeReader
-Record Path:   /response
+URL:
+  - CDH 7.1 or later:  http://modelservice.cdsw.<YOUR_CLUSTER_PUBLIC_IP>.nip.io/model
+  - CDH 7.0 or ealier: http://cdsw.<YOUR_CLUSTER_PUBLIC_IP>.nip.io/api/altus-ds-1/models/call-model
+Record Reader:         JsonTreeReader
+Record Path:           /response
 ----
 +
 NOTE: `<YOUR_CLUSTER_PUBLIC_IP>` above must be replaced with your cluster's public IP, *not* DNS name. The final URL should look something like this: `\http://modelservice.cdsw.12.34.56.78.nip.io/model`
