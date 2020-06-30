@@ -6,6 +6,16 @@ In this hands-on workshop, you will build a full OT to IT workflow for an **IoT 
 
 image::images/iot-architecture.png[width=800]
 
+=== Labs
+
+IMPORTANT: If this is your first time going through this content, please read the rest of this README introduction before jumping to the Labs.
+
+If you already familiar with the instructions in the README, time to start working and see some interesting stuff! Pick your lab and let's get started!
+
+* link:streaming.adoc[From Edge to Streams Processing]
+* link:spark_analytics.adoc[Spark and Fast Analytics with Kudu]
+* link:datascience.adoc[CDSW Experiments and Models]
+
 === Before you start
 
 * Everything is Case-Sensitive. 
@@ -79,15 +89,6 @@ Connect with *PuTTY*:
 . Navigate to Connection/SSH/Auth
 . Click “Browse” and select the .PPK file you exported from PuTTYgen.
 . Click “Open.”
-
-== Labs
-
-Time to start working and see some interesting stuff!
-Pick your lab and let's get started!
-
-* link:streaming.adoc[From Edge to Streams Processing]
-* link:spark_analytics.adoc[Spark and Fast Analytics with Kudu]
-* link:datascience.adoc[CDSW Experiments and Models]
 
 == Resources
   
