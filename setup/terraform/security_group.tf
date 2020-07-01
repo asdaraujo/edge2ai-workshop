@@ -55,6 +55,15 @@ resource "aws_security_group_rule" "workshop_ssh_sg_rule" {
   security_group_id = aws_security_group.workshop_cluster_sg.id
 }
 
+resource "aws_security_group_rule" "workshop_self_sg_rule" {
+  type              = "ingress"
+  from_port         = 0
+  to_port           = 65535
+  protocol          = "tcp"
+  self              = true
+  security_group_id = aws_security_group.workshop_cluster_sg.id
+}
+
 resource "aws_security_group_rule" "workshop_cdsw_sg_rule" {
   type              = "ingress"
   from_port         = 80
