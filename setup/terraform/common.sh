@@ -480,13 +480,21 @@ function collect_logs() {
   grep "${namespace}-web" $tmp_file | awk '{print $2}' | while read host_name; do
     log_name=${LOG_NAME}.web
     scp -q -o StrictHostKeyChecking=no -i "$TF_VAR_web_ssh_private_key" $TF_VAR_ssh_username@$host_name:./web/start-web.log "$log_name"
-    echo "  Saved log from web server as $log_name"
+    if [[ $? == 0 ]]; then
+      echo "  Saved log from web server as $log_name"
+    else
+      echo "  ERROR: Could not download log web/start-web.log from the web server"
+    fi
   done
   idx=0
   grep "${namespace}-cluster" $tmp_file | awk '{print $2}' | while read host_name; do
     log_name=${LOG_NAME}.cluster-$idx
     scp -q -o StrictHostKeyChecking=no -i "$TF_VAR_ssh_private_key" $TF_VAR_ssh_username@$host_name:/tmp/resources/setup.log ${LOG_NAME}.cluster-$idx
-    echo "  Saved log from cluster-$idx server as $log_name"
+    if [[ $? == 0 ]]; then
+      echo "  Saved log from cluster-$idx server as $log_name"
+    else
+      echo "  ERROR: Could not download log /tmp/resources/setup.log from the cluster-$idx server"
+    fi
     idx=$((idx+1))
   done
   rm -f $tmp_file
