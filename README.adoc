@@ -13,6 +13,7 @@ IMPORTANT: If this is your first time going through this content, please read th
 If you already familiar with the instructions in the README, time to start working and see some interesting stuff! Pick your lab and let's get started!
 
 * link:streaming.adoc[From Edge to Streams Processing]
+* link:streams_replication.adoc[Streams Replication]
 * link:spark_analytics.adoc[Spark and Fast Analytics with Kudu]
 * link:datascience.adoc[CDSW Experiments and Models]
 
