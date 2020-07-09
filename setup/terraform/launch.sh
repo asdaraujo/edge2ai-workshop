@@ -7,7 +7,7 @@ check_stack_version
 if [ $# != 1 ]; then
   echo "Syntax: $0 <namespace>"
   show_namespaces
-  exit 1
+  abort
 fi
 NAMESPACE=$1
 LOG_NAME=$BASE_DIR/logs/setup.log.${NAMESPACE}.$(date +%Y%m%d%H%M%S)
@@ -28,14 +28,14 @@ DATE_CHECK=$(remaining_days "$TF_VAR_enddate")
 if [ "$DATE_CHECK" -le "0" ]; then
   echo 'ERROR: The expiration date for your environment is either set for today or already in the past.'
   echo '       Please update "TF_VAR_endddate" in .env.'"$NAMESPACE"' and try again.'
-  exit 1
+  abort
 elif [ "$DATE_CHECK" -le "$WARNING_THRESHOLD_DAYS" ]; then
   echo -n "WARNING: Your environment will expire in less than $WARNING_THRESHOLD_DAYS days. Do you really want to continue? "
   read CONFIRM
   CONFIRM=$(echo "${CONFIRM}" | tr a-z A-Z)
   if [ "$CONFIRM" != "Y" -a "$CONFIRM" != "YES" ]; then
     echo 'Please update "TF_VAR_endddate" in .env.'"$NAMESPACE"' and try again.'
-    exit 1
+    abort
   fi
 fi
 

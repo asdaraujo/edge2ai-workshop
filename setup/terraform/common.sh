@@ -14,12 +14,18 @@ C_BOLD="$(echo -e "\033[1m")"
 C_DIM="$(echo -e "\033[2m")"
 C_RED="$(echo -e "\033[31m")"
 C_YELLOW="$(echo -e "\033[33m")"
+C_BLUE="$(echo -e "\033[34m")"
 C_WHITE="$(echo -e "\033[97m")"
 C_BG_RED="$(echo -e "\033[101m")"
 C_BG_MAGENTA="$(echo -e "\033[105m")"
 
 function log() {
   echo "[$(date)] [$(basename $0): $BASH_LINENO] : $*"
+}
+
+function abort() {
+  echo "Aborting."
+  exit 1
 }
 
 function check_version() {
@@ -172,7 +178,7 @@ function check_docker_launch() {
 function check_env_files() {
   if [[ -f $BASE_DIR/.env.default ]]; then
     echo 'ERROR: An enviroment file cannot be called ".env.default". Please renamed it to ".env".'
-    exit 1
+    abort
   fi
 }
 
@@ -219,14 +225,14 @@ function load_env() {
 
   check_env_files
 
-  if [ ! -f $env_file ]; then
+  if [[ ! -f $env_file ]]; then
     echo ""
     echo "The namespace [$namespace] has not been configured."
     echo "1. Create the environment by copying the environment template:"
     echo "     cp .env.template .env.<namespace_name>"
     echo "2. Review and configure .env.<namespace_name> appropriately."
     echo ""
-    exit 1
+    abort
   fi
   source $env_file
   export NAMESPACE=$namespace
@@ -243,6 +249,14 @@ function load_env() {
   export TF_VAR_web_ssh_private_key=$NAMESPACE_DIR/${TF_VAR_web_key_name}.pem
   export TF_VAR_web_ssh_public_key=$NAMESPACE_DIR/${TF_VAR_web_key_name}.pem.pub
   export TF_VAR_my_public_ip=$(curl -sL ifconfig.me || curl -sL ipapi.co/ip || curl -sL icanhazip.com)
+
+  TF_VAR_use_elastic_ip=$(echo "${TF_VAR_use_elastic_ip:-FALSE}" | tr A-Z a-z)
+  if [ "$TF_VAR_use_elastic_ip" == "yes" -o "$TF_VAR_use_elastic_ip" == "true" -o "$TF_VAR_use_elastic_ip" == "1" ]; then
+    TF_VAR_use_elastic_ip=true
+  else
+    TF_VAR_use_elastic_ip=false
+  fi
+  export TF_VAR_use_elastic_ip
 }
 
 function get_namespaces() {
@@ -356,7 +370,7 @@ function check_for_jq() {
     echo "ERROR: The "jq" tool is not installed and it is required."
     echo "       Please install jq and try again. Check the documentation for"
     echo "       more details."
-    exit 1
+    abort
   fi
 }
 
@@ -370,13 +384,14 @@ function check_file_staleness() {
   for var in $base_variables; do
     grep -E "^ *(export){0,1} *$var=" $compare > /dev/null
     if [ $? != 0 ]; then
-      echo "ERROR: Configuration file $compare is missing property ${var}." > /dev/stderr
-      stale=1
+      line=$(grep "^ *export  *$var=" $basefile)
+      echo "${line}" >> $compare
+      echo "${C_BLUE}INFO: Configuration file $compare has been updated with the following property: ${line}.${C_NORMAL}" >&2
     fi
   done
   not_set=$(grep -E "^ *(export){0,1} *[a-zA-Z0-9_]*=" $compare | sed -E 's/ *(export){0,1} *//;s/="?<[A-Z_]*>"?$/=/g;s/""//g' | egrep "CHANGE_ME|REPLACE_ME|=$" | sed 's/=//' | tr "\n" "," | sed 's/,$//')
   if [ "$not_set" != "" ]; then
-    echo "ERROR: Configuration file $compare has the following unset properties: ${not_set}." > /dev/stderr
+    echo "${C_RED}ERROR: Configuration file $compare has the following unset properties: ${not_set}.${C_NORMAL}" >&2
     stale=1
   fi
   set -e
@@ -392,22 +407,22 @@ function validate_env() {
   local template_file=$BASE_DIR/.env.template
   local compare_file=$(get_env_file_path $NAMESPACE)
   if [[ $compare_file != "" && ! -f $compare_file ]]; then
-    echo "${C_RED}ERROR: The specified enviroment file ($compare_file) does not exist.${C_NORMAL}" > /dev/stderr
-    exit 1
+    echo "${C_RED}ERROR: The specified enviroment file ($compare_file) does not exist.${C_NORMAL}" >&2
+    abort
   fi
   if [ ! -f $template_file ]; then
-    echo "${C_RED}ERROR: Cannot find the template file $template_file.${C_NORMAL}" > /dev/stderr
-    exit 1
+    echo "${C_RED}ERROR: Cannot find the template file $template_file.${C_NORMAL}" >&2
+    abort
   fi
   if [ "$(check_file_staleness $template_file $compare_file)" != "0" ]; then
-      cat > /dev/stderr <<EOF
+      cat >&2 <<EOF
 
-ERROR: Please fix the problems above in the file $compare_file and try again.
+${C_RED}ERROR: Please fix the problems above in the file $compare_file and try again.${C_NORMAL}
        If this configuration was working before, you may have upgraded to a new version
        of the workshop that requires additional properties.
        You can refer to the template $template_file for a list of all the required properties.
 EOF
-      exit 1
+      abort
   fi
 }
 
@@ -465,6 +480,10 @@ function collect_logs() {
     return
   fi
   if [[ $0 != *"/launch.sh" ]]; then
+    return
+  fi
+  no_run=$(grep "^Aborting." $LOG_NAME | wc -l || true)
+  if [[ $no_run -gt 0 ]]; then
     return
   fi
   success=$(grep "Deployment completed successfully" $LOG_NAME | wc -l || true)

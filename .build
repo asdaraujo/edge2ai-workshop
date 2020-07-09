@@ -1,2 +1,2 @@
-20200708201840
-Previous commit: a7b1b66 Improvements to allow stopping/starting of EC2 instances
+20200708201947
+Previous commit: 8d1769e Make check-services.sh more robust
