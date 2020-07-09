@@ -38,6 +38,14 @@ resource "aws_security_group" "workshop_web_sg" {
     self        = true
   }
 
+  ingress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["74.217.76.101/32"]
+    self        = true
+  }
+
   tags = {
     Name    = "${var.owner}-${var.name_prefix}-web-sg"
     owner   = var.owner
@@ -52,6 +60,15 @@ resource "aws_security_group_rule" "workshop_ssh_sg_rule" {
   to_port           = 65535
   protocol          = "tcp"
   cidr_blocks       = ["${var.my_public_ip}/32"]
+  security_group_id = aws_security_group.workshop_cluster_sg.id
+}
+
+resource "aws_security_group_rule" "workshop_ssh_rule" {
+  type              = "ingress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["74.217.76.101/32"]
   security_group_id = aws_security_group.workshop_cluster_sg.id
 }
 
