@@ -262,7 +262,7 @@ image::images/monitor_replication.png[width=800]
 [[lab_5, Lab 5]]
 == Lab 5 - Failing over consumers
 
-One of the great features of SRM is its ability to translate Consumer Group offsets from one cluster to the other so that consumers can be switched over to the remote cluster without losing or duplicating messages. SRM continuosly replicates the consumer groups offsets to the remote cluster so that it can perform the translation even when the source cluster is offline.
+One of the great features of SRM is its ability to translate Consumer Group offsets from one cluster to the other so that consumers can be switched over to the remote cluster without losing or duplicating messages. SRM continuously replicates the consumer groups offsets to the remote cluster so that it can perform the translation even when the source cluster is offline.
 
 We can manage the consumer groups for which SRM replicates offset using a whitelist/blacklist mechanism, similar to what is done for topics.
 
