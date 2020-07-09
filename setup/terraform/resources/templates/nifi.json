@@ -160,8 +160,8 @@
               "value": "$1"
             },
             {
-              "name": "xml.authorizers.userGroupProvider.composite-configurable-user-group-provider.property.User Group Provider 1",
-              "value": "cm-user-group-provider</property><property name=\"User Group Provider 2\">shell-user-group-provider"
+              "name" : "staging/authorizers.xml_role_safety_valve",
+              "value" : "<property><name>xml.authorizers.userGroupProvider.composite-configurable-user-group-provider.property.User Group Provider 2</name><value>shell-user-group-provider</value></property>"
             },
             {
               "name": "xml.authorizers.userGroupProvider.shell-user-group-provider.enabled",
