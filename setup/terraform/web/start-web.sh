@@ -52,6 +52,11 @@ EOF
 
 # Install stuff
 yum_install epel-release
+# The EPEL repo has intermittent refresh issues that cause errors like the one below.
+# Switch to baseurl to avoid those issues when using the metalink option.
+# Error: https://.../repomd.xml: [Errno -1] repomd.xml does not match metalink for epel
+sudo sed -i 's/metalink=/#metalink=/;s/#*baseurl=/baseurl=/' /etc/yum.repos.d/epel*.repo
+
 yum_install python36-pip python36 supervisor nginx MariaDB-server MariaDB-client
 
 # Start MariaDB

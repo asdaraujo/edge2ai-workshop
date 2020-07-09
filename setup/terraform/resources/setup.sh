@@ -76,6 +76,10 @@ if [[ ! -f $CM_REPO_FILE ]]; then
   echo "-- Cloudera Manager repo not found, assuming not prepacked"
   echo "-- Installing EPEL repo"
   yum_install epel-release
+  # The EPEL repo has intermittent refresh issues that cause errors like the one below.
+  # Switch to baseurl to avoid those issues when using the metalink option.
+  # Error: https://.../repomd.xml: [Errno -1] repomd.xml does not match metalink for epel
+  sed -i 's/metalink=/#metalink=/;s/#*baseurl=/baseurl=/' /etc/yum.repos.d/epel*.repo
   yum clean all
   rm -rf /var/cache/yum/
   set +e
@@ -83,10 +87,8 @@ if [[ ! -f $CM_REPO_FILE ]]; then
   RET=$?
   set -e
   if [[ $RET != 0 ]]; then
-    # The EPEL repo has intermittent refresh issues that cause errors like the one below.
-    # If this happens during a launch, retry it using baseurl instead of metalink.
-    # Error: https://.../repomd.xml: [Errno -1] repomd.xml does not match metalink for epel
-    sed -i 's/metalink=/#metalink=/;s/#*baseurl=/baseurl=/' /etc/yum.repos.d/epel*.repo
+    # baseurl failed, so we'll revert to the original metalink
+    sed -i 's/#*metalink=/metalink=/;s/baseurl=/#baseurl=/' /etc/yum.repos.d/epel*.repo
     yum repolist
   fi
 

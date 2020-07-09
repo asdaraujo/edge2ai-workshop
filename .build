@@ -1,2 +1,2 @@
-20200708202051
-Previous commit: 55804a6 Improve handling of new templated variables
+20200708202608
+Previous commit: af536a6 Use a safety valve to properly set a NiFi setting.
