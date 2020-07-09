@@ -107,9 +107,10 @@ Monitor the services status with the `check-service.sh` command described above.
 
 The following services can show an unhealthy state after the stop/start. The are not normally used in the workshops, so this doesn't pose any major problem. If needed, they can be manually restarted from Cloudera Manager:
 
+* HBase
 * Livy
+* Spark
 * YARN
-* asd
 
 == Setup
 
