@@ -102,3 +102,9 @@ variable "managed_security_group_ids" {
   type    = list(string)
   default = []
 }
+
+variable "use_elastic_ip" {
+  description = "Whether or not to use Elastic IPs"
+  type        = bool
+  default     = false
+}

@@ -41,6 +41,8 @@ _CDSW_PASSWORD = 'supersecret1'
 _CDSW_FULL_NAME = 'Workshop Admin'
 _CDSW_EMAIL = 'admin@cloudera.com'
 
+_CDSW_SESSION = None
+
 PG_NAME = 'Process Sensor Data'
 
 _AGENT_MANIFESTS = None
@@ -73,6 +75,14 @@ TBLPROPERTIES ('kudu.num_tablet_replicas' = '1');
 _DROP_KUDU_TABLE = "DROP TABLE IF EXISTS sensors;"
 
 # General helper functions
+
+
+def enable_debug():
+    LOG.setLevel(logging.DEBUG)
+
+
+def disable_debug():
+    LOG.setLevel(logging.INFO)
 
 
 def get_public_ip():
@@ -135,30 +145,45 @@ def get_model_endpoint():
     return 'http://modelservice.cdsw.%s.nip.io/model' % (get_public_ip(),)
 
 
+def cdsw_session():
+    global _CDSW_SESSION
+    if not _CDSW_SESSION:
+        _CDSW_SESSION = requests.Session()
+        r = _CDSW_SESSION.post(get_cdsw_api() + '/authenticate', json={'login': _CDSW_USERNAME, 'password': _CDSW_PASSWORD})
+        _CDSW_SESSION.headers.update({'Authorization': 'Bearer ' + r.json()['auth_token']})
+    return _CDSW_SESSION
+
+def get_cdsw_model():
+    r = cdsw_session().post(get_cdsw_altus_api() + '/models/list-models', json={'projectOwnerName': 'admin', 'latestModelDeployment': True, 'latestModelBuild': True})
+    models = [m for m in r.json() if m['name'] == 'IoT Prediction Model']
+    model = None
+    for m in models:
+        if m['name'] == _CDSW_MODEL_NAME:
+            model = m
+    return model
+
+def deploy_cdsw_model(model):
+    r = cdsw_session().post(get_cdsw_altus_api() + '/models/deploy-model', json={
+             'modelBuildId': model['latestModelBuild']['id'],
+             'memoryMb': 4096,
+             'cpuMillicores': 1000,
+        })
+
 def get_cdsw_model_access_key():
-    def _open_cdsw_session():
-        s = requests.Session()
-        r = s.post(get_cdsw_api() + '/authenticate', json={'login': _CDSW_USERNAME, 'password': _CDSW_PASSWORD})
-        s.headers.update({'Authorization': 'Bearer ' + r.json()['auth_token']})
-        return s
-
-    def _get_cdsw_model(s):
-        r = s.post(get_cdsw_altus_api() + '/models/list-models', json={'projectOwnerName': 'admin', 'latestModelDeployment': True, 'latestModelBuild': True})
-        models = [m for m in r.json() if m['name'] == 'IoT Prediction Model']
-        model = None
-        for m in models:
-            if m['name'] == _CDSW_MODEL_NAME:
-                model = m
-        if not model:
-            raise RuntimeError('Model %s not found.' % (_CDSW_MODEL_NAME,))
-        return model
-
-    s = _open_cdsw_session()
     while True:
-        model = _get_cdsw_model(s)
-        if model['latestModelDeployment']['status'] == 'deployed':
+        model = get_cdsw_model()
+        if not model:
+            status = 'not created yet'
+        elif not 'latestModelDeployment' in model or not 'status' in model['latestModelDeployment']:
+            status = 'unknown'
+        elif model['latestModelDeployment']['status'] == 'deployed':
             return model['accessKey']
-        LOG.debug('Model not deployed yet. Waiting for deployment to finish.')
+        elif model['latestModelDeployment']['status'] == 'stopped':
+            deploy_cdsw_model(model)
+            status = 'stopped'
+        else:
+            status = model['latestModelDeployment']['status']
+        LOG.info('Model not deployed yet. Model status is currently "%s". Waiting for deployment to finish.', status)
         time.sleep(10)
 
 # Kudu helper functions

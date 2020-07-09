@@ -51,8 +51,9 @@ try:
     s.headers.update({'Authorization': 'Bearer ' + r.json()['auth_token']})
     
     print('# Check if model is already running')
+    model_name = 'IoT Prediction Model'
     r = s.post(CDSW_ALTUS_API + '/models/list-models', json={'projectOwnerName': 'admin', 'latestModelDeployment': True, 'latestModelBuild': True})
-    models = [m for m in r.json() if m['name'] == 'IoT Prediction Model']
+    models = [m for m in r.json() if m['name'] == model_name]
     if models and models[0]['latestModelDeployment']['status'] == 'deployed':
         print('Model is already deployed!! Skipping.')
         exit(0)
@@ -66,11 +67,19 @@ try:
     r = s.patch(CDSW_API + '/site/config', json={'environment': '{"HADOOP_CONF_DIR":"/etc/hadoop/conf/"}'})
     
     print('# Add project')
-    r = s.post(CDSW_API + '/users/admin/projects', json={'template': 'git',
-                                                         'project_visibility': 'private',
-                                                         'name': 'Edge2AI Workshop',
-                                                         'gitUrl': 'https://github.com/asdaraujo/edge2ai-workshop'})
-    project_id = r.json()['id']
+    project_name = 'Edge2AI Workshop'
+    project_id = None
+    r = s.get(CDSW_API + '/users/admin/projects')
+    for project in r.json():
+        if project['name'] == project_name:
+            project_id = project['id']
+            break
+    if not project_id:
+        r = s.post(CDSW_API + '/users/admin/projects', json={'template': 'git',
+                                                             'project_visibility': 'private',
+                                                             'name': project_name,
+                                                             'gitUrl': 'https://github.com/asdaraujo/edge2ai-workshop'})
+        project_id = r.json()['id']
     print('Project ID: %s'% (project_id,))
     
     print('# Upload setup script')
@@ -134,8 +143,8 @@ try:
     print('# Deploy model')
     r = s.post(CDSW_ALTUS_API + '/models/create-model', json={
             'projectId': project_id,
-            'name': 'IoT Prediction Model',
-            'description': 'IoT Prediction Model',
+            'name': model_name,
+            'description': model_name,
             'visibility': 'private',
             'targetFilePath': 'cdsw.iot_model.py',
             'targetFunctionName': 'predict',

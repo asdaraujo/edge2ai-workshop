@@ -202,6 +202,8 @@ EOF
   tar -zxf ${EFM_TARBALL} -C /opt/cloudera/cem
   ln -s /opt/cloudera/cem/${EFM_BASE_NAME} /opt/cloudera/cem/efm
   ln -s /opt/cloudera/cem/efm/bin/efm.sh /etc/init.d/efm
+  sed -i '1s/.*/&\n# chkconfig: 2345 20 80\n# description: EFM is a Command \& Control service for managing MiNiFi deployments/' /opt/cloudera/cem/efm/bin/efm.sh
+  chkconfig --add efm
   chown -R root:root /opt/cloudera/cem/${EFM_BASE_NAME}
   sed -i.bak 's#APP_EXT_LIB_DIR=.*#APP_EXT_LIB_DIR=/usr/share/java#' /opt/cloudera/cem/efm/conf/efm.conf
   sed -i.bak \
