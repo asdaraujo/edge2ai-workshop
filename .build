@@ -1,2 +1,2 @@
-20200708202608
-Previous commit: af536a6 Use a safety valve to properly set a NiFi setting.
+20200708202739
+Previous commit: 57ae780 Fixed issue with reliability of EPEL repository

@@ -57,7 +57,7 @@ yum_install epel-release
 # Error: https://.../repomd.xml: [Errno -1] repomd.xml does not match metalink for epel
 sudo sed -i 's/metalink=/#metalink=/;s/#*baseurl=/baseurl=/' /etc/yum.repos.d/epel*.repo
 
-yum_install python36-pip python36 supervisor nginx MariaDB-server MariaDB-client
+yum_install python36-pip python36 supervisor nginx MariaDB-server MariaDB-client figlet cowsay
 
 # Start MariaDB
 sudo bash -c "
@@ -265,3 +265,7 @@ chmod 755 $HOME
 sudo systemctl enable nginx
 sudo systemctl start nginx
 sudo systemctl reload nginx
+
+# Completed
+figlet -f small -w 300  "Web server deployed successfully"'!' | cowsay -n -f "$(ls -1 /usr/share/cowsay | grep "\.cow" | sed 's/\.cow//' | egrep -v "bong|head-in|sodomized|telebears" | shuf -n 1)"
+echo "Completed successfully: WEB"

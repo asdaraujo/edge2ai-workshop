@@ -93,7 +93,7 @@ if [[ ! -f $CM_REPO_FILE ]]; then
   fi
 
   echo "-- Installing base dependencies"
-  yum_install ${JAVA_PACKAGE_NAME} vim wget curl git bind-utils centos-release-scl
+  yum_install ${JAVA_PACKAGE_NAME} vim wget curl git bind-utils centos-release-scl figlet cowsay
   yum_install npm gcc-c++ make shellinabox mosquitto jq transmission-cli rng-tools rh-python36 httpd
 
   echo "-- Install CM repo"
@@ -712,6 +712,7 @@ fi
 echo "-- Cleaning up"
 rm -f $BASE_DIR/stack.*.sh*
 
+source /etc/workshop.conf
 echo "-- At this point you can login into Cloudera Manager host on port 7180 and follow the deployment of the cluster"
-
-# Finish install
+figlet -f small -w 300  "Cluster  ${CLUSTER_ID:-???}  deployed successfully"'!' | cowsay -n -f "$(ls -1 /usr/share/cowsay | grep "\.cow" | sed 's/\.cow//' | egrep -v "bong|head-in|sodomized|telebears" | shuf -n 1)"
+echo "Completed successfully: CLUSTER ${CLUSTER_ID:-???}"
