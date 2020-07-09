@@ -214,6 +214,8 @@ EOF
 's#^efm.nifi.registry.enabled=.*#efm.nifi.registry.enabled=true#;'\
 's#^efm.nifi.registry.url=.*#efm.nifi.registry.url=http://edge2ai-1.dim.local:18080#;'\
 's#^efm.nifi.registry.bucketName=.*#efm.nifi.registry.bucketName=IoT#;'\
+'s#^efm.heartbeat.maxAgeToKeep=.*#efm.heartbeat.maxAgeToKeep=1h#;'\
+'s#^efm.event.maxAgeToKeep.debug=.*#efm.event.maxAgeToKeep.debug=5m#;'\
 's#^efm.db.url=.*#efm.db.url=jdbc:postgresql://edge2ai-1.dim.local:5432/efm#;'\
 's#^efm.db.driverClass=.*#efm.db.driverClass=org.postgresql.Driver#;'\
 's#^efm.db.password=.*#efm.db.password=supersecret1#' /opt/cloudera/cem/efm/conf/efm.properties
