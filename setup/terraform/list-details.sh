@@ -26,7 +26,21 @@ function web_instance() {
 function cluster_instances() {
   local tf_json_file=$1
   if [ -s $tf_json_file ]; then
-    cat $tf_json_file | jq -r '.values[]?.resources[]? | select(.address == "aws_instance.cluster") | "\(.values.tags.Name) \(.values.public_dns) \(.values.public_ip) \(.values.private_ip)"'
+    cat $tf_json_file | jq -r '.values[]?.resources[]? | select(.address == "aws_instance.cluster") | "\(.index) \(.values.tags.Name) \(.values.public_dns) \(.values.public_ip) \(.values.private_ip)"'
+  fi
+}
+
+function is_stoppable() {
+  local tf_json_file=$1
+  local vm_type=$2
+  local index=$3
+  if [ -s $tf_json_file ]; then
+    local count=$(cat $tf_json_file | jq -r '.values[]?.resources[]? | select(.address == "aws_eip.eip_'"$vm_type"'" and .index == '"$index"').address' | wc -l)
+    if [[ $count -eq 0 ]]; then
+      echo No
+    else
+      echo Yes
+    fi
   fi
 }
 
@@ -77,11 +91,11 @@ function show_details() {
   set +e
 
   web_instance "$tf_json_file" | while read name public_dns public_ip private_ip; do
-    printf "%-40s %-55s %-15s %-15s\n" "$name" "$public_dns" "$public_ip" "$private_ip"
+    printf "%-40s %-55s %-15s %-15s %-9s\n" "$name" "$public_dns" "$public_ip" "$private_ip" "$(is_stoppable "$tf_json_file" web 0)"
   done | sed 's/\([^ ]*-\)\([0-9]*\)\( .*\)/\1\2\3 \2/' | sort -k4n | sed 's/ [0-9]*$//' > $WEB_INSTANCE_LIST_FILE
 
-  cluster_instances "$tf_json_file" | while read name public_dns public_ip private_ip; do
-    printf "%-40s %-55s %-15s %-15s\n" "$name" "$public_dns" "$public_ip" "$private_ip"
+  cluster_instances "$tf_json_file" | while read index name public_dns public_ip private_ip; do
+    printf "%-40s %-55s %-15s %-15s %-9s\n" "$name" "$public_dns" "$public_ip" "$private_ip" "$(is_stoppable "$tf_json_file" cluster $index)"
   done | sed 's/\([^ ]*-\)\([0-9]*\)\( .*\)/\1\2\3 \2/' | sort -k4n | sed 's/ [0-9]*$//' > $INSTANCE_LIST_FILE
 
   if [ -s $WEB_INSTANCE_LIST_FILE ]; then
@@ -130,13 +144,13 @@ function show_details() {
 
     echo "WEB SERVER VM:"
     echo "=============="
-    printf "%-40s %-55s %-15s %-15s\n" "Web Server Name" "Public DNS Name" "Public IP" "Private IP"
+    printf "%-40s %-55s %-15s %-15s %-9s\n" "Web Server Name" "Public DNS Name" "Public IP" "Private IP" "Stoppable"
     cat $WEB_INSTANCE_LIST_FILE
     echo ""
 
     echo "CLUSTER VMS:"
     echo "============"
-    printf "%-40s %-55s %-15s %-15s\n" "Cluster Name" "Public DNS Name" "Public IP" "Private IP"
+    printf "%-40s %-55s %-15s %-15s %-9s\n" "Cluster Name" "Public DNS Name" "Public IP" "Private IP" "Stoppable"
     cat $INSTANCE_LIST_FILE
 
     show_costs

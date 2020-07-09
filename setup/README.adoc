@@ -25,8 +25,6 @@ This script automatically sets up a CDH cluster on the public cloud on a single 
 |* CDSW
 |====
 
-TODO: Update Readme for Packer
-
 As this cluster is meant to be used for demos, experimenting, training, and workshops, it doesn't setup Kerberos and TLS.
 
 == Instructions
@@ -41,6 +39,77 @@ Below are instructions for creating the cluster. You can choose between the auto
 The automated setup scripts support the concept of *namespaces*. All the resources of a single deployment are associated with a single namespace. By creating multiple namespaces, one can manage multiple independent deployments without them interfering with each other.
 
 A namespace is defined by simply creating a configuration file called `.env.<namespace>`, where `<namespace>` is a string that identifies the namespace uniquely. The namespace identifier cannot contain spaces or special characters.
+
+[[stopping-instances]]
+== Stopping and starting instances
+
+IMPORTANT: Please read this section before stopping instances to ensure you can start them again successfully.
+
+After the workshop environment is deployed it may be desirable to stop instances during periods when they are not being used to reduce costs. This feature is *not enabled by default* but it can be turned on for certain deployments.
+
+If you don't enable it correctly, as explained in this section, the clusters will *not* work correctly after a stop/start. So please read on!
+
+==== Requirements
+
+You *must* ensure that the following point are configured correctly before launching your environment:
+
+* Look for the `TF_VAR_use_elastic_ip` in your `.env*` file and set it to `true`. If it doesn't existing in your `.env*` file, ensure the line below is added to it:
++
+[source]
+----
+export TF_VAR_use_elastic_ip=true
+----
+* Once the property above it set, you must ensure that your AWS environment can allocate as many Elastic IPs as the number of VMs you're launching (# of cluster + 1 for the web server). The AWS default limit for Elastic IPs is very low (5 only), so make sure you check this and request an increase if it's too low for your needs.
+** You can check the limit and request the increase in the AWS Console, under *EC2 > Limits > Search for "EC2-VPC Elastic IPs"*.
+** If the limit is too low, select the *EC2-VPC Elastic IPs* line, click on *Request limit increase* and follow the prompts.
+** The increase can be effective in a few minutes but sometimes it can take longer.
+
+==== Before stopping your instances
+
+If you followed the instructions above all your instances can be stopped after the deployment is complete. To ensure that the workshop services will continue to work correctly after instances are resumed, we recommend that you only stop the instances after the CDSW model deployment is completed.
+
+Before you stop the instances, use the `check-service.sh` command to check the service status and confirm that all services are `Ok` and that the model has status `deployed`, as shown in the example below:
+
+[source]
+----
+$ ./setup/terraform/check-services.sh default
+instance                ip address  WEB   CM    CEM   NIFI  NREG  SREG  SMM   HUE   CDSW  Model Status
+aws_instance.web[null]  1.2.3.4     Ok
+aws_instance.cluster[0] 1.2.3.5           Ok    Ok    Ok    Ok    Ok    Ok    Ok    Ok    deployed
+aws_instance.cluster[1] 1.2.3.6           Ok    Ok    Ok    Ok    Ok    Ok    Ok    Ok    deployed
+----
+
+The output `list-detail.sh` command contains a `Stoppable` column, which indicates if the instance can be safely stoppable or not.
+
+[source]
+----
+$ ./setup/terraform/list-details.sh default
+...
+WEB SERVER VM:
+==============
+Web Server Name           Public DNS Name              Public IP  Private IP  Stoppable
+araujo-default-web        ec2-1-2-3-4.compute.aws.com  1.2.3.4    10.0.0.1    Yes
+
+CLUSTER VMS:
+============
+Cluster Name              Public DNS Name              Public IP  Private IP  Stoppable
+araujo-default-cluster-0  ec2-1-2-3-5.compute.aws.com  1.2.3.5    10.0.0.2    Yes
+araujo-default-cluster-1  ec2-1-2-3-6.compute.aws.com  1.2.3.6    10.0.0.3    Yes
+----
+
+==== Starting instances
+
+After you start the instances it takes some time for the services, especially CDSW, to be ready to be used.
+
+Monitor the services status with the `check-service.sh` command described above. If any of the services doesn't come up properly after several minutes, restart it manually through Cloudera Manager.
+
+==== Known issues
+
+The following services can show an unhealthy state after the stop/start. The are not normally used in the workshops, so this doesn't pose any major problem. If needed, they can be manually restarted from Cloudera Manager:
+
+* Livy
+* YARN
+* asd
 
 == Setup
 
