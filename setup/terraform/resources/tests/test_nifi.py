@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from nipyapi import canvas
-from ..utils import exception_context
+from ..utils import exception_context, retry_test
 
 QUEUED_MSG_THRESHOLD = 1
 
@@ -25,6 +25,7 @@ def test_nifi_bulletins():
              for b in sorted(bulletins, key=lambda x: x.id)]
 
 
+@retry_test(max_retries=10, wait_time_secs=5)
 def test_nifi_queues():
     assert [] == \
         ['Found queue not empty: %s -> %s, Queued: %s' % (conn.component.source.name, conn.component.destination.name, conn.status.aggregate_snapshot.queued)
