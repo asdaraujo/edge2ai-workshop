@@ -266,7 +266,7 @@ EOF
       echo "$hash" > "/opt/cloudera/parcel-repo/${parcel_name}.sha"
       # Download the parcel file - in the background
       parcel_url="$(check_for_presigned_url "${url%%/}/${parcel_name}")"
-      retry_if_needed 5 5 "wget --referer='${BASE_URI%/}/' --no-clobber --progress=dot:giga $wget_basic_auth '${parcel_url}' -O '/opt/cloudera/parcel-repo/${parcel_name}'" &
+      retry_if_needed 5 5 "wget --referer='${BASE_URI%/}/' --continue --progress=dot:giga $wget_basic_auth '${parcel_url}' -O '/opt/cloudera/parcel-repo/${parcel_name}'" &
     done
     wait
     # Create the torrent file for the parcel
