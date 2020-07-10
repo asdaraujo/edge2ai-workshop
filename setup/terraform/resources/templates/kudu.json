@@ -27,6 +27,7 @@
           "base": true,
           "configs": [
 {% if ENABLE_TLS == 'yes' %}
+{% if CDH_VERSION is ge('7.1') %}
             {
               "name": "ssl_client_truststore_location",
               "value": "/opt/cloudera/security/jks/truststore.jks"
@@ -35,6 +36,7 @@
               "name": "ssl_client_truststore_password",
               "value": "supersecret1"
             },
+{% endif %}
             {
               "name": "ssl_enabled",
               "value": "true"

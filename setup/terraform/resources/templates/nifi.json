@@ -14,7 +14,11 @@
   "products": [
     {
       "product": "CFM",
+{% if CFM_BUILD is lt('2.0.1.0-71') %}
       "version": "{{CFM_VERSION}}"
+{% else %}
+      "version": "{{CFM_BUILD}}"
+{% endif %}
     }
   ],
   "repositories": [
@@ -146,7 +150,7 @@
               "name": "nifi.cluster.flow.election.max.wait.time",
               "value": "10 secs"
             }
-{% if CDH_VERSION is ge('7.1') and CFM_BUILD != '2.0.1.0-25' %}
+{% if CDH_VERSION is ge('7.1') and CFM_BUILD is gt('2.0.1.0-25') %}
             ,{
               "name": "nifi.security.identity.mapping.pattern.kerb",
               "value": "^(.*?)(/.*?)?@(.*?)$"

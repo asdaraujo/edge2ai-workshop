@@ -12,7 +12,7 @@
       "serviceType": "ZOOKEEPER",
       "refName": "zookeeper",
       "serviceConfigs": [
-{% if ENABLE_TLS == 'yes' %}
+{% if ENABLE_TLS == 'yes' and CDH_VERSION is ge('7.1') %}
             {
               "name": "zookeeper_tls_enabled",
               "value": "true"
@@ -34,7 +34,7 @@
               "value": "supersecret1"
             }
 {% endif %}
-{% if ENABLE_KERBEROS == 'yes' and ENABLE_TLS == 'yes' %}
+{% if ENABLE_KERBEROS == 'yes' and ENABLE_TLS == 'yes' and CDH_VERSION is ge('7.1') %}
         ,
 {% endif %}
 {% if ENABLE_KERBEROS == 'yes' %}

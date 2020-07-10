@@ -32,6 +32,15 @@
         },
 {% endif %}
 {% if CM_VERSION is lt('7.1.1') %}
+{% if ENABLE_TLS == 'yes' %}
+        {
+          "name" : "cm.metrics.port",
+          "value" : "7183"
+        }, {
+          "name" : "cm.metrics.protocol",
+          "value" : "https"
+        },
+{% endif %}
         {
           "name" : "cm.metrics.host",
           "value" : "{{CLUSTER_HOST}}"

@@ -1,2 +1,2 @@
-20200710134420
-Previous commit: 98c8b2a Fixed retry of failed parcel downloads
+20200710134530
+Previous commit: be9de20 Fixed: setting keystore permissions for secure cluster was failing for old CDH versions

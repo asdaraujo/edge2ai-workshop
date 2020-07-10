@@ -31,7 +31,7 @@ def to_int(x):
         return 999
 
 def parse_version(ver):
-    return [to_int(x) for x in ver.split('.')]
+    return [to_int(x) for x in re.split('[-.]', ver)]
 
 def ge(v1, v2):
     if parse_version(v1) >= parse_version(v2):
