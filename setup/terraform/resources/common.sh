@@ -591,6 +591,7 @@ function tighten_keystores_permissions() {
   # Set permissions and ACLs
   chmod 440 $KEY_PEM $KEYSTORE_JKS
 
+  set +e # Just in case some of the users do not exist
   sudo setfacl -m user:atlas:r--,group:atlas:r-- $KEYSTORE_JKS
   sudo setfacl -m user:cruisecontrol:r--,group:cruisecontrol:r-- $KEYSTORE_JKS
   sudo setfacl -m user:flink:r--,group:flink:r-- $KEYSTORE_JKS
@@ -619,7 +620,7 @@ function tighten_keystores_permissions() {
   sudo setfacl -m user:impala:r--,group:impala:r-- $KEY_PEM
   sudo setfacl -m user:kudu:r--,group:kudu:r-- $KEY_PEM
   sudo setfacl -m user:streamsmsgmgr:r--,group:streamsmsgmgr:r-- $KEY_PEM
-
+  set -e
 }
 
 function wait_for_cm() {

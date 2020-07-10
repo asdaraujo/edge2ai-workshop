@@ -1,2 +1,2 @@
-20200710134317
-Previous commit: 4ac8378 Added retries to nifi queue tests to improve reliability
+20200710134420
+Previous commit: 98c8b2a Fixed retry of failed parcel downloads
