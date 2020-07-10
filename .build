@@ -1,2 +1,2 @@
-20200710134530
-Previous commit: be9de20 Fixed: setting keystore permissions for secure cluster was failing for old CDH versions
+20200710134754
+Previous commit: ea39e71 Fixes and improvements to templates
