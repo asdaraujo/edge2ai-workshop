@@ -79,7 +79,7 @@ NOTE: Replace the `CLUSTER_A_FQDN` and `CLUSTER_B_FQDN` placeholders in the valu
 | `config.storage.replication.factor=1`
 | `status.storage.replication.factor=1`
 | `metrics.topic.replication.factor=1`
-| *Streams Replication Manager Driver Target Cluster* | `cluster_a, cluster_b`
+| *Streams Replication Manager Driver Target Cluster* | `cluster_a`
 | *Streams Replication Manager Service Target Cluster* | `cluster_a`
 |===
 
@@ -103,7 +103,7 @@ NOTE: Replace the `CLUSTER_A_FQDN` and `CLUSTER_B_FQDN` placeholders in the valu
 | `config.storage.replication.factor=1`
 | `status.storage.replication.factor=1`
 | `metrics.topic.replication.factor=1`
-| *Streams Replication Manager Driver Target Cluster* | `cluster_a, cluster_b`
+| *Streams Replication Manager Driver Target Cluster* | `cluster_b`
 | *Streams Replication Manager Service Target Cluster* | `cluster_b`
 |===
 
