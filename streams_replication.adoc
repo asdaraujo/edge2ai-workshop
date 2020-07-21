@@ -189,9 +189,10 @@ SRM has a _whitelist_ and a _blacklist_ for topics. Only topics that are in the 
 ----
 Topic Name:     global_iot
 Partitions:     5
-Availability:   1
+Availability:   LOW (*)
 Cleanup Policy: delete
 ----
+(*) The LOW availability setting above is required because our cluster has a single node.
 +
 image::images/add_topic.png[width=800]
 
@@ -207,7 +208,7 @@ export security_protocol=PLAINTEXT
 sudo -E srm-control topics \
   --source cluster_a \
   --target cluster_b \
-  --add "global.*"
+  --add "global_iot"
 ----
 +
 Run the following command to confirm that the whitelist was correctly modified:
@@ -225,10 +226,12 @@ You should see the following output:
 [source]
 ----
 Current whitelist:
-global.*
+global_iot
 Current blacklist:
 Done.
 ----
+
+TIP: The whitelist can also be specified as a regular expression, which is helpful when you need to select topics by pattern matching.
 
 . Go to the SMM Web UI on *Cluster B* and check the Cluster Replications page. You should now see that all the topics that match the whitelist appear in the replication:
 +
@@ -242,10 +245,14 @@ image::images/whitelisted_topic.png[width=800]
 .. Select the *PublishKafkaRecord* processor and *copy & paste* it. This will create a new processor on the canvas.
 .. Double-click the new processor to open the configuration
 .. On the *SETTINGS* tab, change the *Name* property to "*Publish to Kafka topic: global_iot*"
+.. Still on the *SETTINGS* tab, check the *success* property in the *Automatically Terminate Relationships* section
 .. On the *PROPERTIES* tab, change the *Topic Name* property to `global_iot`
 .. Click *Apply*
 .. Connect the "*Set Schema Name*" processor to the new Kafka processor.
 .. Connect the new Kafka processor to the same "failure" funnel that the original processor is connected to.
+... When the connection dialog opens, check the  *failure* relationship and click *ADD*.
++
+image::images/global-iot-funnel-connection.png[width=400]
 .. Start the new processor.
 .. You will now have dual ingest of events to both `iot` and `global_iot` topics. Your flow now should look like the following:
 +
@@ -259,6 +266,8 @@ image::images/monitor_replication.png[width=800]
 
 . Now that replication is working in the *A -> B* direction, repeat the same steps in reverse to implement replication in the *B -> A* direction.
 
+IMPORTANT: Please ensure that SRM replication has been set up in both directions before proceeding to the next lab. In the failover lab we'll practice a consumer failover *and* failback, which requires 2-way replication to be working.
+
 [[lab_5, Lab 5]]
 == Lab 5 - Failing over consumers
 
@@ -266,7 +275,7 @@ One of the great features of SRM is its ability to translate Consumer Group offs
 
 We can manage the consumer groups for which SRM replicates offset using a whitelist/blacklist mechanism, similar to what is done for topics.
 
-In this lab we will configure offset replication for all consumer groups and perform a consumer failover to the remote cluster. To make it more interesting, we will failover two consumers, one using the correct approach for offset translation and the other without caring about that so that we can see the difference.
+In this lab we will configure consumer groups offset replication for the `global_iot` topic and perform a consumer failover to the remote cluster. To make it more interesting, we will failover two consumers, one using the correct approach for offset translation and the other without being careful about it, so that we can analyze the difference.
 
 . To simplify things for the purpose of this lab, let's whitelist the replication of _all_ consumer groups *from A -> B*, by adding the regexp `.***` to the whitelist. To do so, SSH into the *Cluster B* host and run the following command:
 +
@@ -298,6 +307,64 @@ Current whitelist:
 Current blacklist:
 Done.
 ----
++
+IMPORTANT: Note that the replication of the offsets for whitelisted consumer groups _only happen_ for the topics that are being replicated (according to the _topic_ whitelist). Since we had only whitelisted the topic `global_iot`, only the offsets of that topic will be replicated, even if the consumers read from other topics that are not whitelisted.
+
+. So far we have *already*:
++
+--
+.. Configured the replication of data from Cluster A -> B, by whitelisting the `global_iot` topic in SRM; *and*
+.. Configured the replication of consumer group offsets from Cluster A -> B, by whitelisting all the consumer groups in SRM, in addition of the topic whitelist, as explained previously.
+--
+These settings allow consumers connected to Cluster A to be successfully failed over to Cluster B. Some time after a failover, though, we may want to fail the consumers to be failed back to Cluster A. For this we must continue to replicate the consumer offsets from Cluster B to Cluster A after the failover.
++
+The following configuration enables that replication. Connect to *Cluster A* and run the following commands:
++
+[source]
+----
+export security_protocol=PLAINTEXT
+sudo -E srm-control topics \
+  --source cluster_b \
+  --target cluster_a \
+  --add "cluster_a.global_iot"
+
+sudo -E srm-control groups \
+  --source cluster_b \
+  --target cluster_a \
+  --add ".*"
+----
++
+Run the following command to confirm that the whitelists were correctly modified:
++
+[source]
+----
+sudo -E srm-control topics \
+  --source cluster_b \
+  --target cluster_a \
+  --list
+
+sudo -E srm-control groups \
+  --source cluster_b \
+  --target cluster_a \
+  --list
+----
++
+You should see the following output:
++
+[source]
+----
+# topics:
+Current whitelist:
+cluster_a.global_iot
+Current blacklist:
+Done.
+
+# groups:
+Current whitelist:
+.*
+Current blacklist:
+Done.
+----
 
 . Open a SSH session to any of the hosts and run the following consumer to start consuming data from the `global_iot` topic on *Cluster A*. This consumer uses a consumer group called `good.failover`:
 +
@@ -306,9 +373,11 @@ Done.
 CLUSTER_A_HOST=<CLUSTER_A_HOST_FQDN>
 kafka-console-consumer \
   --bootstrap-server $CLUSTER_A_HOST:9092 \
-  --topic "global_iot" \
+  --whitelist ".*global_iot" \
   --group good.failover | tee good.failover.before
 ----
++
+IMPORTANT: Note that in the command above we specify a Kafka client topic _whitelist_, instead of explicitly providing the topic name. This makes it easier for consumers to fail over and back without having to be reconfigured. Since SRM adds a prefix to the replicated topic, the _whitelist_ option enables us to provide a regular expression that matches both the original topic and the replicated topic. Don't confuse this Kafka client topic _whitelist_ with the SRM topic whitelist we discussed previously; they are used for different purposes.
 
 . Let the consumer read some data from the topic and press CTRL+C after you have a few lines of data shown on your screen. The command above saves the retrieved messages in the `good.failover.before` file.
 
@@ -319,7 +388,7 @@ kafka-console-consumer \
 CLUSTER_A_HOST=<CLUSTER_A_HOST_FQDN>
 kafka-console-consumer \
   --bootstrap-server $CLUSTER_A_HOST:9092 \
-  --topic "global_iot" \
+  --whitelist ".*global_iot" \
   --group bad.failover | tee bad.failover.before
 ----
 
@@ -336,7 +405,7 @@ image::images/consumer_group_replication.png[width=800]
 CLUSTER_B_HOST=<CLUSTER_B_HOST_FQDN>
 kafka-console-consumer \
   --bootstrap-server $CLUSTER_B_HOST:9092 \
-  --topic "cluster_a.global_iot" \
+  --whitelist ".*global_iot" \
   --group bad.failover | tee bad.failover.after
 ----
 
@@ -360,6 +429,8 @@ echo "Gap = $(echo "($first_msg_after_failover-$last_msg_before_failover)/100000
 ----
 Gap = 1743 second(s)
 ----
++
+NOTE: In some situations you could get negative values for the gap calculated above. For extra brownie points: in which situations a negative value could occur and what does it mean for the consumer?
 
 . Now that we have seen what a incorrect failover looks like, let's failover the other consumer correctly. Connect to the *Cluster B* host and execute the following command to export the _translated_ offsets of the `good.failover` consumer group. Note that you can execute this command even if Cluster A is unavailable.
 +
@@ -410,7 +481,7 @@ good.failover                  cluster_a.global_iot           2          11098
 CLUSTER_B_HOST=<CLUSTER_B_HOST_FQDN>
 kafka-console-consumer \
   --bootstrap-server $CLUSTER_B_HOST:9092 \
-  --topic "cluster_a.global_iot" \
+  --whitelist ".*global_iot" \
   --group good.failover | tee good.failover.after
 ----
 
@@ -433,3 +504,118 @@ echo "Gap = $(echo "($first_msg_after_failover-$last_msg_before_failover)/100000
 ----
 Gap = 1 second(s)
 ----
++
+NOTE: The interval between messages is not _exactly_ 1 second. Sometimes we can see a gap of nearly 2 seconds between adjacent messages.
+
+. The consumer failback works in the same way. Before we fail the consumer back we need to translate the offsets in the reverse direction (from cluster B to cluster A). Run the following commands on *Cluster A* to perform the failback offset translation:
++
+[source]
+----
+export security_protocol=PLAINTEXT
+
+sudo -E srm-control offsets \
+  --source cluster_b \
+  --target cluster_a \
+  --group good.failover \
+  --export > good.failback.offsets
+
+cat good.failback.offsets
+----
++
+The `good.failback.offsets` will contain all the _translated_ offsets for all the partitions that the `good.failover` consumer group touched while running on cluster B.
+
+. To complete the offset translation, still on the *Cluster A* host, run the command below to import the translated offsets into Kafka:
++
+[source]
+----
+CLUSTER_A_HOST=<CLUSTER_A_HOST_FQDN>
+kafka-consumer-groups \
+  --bootstrap-server $CLUSTER_A_HOST:9092 \
+  --reset-offsets \
+  --group good.failover \
+  --from-file good.failback.offsets \
+  --execute
+----
++
+You should see an output like the one below:
++
+[source]
+----
+GROUP                          TOPIC                          PARTITION  NEW-OFFSET
+good.failover                  global_iot                     0          15525
+good.failover                  global_iot                     1          15656
+good.failover                  global_iot                     2          15587
+good.failover                  global_iot                     3          15534
+good.failover                  global_iot                     4          15623
+----
+
+. We are now ready to fail *back* the `good.failover` consumer group. On the SSH session, run the `good.failover` consumer, connecting *again to the original `global_iot` topic* on *Cluster A*.
++
+[source]
+----
+CLUSTER_A_HOST=<CLUSTER_A_HOST_FQDN>
+kafka-console-consumer \
+  --bootstrap-server $CLUSTER_A_HOST:9092 \
+  --whitelist ".*global_iot" \
+  --group good.failover | tee good.failover.after_failback
+----
+
+. Press CTRL+C to stop the consumer. The command above saves the retrieved messages in the `good.failover.before` file.
+
+. Let's check the gap between messages during the correct failover. Again, you can do it manually or run the commands below:
++
+[source]
+----
+last_msg_before_failback=$(grep -o "[0-9]\{10,\}" good.failover.after | sort | tail -1)
+first_msg_after_failback=$(grep -o "[0-9]\{10,\}" good.failover.after_failback | sort | head -1)
+echo "Gap = $(echo "($first_msg_after_failover-$last_msg_before_failover)/1000000" | bc) second(s)"
+----
+
+. You should see that the gap is now 1 second, which means that no messages were skipped or lost during the failback:
++
+[source]
+----
+Gap = 1 second(s)
+----
++
+NOTE: The interval between messages is not _exactly_ 1 second. Sometimes we can see a gap of nearly 2 seconds between adjacent messages, which is normal.
+
+=== Simplifying the whitelists
+
+During this lab we configured the following SRM whitelists:
+
+[%autowidth,cols=".^1,.^1,.^1",options="header"]
+|===
+|Direction|Type|Whitelist
+.2+|A -> B|Topics|`global_iot`
+|Groups|`.*`
+.2+|B -> A|Topics|`cluster_a.global_iot`
+|Groups|`.*`
+|===
+
+These whitelists implement data replication in a single direction (A -> B), while replicating consumer group offsets in both directions (A <--> B). If we wanted to also enable data replication in both directions we would have to amend the whitelists as shown below:
+
+[%autowidth,cols=".^1,.^1,.^1",options="header"]
+|===
+|Direction|Type|Whitelist
+.2+|A -> B|Topics|`global_iot`
+
+`cluster_b.global_iot`
+|Groups|`.*`
+.2+|B -> A|Topics|`global_iot`
+
+`cluster_a.global_iot`
+|Groups|`.*`
+|===
+
+This seems over-complicated and can be simplifying with the use of regular expressions.
+Since all the whitelisted topics end in `global_iot`, we could replace the whitelists above with the following set, which is symmetric and easier to maintain:
+
+[%autowidth,cols=".^1,.^1,.^1",options="header"]
+|===
+|Direction|Type|Whitelist
+.2+|A -> B|Topics|`.*global_iot`
+|Groups|`.*`
+.2+|B -> A|Topics|`.*global_iot`
+|Groups|`.*`
+|===
