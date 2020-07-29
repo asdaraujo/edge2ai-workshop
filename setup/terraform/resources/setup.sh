@@ -445,9 +445,21 @@ subjectAltName = DNS:${CLUSTER_HOST},IP:${PRIVATE_IP},IP:${PUBLIC_IP},DNS:edge2a
 EOF
 )
 cat key.pem cert.pem > /var/lib/shellinabox/certificate.pem
+
 # Enable and start ShelInABox
 systemctl enable shellinaboxd
 systemctl start shellinaboxd
+# Patch ShellInABox's JS to allow for multi-line pastes
+sleep 1
+curl -k "https://localhost:4200/ShellInABox.js" > /var/lib/shellinabox/ShellInABox.js
+cat ${BASE_DIR}/shellinabox-onpaste.js >> /var/lib/shellinabox/ShellInABox.js
+# Reconfigure shellinaboxd to use the patched file
+systemctl stop shellinaboxd
+sed -i 's#ExecStart.*OPTS *$#& --static-file=ShellInABox.js:/var/lib/shellinabox/ShellInABox.js#' $(find /lib/systemd/system/ -name shellinaboxd.service)
+# Reload and restart for changes to take effect
+systemctl daemon-reload
+systemctl restart shellinaboxd
+
 
 if [ "${HAS_CDSW:-}" == "1" ]; then
     echo "CDSW_BUILD is set to '${CDSW_BUILD}'"
