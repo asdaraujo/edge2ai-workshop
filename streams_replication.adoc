@@ -57,7 +57,7 @@ image::images/select_dependencies.png[width=800]
 
 . On the *Review Changes* page set the following properties:
 +
-NOTE: Replace the `CLUSTER_A_FQDN` and `CLUSTER_B_FQDN` placeholders in the values below with the fully-qualified domain name for clusters A and B, respectively.
+NOTE: Replace the `CLUSTER_A_FQDN` and `CLUSTER_B_FQDN` placeholders in the values below with the fully-qualified domain name for clusters A and B, respectively. You can use the fully-qualified host names you get for your clusters in the workshop landing page.
 
 .. On *_Cluster A only_*:
 +
@@ -174,16 +174,20 @@ On cluster B:
 +
 image::images/smm-replication-cluster-b.png[width=800]
 
-Notce that, so far, only the `heartbeats` topic is being replicated. In the next lab we will add more topics to the replication.
+Note that, so far, only the `heartbeats` topic is being replicated. In the next lab we will add more topics to the replication.
+
+TIP: If the replication appears as *INACTIVE* at any point in time, please wait a few seconds and refresh the screen.
 
 [[lab_4, Lab 4]]
 == Lab 4 - Enable Kafka Replication with Streams Replication Manager (SRM)
+
+NOTE: Run on the clusters indicated in the steps instructions
 
 In this lab, we will enable Active-Active replication where messages produced in Cluster A are replicated to Cluster B, and messages produced in Cluster B are replicated to Cluster A.
 
 SRM has a _whitelist_ and a _blacklist_ for topics. Only topics that are in the whitelist _but not_ in the blacklist are replicated. The administrator can selectively control which topics to replicate but managing those lists. The same applies to consumer groups offset replication.
 
-. To prepare for the activities in this lab, let's first create a new Kafka topic using SMM. On the SMM Web UI, click on the *Topics* icon (image:images/topics_icon.png[width=25])` on the left-hand side menu, then *Add New* button, and add the following properties:
+. *Cluster A*: To prepare for the activities in this lab, let's first create a new Kafka topic using SMM. On the SMM Web UI, click on the *Topics* icon (image:images/topics_icon.png[width=25])` on the left-hand side menu, then *Add New* button, and add the following properties:
 +
 [source]
 ----
@@ -196,11 +200,11 @@ Cleanup Policy: delete
 +
 image::images/add_topic.png[width=800]
 
-. Click *Save* to create the topic
+. *Cluster A*: Click *Save* to create the topic
 
 Now, follow the below steps to enable message replication from Cluster *A to B*. These steps should be executed in *Cluster B* _only_.
 
-. To initiate the replication of topics we must _whitelist_ them in SRM. SRM supports Regular Expressions for whitelisting/blacklisting topics with a particular pattern. In our case, we would like to replicate only topics that start with the keyword `global`. To do so, SSH into the *Cluster B* host and run the following command:
+. *Cluster B*: To initiate the replication of topics we must _whitelist_ them in SRM. SRM supports Regular Expressions for whitelisting/blacklisting topics with a particular pattern. In our case, we would like to replicate only topics that start with the keyword `global`. To do so, SSH into the *Cluster B* host and run the following command:
 +
 [source]
 ----
@@ -230,23 +234,24 @@ global_iot
 Current blacklist:
 Done.
 ----
-
++
 TIP: The whitelist can also be specified as a regular expression, which is helpful when you need to select topics by pattern matching.
 
-. Go to the SMM Web UI on *Cluster B* and check the Cluster Replications page. You should now see that all the topics that match the whitelist appear in the replication:
+. *Cluster B*: Go to the SMM Web UI and check the Cluster Replications page. You should now see that all the topics that match the whitelist appear in the replication:
 +
 image::images/whitelisted_topic.png[width=800]
 
-. Click on the *Topics* icon (image:images/topics_icon.png[width=25]) and search for all topics containing the string `iot`. You should see a new topic called `cluster_a.global_iot`. Since we haven't produced any data to the source topic yet, the replicated topic is also empty.
+. *Cluster B*: Click on the *Topics* icon (image:images/topics_icon.png[width=25]) and search for all topics containing the string `iot`. You should see a new topic called `cluster_a.global_iot`. Since we haven't produced any data to the source topic yet, the replicated topic is also empty.
 
-. To check that the replication is working, we need to start producing data to the `global_iot` Kafka topic in *Cluster A*. The easiest way to do it is to make a small change to our existing NiFi flow:
+. *Cluster A*: To check that the replication is working, we need to start producing data to the `global_iot` Kafka topic in *Cluster A*. The easiest way to do it is to make a small change to our existing NiFi flow:
 .. Go to the NiFi canvas on *Cluster A*
 .. Enter the *Process Sensor Data* process group
 .. Select the *PublishKafkaRecord* processor and *copy & paste* it. This will create a new processor on the canvas.
 .. Double-click the new processor to open the configuration
 .. On the *SETTINGS* tab, change the *Name* property to "*Publish to Kafka topic: global_iot*"
 .. Still on the *SETTINGS* tab, check the *success* property in the *Automatically Terminate Relationships* section
-.. On the *PROPERTIES* tab, change the *Topic Name* property to `global_iot`
+.. On the *PROPERTIES* tab, change the *Topic Name* property to `global_iot`.
+... *IMPORTANT*: Ensure there are no leading or trailing spaces in the topic name.
 .. Click *Apply*
 .. Connect the "*Set Schema Name*" processor to the new Kafka processor.
 .. Connect the new Kafka processor to the same "failure" funnel that the original processor is connected to.
@@ -257,10 +262,12 @@ image::images/global-iot-funnel-connection.png[width=400]
 .. You will now have dual ingest of events to both `iot` and `global_iot` topics. Your flow now should look like the following:
 +
 image::images/dual_ingest.png[width=600]
-. Go to SMM Web UI on *Cluster B* and check the content of the `cluster_a.global_iot` topic. You should see events being replicated from the Cluster A. After some time, you will see the replicated topic's metrics increasing.
+. *Cluster B*: Go to SMM Web UI and check the content of the `cluster_a.global_iot` topic. You should see events being replicated from the Cluster A. After some time, you will see the replicated topic's metrics increasing.
++
+Even if the stats haven't yet been updated, try clicking on the magnifying glass icon to view the data. This usually shows up fairly immediately even if the stats haven't been refreshed yet.
 +
 image::images/replication.png[width=600]
-. Click on the *Cluster Replications* icon (image:images/cluster-replications-icon.png[width=25]) and check the throughput and latency metrics to make sure that everything is working as expected. You should expect a throughput greater than zero and a latency in the order of milliseconds.
+. *Cluster B*: Click on the *Cluster Replications* icon (image:images/cluster-replications-icon.png[width=25]) and check the throughput and latency metrics to make sure that everything is working as expected. You should expect a throughput greater than zero and a latency in the order of milliseconds.
 +
 image::images/monitor_replication.png[width=800]
 
@@ -271,13 +278,19 @@ IMPORTANT: Please ensure that SRM replication has been set up in both directions
 [[lab_5, Lab 5]]
 == Lab 5 - Failing over consumers
 
+NOTE: Run on the clusters indicated in the steps instructions
+
 One of the great features of SRM is its ability to translate Consumer Group offsets from one cluster to the other so that consumers can be switched over to the remote cluster without losing or duplicating messages. SRM continuously replicates the consumer groups offsets to the remote cluster so that it can perform the translation even when the source cluster is offline.
 
 We can manage the consumer groups for which SRM replicates offset using a whitelist/blacklist mechanism, similar to what is done for topics.
 
 In this lab we will configure consumer groups offset replication for the `global_iot` topic and perform a consumer failover to the remote cluster. To make it more interesting, we will failover two consumers, one using the correct approach for offset translation and the other without being careful about it, so that we can analyze the difference.
 
-. To simplify things for the purpose of this lab, let's whitelist the replication of _all_ consumer groups *from A -> B*, by adding the regexp `.***` to the whitelist. To do so, SSH into the *Cluster B* host and run the following command:
+NOTE: Throughout this lab's exercises you will be running Kafka consumers on a SSH session. Please run all the exercise commands on the same session, which will make it easier for you to verify and compare the results after failover and failback.
+
+. *Cluster B*: To simplify things for the purpose of this lab, let's whitelist the replication of _all_ consumer groups *from A -> B*, by adding the regexp `.***` to the whitelist. To do so, SSH into the *Cluster B* host and run the following command:
++
+IMPORTANT: Note that the commands below are `srm-control groups`, which differ from the `srm-control topics` we ran previously. Please pay attention to the exact commands in the workshop examples since there may be slight differences between them.
 +
 [source]
 ----
@@ -318,7 +331,9 @@ IMPORTANT: Note that the replication of the offsets for whitelisted consumer gro
 --
 These settings allow consumers connected to Cluster A to be successfully failed over to Cluster B. Some time after a failover, though, we may want to fail the consumers to be failed back to Cluster A. For this we must continue to replicate the consumer offsets from Cluster B to Cluster A after the failover.
 +
-The following configuration enables that replication. Connect to *Cluster A* and run the following commands:
+The following configuration enables that replication:
+
+... *Cluster A*: Connect to *Cluster A* and run the following commands:
 +
 [source]
 ----
@@ -333,8 +348,8 @@ sudo -E srm-control groups \
   --target cluster_a \
   --add ".*"
 ----
-+
-Run the following command to confirm that the whitelists were correctly modified:
+
+... *Cluster A*: Run the following command to confirm that the whitelists were correctly modified:
 +
 [source]
 ----
@@ -348,8 +363,8 @@ sudo -E srm-control groups \
   --target cluster_a \
   --list
 ----
-+
-You should see the following output:
+
+... *Cluster A*: You should see the following output:
 +
 [source]
 ----
@@ -394,11 +409,11 @@ kafka-console-consumer \
 
 . Again, let the consumer read some data from the topic and press CTRL+C after you have a few lines of data shown on your screen. This command above saves the retrieved messages in the `bad.failover.before` file.
 
-. Open the SMM Web UI, and click on the *Cluster Replications* icon (image:images/cluster-replications-icon.png[width=25]]). Note that the offsets of the two consumer groups we used are now being replicated by SRM:
+. *Cluster B*: Open the SMM Web UI, and click on the *Cluster Replications* icon (image:images/cluster-replications-icon.png[width=25]]). Note that the offsets of the two consumer groups we used are now being replicated by SRM:
 +
 image::images/consumer_group_replication.png[width=800]
 
-. Let's now first try to fail over a consumer without following the recommended steps for offsets translation. On the SSH session, run the `bad.failover` consumer. This time, though, we will connect to the replicated topic `cluster_a.global_iot` on *Cluster B*.
+. Let's now first try to fail over a consumer without following the recommended steps for offsets translation. On the same SSH session you were ran the consumers previously, run the `bad.failover` consumer again. This time, though, we will connect to the replicated topic `cluster_a.global_iot` on *Cluster B*.
 +
 [source]
 ----
@@ -485,9 +500,9 @@ kafka-console-consumer \
   --group good.failover | tee good.failover.after
 ----
 
-. This time you will notice a *lot* of message read at once when you start the consumer. This happens because the offset where the consumer stopped previously was translated to the new cluster and loaded into Kafka. So, the consumer started reading all the messages from where it had stopped and had accumulated since that happened.
+. This time you will notice a *lot* of messages read at once when you start the consumer. This happens because the offset where the consumer stopped previously was translated to the new cluster and loaded into Kafka. So, the consumer started reading all the messages from where it had stopped and had accumulated since that happened.
 
-. Press CTRL+C to stop the consumer. The command above saves the retrieved messages in the `good.failover.before` file.
+. Press CTRL+C to stop the consumer. The command above saves the retrieved messages in the `good.failover.after` file.
 
 . Let's check the gap between messages during the correct failover. Again, you can do it manually or run the commands below:
 +
@@ -560,7 +575,7 @@ kafka-console-consumer \
   --group good.failover | tee good.failover.after_failback
 ----
 
-. Press CTRL+C to stop the consumer. The command above saves the retrieved messages in the `good.failover.before` file.
+. Press CTRL+C to stop the consumer. The command above saves the retrieved messages in the `good.failover.after_failback` file.
 
 . Let's check the gap between messages during the correct failover. Again, you can do it manually or run the commands below:
 +
