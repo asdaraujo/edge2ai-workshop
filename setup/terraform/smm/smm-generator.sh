@@ -8,7 +8,7 @@ DATALOADER_DIR=/opt/dataloader
 LOG_DIR=$DATALOADER_DIR/logs
 DEP_FILE=$BASE_DIR/deployment.json
 FLOW_TEMPLATE=$DATALOADER_DIR/IOT-Trucking-Fleet-Data-Flow-For-SMM.xml
-SIMULATOR_JAR=$DATALOADER_DIR/stream-simulator.jar
+LIB_DIR=$DATALOADER_DIR/lib
 
 # Producer settings
 ROUTES_LOCATION=$DATALOADER_DIR/routes/midwest
@@ -16,7 +16,6 @@ SECURE_MODE=NONSECURE
 NUM_OF_EUROPE_TRUCKS=3
 NUM_OF_CRITICAL_EVENT_PRODUCERS=5
 # Consumer settings
-SMM_PRODUCERS_CONSUMERS_SIMULATOR_JAR=$DATALOADER_DIR/smm-consumers.jar
 SECURITY_PROTOCOL=PLAINTEXT
 
 export BROKERS=
@@ -75,11 +74,9 @@ function create_dirs_download_content() {
   mkdir -p $DATALOADER_DIR $LOG_DIR
   chmod 755 $DATALOADER_DIR/
   chown root:root $DATALOADER_DIR/
-  curl -k -L https://s3.eu-west-2.amazonaws.com/whoville/v1/routesHDF32Oct2018.tar.gz > $DATALOADER_DIR/routes.tar.gz
-  curl -k -L https://s3.eu-west-2.amazonaws.com/whoville/v1/stream-simulator_hdf32Oct2018.jar > $DATALOADER_DIR/stream-simulator.jar
-  curl -k -L https://s3.eu-west-2.amazonaws.com/whoville/v1/smm-consumers_hdf32Oct2018.jar > $DATALOADER_DIR/smm-consumers.jar
-
-  tar -C $DATALOADER_DIR/ -xvf $DATALOADER_DIR/routes.tar.gz
+  rm -rf $DATALOADER_DIR/lib
+  tar -C $DATALOADER_DIR/ -zxvf <(curl -k -L "https://edge2ai-workshop.s3-us-west-2.amazonaws.com/whoville/streaming-jars.tar.gz")
+  tar -C $DATALOADER_DIR/ -zxvf <(curl -k -L "https://s3.us-west-2.amazonaws.com/edge2ai-workshop/whoville/routes.tar.gz")
 }
 
 function set_log_rotation() {
@@ -115,7 +112,8 @@ function create_kafka_topics() {
   for topic in "${KAFKA_TOPICS[@]}"; do
      kafka-topics \
       --create \
-      --zookeeper "$(get_zk_addr)" \
+      --if-not-exists \
+      --zookeeper "$(get_zk_addr)/kafka" \
       --replication-factor 1 \
       --partitions $TOPIC_PARTITIONS \
       --topic "$topic"
@@ -124,8 +122,8 @@ function create_kafka_topics() {
 
 function get_brokers() {
   if [ ! -s $BASE_DIR/.brokers ]; then
-    for broker_id in $(zookeeper-client -server $(get_zk_addr) ls /brokers/ids | grep "^\[" | sed 's/[][]//g'); do
-      zookeeper-client -server $(hostname -f) get /brokers/ids/$broker_id | tail -1 | jq -r '"\(.host):\(.port)"'
+    for broker_id in $(zookeeper-client -server $(get_zk_addr) ls /kafka/brokers/ids | grep "^\[" | sed 's/[][]//g'); do
+      zookeeper-client -server $(hostname -f) get /kafka/brokers/ids/$broker_id | tail -1 | jq -r '"\(.host):\(.port)"'
     done | tr "\n" "," | sed 's/,$//' > $BASE_DIR/.brokers
   fi
   cat $BASE_DIR/.brokers
@@ -133,7 +131,11 @@ function get_brokers() {
 
 function register_schemas() {
   echo "Starting Loading Schemas into Registry"
-  java -Xms256m -Xmx2g -cp $SIMULATOR_JAR hortonworks.hdf.sam.refapp.trucking.simulator.schemaregistry.TruckSchemaRegistryLoader $(get_sr_url)
+  java \
+    -Xms256m -Xmx2g \
+    -cp "$LIB_DIR/*" \
+    cloudera.cdf.csp.schema.refapp.trucking.schemaregistry.TruckSchemaRegistryLoader \
+    $(get_sr_url)
   echo "Finished Loading Schemas into Registry"
 }
 
@@ -147,19 +149,20 @@ function create_truck() {
   local route_name=${7:-}
   local route_id=${8:-}
   if [ "$app_class" == "truck_fleet" ]; then
-    app_class=hortonworks.hdf.sam.refapp.trucking.simulator.app.smm.SMMSimulationRunnerTruckFleetApp
+    app_class=cloudera.cdf.refapp.trucking.simulator.runner.smm.SMMSimulationRunnerTruckFleetApp
   elif [ "$app_class" == "single_driver" ]; then
-    app_class=hortonworks.hdf.sam.refapp.trucking.simulator.app.smm.SMMSimulationRunnerSingleDriverApp
+    app_class=cloudera.cdf.refapp.trucking.simulator.runner.smm.SMMSimulationRunnerSingleDriverApp
   fi
   echo "  Producer ID: $client_producer_id, type: ${app_class##*.}"
   (
     cd $LOG_DIR
-    nohup java -Xms256m -Xmx2g -cp \
-      "$SIMULATOR_JAR" \
+    nohup java \
+      -Xms256m -Xmx2g \
+      -cp "$LIB_DIR/*" \
       "$app_class" \
       -1 \
-      hortonworks.hdf.sam.refapp.trucking.simulator.impl.domain.transport.Truck \
-      hortonworks.hdf.sam.refapp.trucking.simulator.impl.collectors.smm.kafka.SMMTruckEventCSVGenerator \
+      cloudera.cdf.refapp.trucking.simulator.domain.transport.Truck \
+      cloudera.cdf.refapp.trucking.simulator.producer.smm.SMMTruckEventCSVGenerator \
       1 \
       "$ROUTES_LOCATION" \
       "$wait_time" \
@@ -249,9 +252,10 @@ function create_string_consumer() {
   echo "  Consumer Group ID: $group_id, type: LoggerStringEventConsumer"
   (
     cd $LOG_DIR
-    nohup java -Xms256m -Xmx2g -cp  \
-      $SMM_PRODUCERS_CONSUMERS_SIMULATOR_JAR \
-      hortonworks.hdf.smm.refapp.consumer.impl.LoggerStringEventConsumer \
+    nohup java \
+      -Xms256m -Xmx2g \
+      -cp "$LIB_DIR/*" \
+      cloudera.cdf.csp.smm.refapp.consumer.impl.LoggerStringEventConsumer \
       --bootstrap.servers $(get_brokers) \
       --schema.registry.url $(get_sr_addr) \
       --security.protocol $SECURITY_PROTOCOL \
@@ -271,9 +275,10 @@ function create_avro_consumer() {
   echo "  Consumer Group ID: $group_id, type: LoggerAvroEventConsumer"
   (
     cd $LOG_DIR
-    nohup java -Xms256m -Xmx2g -cp  \
-      $SMM_PRODUCERS_CONSUMERS_SIMULATOR_JAR \
-      hortonworks.hdf.smm.refapp.consumer.impl.LoggerAvroEventConsumer \
+    nohup java \
+      -Xms256m -Xmx2g \
+      -cp "$LIB_DIR/*" \
+      cloudera.cdf.csp.smm.refapp.consumer.impl.LoggerAvroEventConsumer \
       --bootstrap.servers $(get_brokers) \
       --schema.registry.url $(get_sr_addr) \
       --security.protocol $SECURITY_PROTOCOL \
@@ -335,7 +340,7 @@ function deploy_consumers() {
 }
 
 function stop_all_consumers() {
-  local pids=$(ps -ef | grep hortonworks.hdf.smm.refapp.consumer.impl.Logger | grep -v grep | awk '{print $2}')
+  local pids=$(ps -ef | grep cloudera.cdf.csp.smm.refapp.consumer.impl.Logger | grep -v grep | awk '{print $2}')
   if [ "$pids" != "" ]; then
     kill -9 $pids
   fi
@@ -423,6 +428,9 @@ logger.info("Done!")
 # Done
 EOF
 
+  set +u
+  source /opt/rh/rh-python36/enable
+  set -u
   pip install requests nipyapi
   python $import_script $flow_xml
 }
