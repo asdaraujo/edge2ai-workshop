@@ -459,8 +459,11 @@ function kerb_auth_for_cluster() {
  .workshop.com = WORKSHOP.COM
  workshop.com = WORKSHOP.COM
 EOF
+    export KEYTAB=$NAMESPACE_DIR/workshop.keytab
+    rm -f $KEYTAB
+    scp -q -o StrictHostKeyChecking=no -i $TF_VAR_ssh_private_key $TF_VAR_ssh_username@$(public_dns $CLUSTER_ID):/keytabs/workshop.keytab $KEYTAB
     export KRB5CCNAME=/tmp/workshop.$$
-    echo supersecret1 | kinit workshop 2>&1 | grep -v "Password for" | true
+    kinit -kt $KEYTAB workshop
   fi
 }
 
