@@ -4,6 +4,11 @@ source ${BASE_DIR}/common.sh
 check_version
 check_stack_version
 
+function cleanup() {
+  collect_logs "${NAMESPACE:-}"
+  kdestroy > /dev/null 2>&1 || true
+}
+
 if [ $# != 1 ]; then
   echo "Syntax: $0 <namespace>"
   show_namespaces
@@ -38,6 +43,9 @@ elif [ "$DATE_CHECK" -le "$WARNING_THRESHOLD_DAYS" ]; then
     abort
   fi
 fi
+
+# Ensure registration code is chosen
+ensure_registration_code
 
 START_TIME=$(date +%s)
 
@@ -94,6 +102,10 @@ fi
 echo ""
 echo "Uploading instance details to Web Server:"
 "${BASE_DIR}/upload-instance-details.sh" "${NAMESPACE}"
+
+echo ""
+echo "Updating Web Server configuration:"
+"${BASE_DIR}/update-registration-code.sh" "${NAMESPACE}" "$TF_VAR_registration_code"
 
 END_TIME=$(date +%s)
 DURATION=$((END_TIME-START_TIME))

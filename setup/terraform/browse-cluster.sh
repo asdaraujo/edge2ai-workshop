@@ -30,7 +30,7 @@ if [ "$PROXY_PORT" != "" ]; then
   PROXY_PORT="--proxy-server=socks5://localhost:$PROXY_PORT"
 fi
 
-kerb_auth_for_cluster $CLUSTER_ID
+#kerb_auth_for_cluster $CLUSTER_ID
 
 BROWSER_DIR=$HOME/.chrome-for-demo.${NAMESPACE}.${CLUSTER_ID}
 rm -rf ${BROWSER_DIR}

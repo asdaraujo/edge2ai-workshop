@@ -9,19 +9,18 @@ from sqlalchemy.exc import IntegrityError
 from pymysql.err import IntegrityError as PyMysqlIntegrityError
 from werkzeug.urls import url_parse
 from app import app, db
-from app.forms import LoginForm, RegistrationForm, PasswordForm
-from app.models import User, Cluster
+from app.forms import LoginForm, RegistrationForm, PasswordResetForm
+from app.models import User, Cluster, Config
 
-auth = HTTPBasicAuth()
+basic_auth = HTTPBasicAuth()
 
-@auth.verify_password
+@basic_auth.verify_password
 def verify_password(email, pwd):
     """Verify the admin password, given the admin email and a password candidate
     """
     user = User.query.filter_by(email=email).first()
-    if user is None or not user.check_password(pwd):
-        return False
-    return True
+    if user is not None and user.check_password(pwd):
+        return user
 
 @app.route('/')
 @app.route('/index')
@@ -42,39 +41,51 @@ def login_page():
         user = User.query.filter_by(email=form.email.data).first()
         next_page = request.args.get('next')
         if user is None:
+            reg_code = Config.query.get(Config.REGISTRATION_CODE)
+            if reg_code is None or not reg_code.check_hash(form.password.data):
+                flash('Invalid username or password.')
+                app.logger.warn("Invalid registration for user {} from IP {}".format(form.email.data, get_real_ip(request)))
+                return redirect(url_for('login_page'))
             return redirect(url_for('register_and_login_page', next=next_page), code=307)
+        else:
+            if not user.check_password(form.password.data):
+                flash('Invalid username or password.')
+                app.logger.warn("Invalid login for user {} from IP {}".format(form.email.data, get_real_ip(request)))
+                return redirect(url_for('login_page'))
+            if user.force_password_reset:
+                return redirect(url_for('password_reset_page', email=form.email.data), code=307)
         if not user.cluster:
             cluster_ids = [u.cluster_id for u in User.query.all() if u.cluster_id]
             user.cluster = Cluster.query.filter(~Cluster.id.in_(cluster_ids)).first()
-            db.session.commit()
-        if user.is_admin:
-            return redirect(url_for('password_page', next=next_page), code=307)
+        user.last_remote_ip = get_real_ip(request)
+        db.session.commit()
         login_user(user)
         if not next_page or url_parse(next_page).netloc != '':
             next_page = url_for('index_page')
         return redirect(next_page)
     return render_template('login.html', title='Sign In', form=form)
 
-@app.route('/password', methods=['POST'])
-def password_page():
-    """Handle password authentication for admins
+@app.route('/passwordreset', methods=['POST'])
+def password_reset_page():
+    """Handle password reset
     """
     if not 'email' in request.form or not request.form['email']:
         return redirect(url_for('login_page'))
-    if current_user.is_authenticated:
-        return redirect(url_for('index_page'))
-    form = PasswordForm()
+    form = PasswordResetForm()
     if 'password_submit' in request.form and form.validate_on_submit():
         next_page = request.args.get('next')
         user = User.query.filter_by(email=request.form['email']).first()
-        if user is None or not user.check_password(form.password.data):
-            flash('Invalid username or password.')
+        if user is None:
             return redirect(url_for('login_page'))
-        login_user(user)
+        user.set_password(request.form['password'])
+        user.force_password_reset = False
+        db.session.commit()
+        logout_user()
+        flash('Password reset successfully.')
         if not next_page or url_parse(next_page).netloc != '':
             next_page = url_for('index_page')
         return redirect(next_page)
-    return render_template('password.html', title='Sign In', form=form)
+    return render_template('password.html', title='Reset Password', form=form)
 
 @app.route('/register', methods=['POST'])
 def register_and_login_page():
@@ -90,7 +101,9 @@ def register_and_login_page():
         return redirect(url_for('login_page', next=next_page))
     if 'register_submit' in request.form and form.validate_on_submit():
         user = User(email=form.email_confirmation.data, full_name=form.full_name.data,
-                    company=form.company.data, is_admin=False)
+                    company=form.company.data, is_admin=False, last_remote_ip=get_real_ip(request),
+                    force_password_reset=False)
+        user.set_password(form.new_password.data)
         db.session.add(user)
         if not user.cluster:
             cluster_ids = [u.cluster_id for u in User.query.all() if u.cluster_id]
@@ -131,9 +144,18 @@ def users_page():
     if not current_user.is_admin:
         return redirect(url_for('index_page'))
     if request.method == 'POST' and len(request.form) == 1:
-        user_id = int([f for f in request.form][0])
+        uid_str, action = list(request.form.items())[0]
+        user_id = int(uid_str)
         user = User.query.filter_by(id=user_id).first()
-        db.session.delete(user)
+        if action == 'Delete':
+            db.session.delete(user)
+            flash('User {} has been deleted.'.format(user.email))
+        elif action == 'Reset Pwd':
+            reg_code = Config.query.get(Config.REGISTRATION_CODE)
+            if reg_code is not None:
+                user.password_hash = reg_code.value
+                user.force_password_reset = True
+                flash('User password was reset to the registration code.')
         db.session.commit()
         return redirect(url_for('users_page'), code=303)
     users = User.query.all()
@@ -176,17 +198,21 @@ def create_admin():
         user.is_admin = True
     else:
         user = User(email=request.json['email'], full_name=request.json['full_name'],
-                    company=request.json['company'], is_admin=True)
+                    company=request.json['company'], is_admin=True,
+                    force_password_reset=False)
     user.set_password(request.json['password'])
     db.session.add(user)
     db.session.commit()
     return jsonify({'success': True, 'message': 'Admin user created successfully.'})
 
 @app.route('/api/clusters', methods=['POST'])
-@auth.login_required
+@basic_auth.login_required
 def add_cluster():
     """Add a cluster
     """
+    if not basic_auth.current_user().is_admin:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+
     has_ip_address = 'ip_address' in request.json and isinstance(request.json['ip_address'], str)
     has_hostname = 'hostname' in request.json and isinstance(request.json['hostname'], str)
     has_ssh_user = 'ssh_user' in request.json and isinstance(request.json['ssh_user'], str)
@@ -212,8 +238,68 @@ def add_cluster():
                 return jsonify({'success': False, 'message': msg}), 400
         raise exc
 
+@app.route('/api/config', methods=['POST', 'DELETE'])
+@basic_auth.login_required
+def config():
+    """Add a cluster
+    """
+    if not basic_auth.current_user().is_admin:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+
+    has_attr = 'attr' in request.json and isinstance(request.json['attr'], str)
+    attr = request.json['attr'] if has_attr else None
+    has_value = 'value' in request.json and isinstance(request.json['value'], str)
+    value = request.json['value'] if has_value else None
+    is_sensitive = 'sensitive' in request.json and bool(request.json['sensitive'])
+    if request.method == 'POST':
+        if not request.json or not has_attr or not has_value:
+            return jsonify({'success': False, 'message': 'No JSON payload or payload is invalid'}), 400
+        try:
+            config = Config.query.get(attr)
+            if not config:
+                config = Config(attr=attr, value='')
+                db.session.add(config)
+            if is_sensitive:
+                config.set_hash(value)
+            else:
+                config.value = value
+            db.session.commit()
+            return jsonify({'success': True, 'message': 'Configuration created successfully.'})
+        except IntegrityError as exc:
+            raise exc
+    elif request.method == 'DELETE':
+        if not request.json or not has_attr:
+            return jsonify({'success': False, 'message': 'No JSON payload or payload is invalid.'}), 400
+        try:
+            config = Config.query.get(attr)
+            if config is None:
+                return jsonify({'success': False, 'message': 'Configuration does not exist.'}), 400
+            db.session.delete(config)
+            db.session.commit()
+            return jsonify({'success': True, 'message': 'Configuration deleted successfully.'})
+        except IntegrityError as exc:
+            raise exc
+
+@app.route('/api/ips', methods=['GET'])
+@basic_auth.login_required
+def ips():
+    """Add a cluster
+    """
+    if not basic_auth.current_user().is_admin:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+
+    all_ips = set([u.last_remote_ip for u in User.query.all() if u.last_remote_ip])
+    return jsonify({'success': True, 'ips': list(all_ips)})
+
 @app.route('/api/ping', methods=['GET'])
 def ping():
     """Respond to a ping
     """
     return jsonify({'success': True, 'message': 'Pong!'})
+
+def get_real_ip(request):
+    """Get client IP
+    """
+    if 'X-Real-Ip' in request.headers:
+        return request.headers['X-Real-Ip']
+    return request.remote_addr

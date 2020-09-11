@@ -19,6 +19,8 @@ C_WHITE="$(echo -e "\033[97m")"
 C_BG_RED="$(echo -e "\033[101m")"
 C_BG_MAGENTA="$(echo -e "\033[105m")"
 
+OPTIONAL_VARS="TF_VAR_registration_code"
+
 function log() {
   echo "[$(date)] [$(basename $0): $BASH_LINENO] : $*"
 }
@@ -237,8 +239,9 @@ function load_env() {
   source $env_file
   export NAMESPACE=$namespace
   NAMESPACE_DIR=$BASE_DIR/namespaces/$namespace
-  INSTANCE_LIST_FILE=$NAMESPACE_DIR/.instance.list
-  WEB_INSTANCE_LIST_FILE=$NAMESPACE_DIR/.instance.web
+  TF_JSON_FILE=$NAMESPACE_DIR/${namespace}.tf.json
+  REGISTRATION_CODE_FILE=$NAMESPACE_DIR/registration.code
+
   export TF_VAR_namespace=$NAMESPACE
   export TF_VAR_name_prefix=$(echo "$namespace" | tr "A-Z" "a-z")
   export TF_VAR_key_name="${TF_VAR_name_prefix}-$(echo -n "$TF_VAR_owner" | base64)"
@@ -249,6 +252,10 @@ function load_env() {
   export TF_VAR_web_ssh_private_key=$NAMESPACE_DIR/${TF_VAR_web_key_name}.pem
   export TF_VAR_web_ssh_public_key=$NAMESPACE_DIR/${TF_VAR_web_key_name}.pem.pub
   export TF_VAR_my_public_ip=$(curl -sL ifconfig.me || curl -sL ipapi.co/ip || curl -sL icanhazip.com)
+
+  export AWS_ACCESS_KEY_ID=$TF_VAR_aws_access_key_id
+  export AWS_SECRET_ACCESS_KEY=$TF_VAR_aws_secret_access_key
+  export AWS_DEFAULT_REGION=$TF_VAR_aws_region
 
   TF_VAR_use_elastic_ip=$(echo "${TF_VAR_use_elastic_ip:-FALSE}" | tr A-Z a-z)
   if [ "$TF_VAR_use_elastic_ip" == "yes" -o "$TF_VAR_use_elastic_ip" == "true" -o "$TF_VAR_use_elastic_ip" == "1" ]; then
@@ -333,40 +340,32 @@ function delete_key_pairs() {
   done
 }
 
-function ensure_instance_list() {
-  if [ ! -s $INSTANCE_LIST_FILE ]; then
-    $BASE_DIR/list-details.sh $NAMESPACE > /dev/null
-  fi
-}
-
 function public_dns() {
   local cluster_number=$1
-  ensure_instance_list $NAMESPACE
   if [ "$cluster_number" == "web" ]; then
-    awk '{print $2}' $WEB_INSTANCE_LIST_FILE
+    web_instance | web_attr public_dns
   else
-    awk '$1 ~ /-'$cluster_number'$/{print $2}' $INSTANCE_LIST_FILE
+    cluster_instances $cluster_number | cluster_attr public_dns
   fi
 }
 
 function public_ip() {
   local cluster_number=$1
-  ensure_instance_list $NAMESPACE
-  awk '$1 ~ /-'$cluster_number'$/{print $3}' $INSTANCE_LIST_FILE
+  cluster_instances $cluster_number | cluster_attr public_ip
 }
 
 function private_ip() {
   local cluster_number=$1
-  ensure_instance_list $NAMESPACE
-  awk '$1 ~ /-'$cluster_number'$/{print $4}' $INSTANCE_LIST_FILE
+  cluster_instances $cluster_number | cluster_attr private_ip
 }
 
 function check_for_jq() {
   set +e
+  local ret=0
   jq --version > /dev/null 2>&1
-  RET=$?
+  ret=$?
   set -e
-  if [ $RET != 0 ]; then
+  if [ $ret != 0 ]; then
     echo "ERROR: The "jq" tool is not installed and it is required."
     echo "       Please install jq and try again. Check the documentation for"
     echo "       more details."
@@ -389,7 +388,7 @@ function check_file_staleness() {
       echo "${C_BLUE}INFO: Configuration file $compare has been updated with the following property: ${line}.${C_NORMAL}" >&2
     fi
   done
-  not_set=$(grep -E "^ *(export){0,1} *[a-zA-Z0-9_]*=" $compare | sed -E 's/ *(export){0,1} *//;s/="?<[A-Z_]*>"?$/=/g;s/""//g' | egrep "CHANGE_ME|REPLACE_ME|=$" | sed 's/=//' | tr "\n" "," | sed 's/,$//')
+  not_set=$(grep -E "^ *(export){0,1} *[a-zA-Z0-9_]*=" $compare | sed -E 's/ *(export){0,1} *//;s/="?<[A-Z_]*>"?$/=/g;s/""//g' | egrep "CHANGE_ME|REPLACE_ME|=$" | sed 's/=//' | egrep -v "$OPTIONAL_VARS" | tr "\n" "," | sed 's/,$//')
   if [ "$not_set" != "" ]; then
     echo "${C_RED}ERROR: Configuration file $compare has the following unset properties: ${not_set}.${C_NORMAL}" >&2
     stale=1
@@ -477,6 +476,29 @@ print((datetime.strptime('$enddate', '%m%d%Y') - dt).days)
 "
 }
 
+function wait_for_web() {
+  local retries=120
+  local ret=0
+  while [[ $retries -gt "0" ]]; do
+    set +e
+    ret=$(curl --connect-timeout 5 -s -o /dev/null -w "%{http_code}" -k -H "Content-Type: application/json" "http://${WEB_IP_ADDRESS}/api/ping")
+    set -e
+    if [ "$ret" == "200" ]; then
+      break
+    fi
+    retries=$((retries - 1))
+    if [[ $retries -gt 0 ]]; then
+      echo "Waiting for web server to be ready... ($retries retries left)"
+    fi
+  done
+  if [ "$ret" == "200" ]; then
+    echo "Web server is ready!"
+  else
+    echo "ERROR: Web server didn't respond successfully."
+    return 1
+  fi
+}
+
 function collect_logs() {
   local namespace=$1
   if [[ $namespace == "" ]]; then
@@ -522,13 +544,325 @@ function collect_logs() {
   rm -f $tmp_file
 }
 
+#
+# AWS EC2 functions
+#
+
+function add_ingress() {
+  local group_id=$1
+  local cidr=$2
+  local protocol=$3
+  local port=${4:-}
+  local description=${5:-default}
+  local force=${6:-}
+
+  local tmp_file=/tmp/add-ingress.$$
+
+  ingress=$(get_ingress "$group_id" "$cidr" "$protocol" "$port")
+  if [[ $ingress == "" || $force == "force" ]]; then
+    local port_option=""
+    local proto=$protocol
+    if [[ $protocol == "all" ]]; then
+       proto=-1
+    else
+      if [[ $port == "" ]]; then
+        echo "ERROR: Port is required for protocol $protocol"
+        exit 1
+      fi
+      if [[ $port == *"-"* ]]; then
+        from_port=${port%%-*}
+        to_port=${port##*-}
+      else
+        from_port=$port
+        to_port=$port
+      fi
+      port_option="FromPort=${from_port},ToPort=${to_port},"
+    fi
+    cmd=(aws ec2 authorize-security-group-ingress --group-id "$group_id" --ip-permissions "IpProtocol=${proto},${port_option}IpRanges=[{CidrIp=${cidr},Description=${description}}]")
+
+    msg="  Granting access on ${group_id}:${protocol}:${port} to ${cidr} $([[ $description == "" ]] || echo "($description)") $([[ $force == "force" ]] && echo " - (forced)" || true)"
+    set +e
+    "${cmd[@]}" > $tmp_file 2>&1
+    local ret=$?
+    if [[ $ret -eq 0 ]]; then
+      echo "$msg"
+    elif [[ $(grep -c "the specified rule .* already exists" $tmp_file) -ne 1 ]]; then
+      echo "$msg"
+      cat $tmp_file
+      rm -f $tmp_file
+      exit $ret
+    fi
+    rm -f $tmp_file
+    set -e
+  fi
+}
+
+function remove_ingress() {
+  local group_id=$1
+  local cidr=$2
+  local protocol=$3
+  local port=${4:-}
+  local force=${5:-}
+  local tmp_file=/tmp/remove-ingress.$$
+
+  ingress=$(get_ingress "$group_id" "$cidr" "$protocol" "$port")
+  if [[ $ingress != "" || $force == "force" ]]; then
+    local port_option=""
+    if [[ $protocol != "all" ]]; then
+      if [[ $port == "" ]]; then
+        echo "ERROR: Port is required for protocol $protocol"
+        exit 1
+      fi
+      port_option="--port ${port}"
+    fi
+    cmd=(aws ec2 revoke-security-group-ingress --group-id $group_id --protocol $protocol --cidr $cidr $port_option)
+    msg="  Revoking access on ${group_id}:${protocol}:${port} from ${cidr} $([[ $force == "force" ]] && echo "(forced)" || true)"
+    set +e
+    "${cmd[@]}" > $tmp_file 2>&1
+    local ret=$?
+    if [[ $ret -eq 0 ]]; then
+      echo "$msg"
+    elif [[ $ret -ne 0 && $(grep -c "The specified rule does not exist in this security group" $tmp_file) -ne 1 ]]; then
+      cat $tmp_file
+      rm -f $tmp_file
+      exit $ret
+    fi
+    rm -f $tmp_file
+    set -e
+  fi
+}
+
+#
+# Terraform refresh and parsing functions
+#
+
+function refresh_tf() {
+  mkdir -p $NAMESPACE_DIR
+  rm -f $TF_JSON_FILE
+  set +e
+  (cd $BASE_DIR && \
+     terraform refresh -state $NAMESPACE_DIR/terraform.state >/dev/null 2>&1 && \
+     terraform show -json $NAMESPACE_DIR/terraform.state > $TF_JSON_FILE 2>/dev/null)
+  set +e
+}
+
+function ensure_tf_json_file() {
+  if [ ! -s $TF_JSON_FILE ]; then
+    refresh_tf
+  fi
+}
+
+function web_instance() {
+  ensure_tf_json_file
+  if [ -s $TF_JSON_FILE ]; then
+    cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.address == "aws_instance.web") | "\(.values.tags.Name) \(.values.public_dns) \(.values.public_ip) \(.values.private_ip)"'
+  fi
+}
+
+function web_attr() {
+  local attr=$1
+  local pos=0
+  case "$attr" in
+    "name") pos=1 ;;
+    "public_dns") pos=2 ;;
+    "public_ip") pos=3 ;;
+    "private_ip") pos=4 ;;
+  esac
+  awk '{print $'$pos'}'
+}
+
+function cluster_instances() {
+  local cluster_id=${1:-}
+  ensure_tf_json_file
+  if [[ -s $TF_JSON_FILE ]]; then
+    local filter=""
+    if [[ $cluster_id != "" ]]; then
+      filter='select(.index == '$cluster_id') |'
+    fi
+    cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.address == "aws_instance.cluster") |'"$filter"' "\(.index) \(.values.tags.Name) \(.values.public_dns) \(.values.public_ip) \(.values.private_ip)"'
+  fi
+}
+
+function cluster_attr() {
+  local attr=$1
+  local pos=0
+  case "$attr" in
+    "index") pos=1 ;;
+    "name") pos=2 ;;
+    "public_dns") pos=3 ;;
+    "public_ip") pos=4 ;;
+    "private_ip") pos=5 ;;
+  esac
+  awk '{print $'$pos'}'
+}
+
+function is_stoppable() {
+  local vm_type=$1
+  local index=$2
+  ensure_tf_json_file
+  if [ -s $TF_JSON_FILE ]; then
+    local count=$(cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.address == "aws_eip.eip_'"$vm_type"'" and .index == '"$index"').address' | wc -l)
+    if [[ $count -eq 0 ]]; then
+      echo No
+    else
+      echo Yes
+    fi
+  fi
+}
+
+function enddate() {
+  ensure_tf_json_file
+  if [ -s $TF_JSON_FILE ]; then
+    cat $TF_JSON_FILE | jq -r '.values.root_module.resources[0].values.tags.enddate' | sed 's/null//'
+  fi
+}
+
+function security_groups() {
+  local sg_type=${1:-}
+  ensure_tf_json_file
+  if [ -s $TF_JSON_FILE ]; then
+    local filter=""
+    if [[ $sg_type != "" ]]; then
+      filter='select(.name == "workshop_'"$sg_type"'_sg") |'
+    fi
+    jq -r '.values.root_module.resources[] | '"$filter"' select(.type == "aws_security_group").values.id' $TF_JSON_FILE
+  fi
+}
+
+function get_ingress() {
+  local sg_id=$1
+  local cidr=${2:-}
+  local protocol=${3:-}
+  local port=${4:-}
+  local description=${5:-}
+  local cidr_filter=""
+  local protocol_filter=""
+  local port_filter=""
+  local description_filter=""
+  if [[ $cidr != "" ]]; then
+    cidr_filter='select(. == "'"$cidr"'") |'
+  fi
+  if [[ $protocol != "" ]]; then
+    if [[ $protocol == "all" ]]; then
+      protocol="-1"
+    fi
+    protocol_filter='select(.protocol == "'"$protocol"'") |'
+  fi
+  if [[ $port != "" ]]; then
+    if [[ $port == *"-"* ]]; then
+      from_port=${port%%-*}
+      to_port=${port##*-}
+    else
+      from_port=$port
+      to_port=$port
+    fi
+    port_filter='select(.from_port == '"$from_port"' and .to_port == '"$to_port"') |'
+  fi
+  if [[ $description != "" ]]; then
+    description_filter='select(.description == "'"$description"'") |'
+  fi
+  ensure_tf_json_file
+  jq -r '.values.root_module.resources[].values | select(.id == "'"$sg_id"'").ingress[] | '"$protocol_filter"' '"$port_filter"' '"$description_filter"' . as $parent | $parent.cidr_blocks[] | '"$cidr_filter"' "\(.) \(if $parent.protocol == "-1" then "all" else $parent.protocol end) \(if $parent.from_port == $parent.to_port then $parent.from_port else ($parent.from_port|tostring)+"-"+($parent.to_port|tostring) end)"' $TF_JSON_FILE
+}
+
+#
+# Registration code
+#
+
+function ensure_registration_code() {
+  local code="${1:-}"
+  if [[ $code != "" ]]; then
+    export TF_VAR_registration_code="$code"
+  elif [[ ${TF_VAR_registration_code:-} == "" ]]; then
+    result=$(curl -w "%{http_code}" --connect-timeout 5 "https://frightanic.com/goodies_content/docker-names.php" 2>/dev/null)
+    status_code=$(echo "$result" | tail -1)
+    suggestion=$(echo "$result" | head -1)
+    if [[ $status_code != "200" ]]; then
+      suggestion="edge2ai-$RANDOM"
+    fi
+    cat <<EOF | python -c 'import sys; sys.stdout.write(sys.stdin.read().rstrip())'
+${C_YELLOW}
+Users need a registration code to connect to the Web Server for the first time.
+Press ENTER to accept the suggestion below or type an alternative code of your choice.
+
+Alternatively, you can set the TF_VAR_registration_code variable in your .env file to avoid this prompt.
+You can reset the registration code at any time by running: ./update-registration-code.sh <namespace> <new_registration_code>
+
+Registration code: [$suggestion] ${C_NORMAL}
+EOF
+    local confirmation
+    read confirmation
+    if [[ $confirmation == "" ]]; then
+      TF_VAR_registration_code="$suggestion"
+    else
+      TF_VAR_registration_code="$confirmation"
+    fi
+    export TF_VAR_registration_code
+  fi
+  echo -n "$TF_VAR_registration_code" > $REGISTRATION_CODE_FILE
+}
+
+function registration_code() {
+  if [[ -s $REGISTRATION_CODE_FILE ]]; then
+    cat $REGISTRATION_CODE_FILE
+  else
+    echo "<not set>"
+  fi
+}
+
+#
+# Web Server API
+#
+
+function get_ips() {
+  local web_ip_address=${1:-$( web_instance | web_attr public_ip )}
+  local admin_email=${2:-$TF_VAR_web_server_admin_email}
+  local admin_pwd=${3:-$TF_VAR_web_server_admin_password}
+  curl -k -H "Content-Type: application/json" -X GET \
+    -u "${admin_email}:${admin_pwd}" \
+    "http://${web_ip_address}/api/ips" 2>/dev/null | \
+  jq -r '.ips[]'
+}
+
+#
+# Helper functions
+#
+
+function calc() {
+  local expression=$1
+  echo "$expression" | bc -l
+}
+
+#
+# Cleanup functions
+#
+
+function cleanup() {
+  # placeholder
+  true
+}
+
+function _cleanup() {
+  local sig=$1
+  local ret=$2
+  reset_traps
+
+  LC_ALL=C type cleanup 2>&1 | egrep -q "is a (shell )*function" && (cleanup || true)
+
+  if [[ $ret -ne 0 ]]; then
+    echo -e "\n   FAILED!!! (signal: $sig, exit code: $ret)\n"
+  fi
+}
+
 function set_traps() {
+  local sig=0
   for sig in {0..16} {18..31}; do
-    trap 'RET=$?; reset_traps; if [ $RET != 0 ]; then echo -e "\n   FAILED!!! (signal: '$sig', exit code: $RET)\n"; fi; collect_logs "${NAMESPACE:-}"; set +e; kdestroy > /dev/null 2>&1' $sig
+    trap '_cleanup '$sig' $?' $sig
   done
 }
 
 function reset_traps() {
+  local sig=0
   for sig in {0..16} {18..31}; do
     trap - $sig
   done

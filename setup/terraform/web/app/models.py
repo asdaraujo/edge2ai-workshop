@@ -14,8 +14,10 @@ class User(UserMixin, db.Model):
     full_name = db.Column(db.String(120))
     company = db.Column(db.String(120))
     password_hash = db.Column(db.String(128))
+    force_password_reset = db.Column(db.Boolean)
     is_admin = db.Column(db.Boolean)
     cluster_id = db.Column(db.Integer, db.ForeignKey('cluster.id'))
+    last_remote_ip = db.Column(db.String(15))
 
     def __repr__(self):
         return '<User {}>'.format(self.email)
@@ -28,7 +30,10 @@ class User(UserMixin, db.Model):
     def check_password(self, password):
         """Check a password against the existing hash
         """
-        return check_password_hash(self.password_hash, password)
+        try:
+            return check_password_hash(self.password_hash, password)
+        except:
+            return False
 
     def avatar(self, size):
         """Return the avatar URL
@@ -50,6 +55,31 @@ class Cluster(db.Model):
 
     def __repr__(self):
         return '<Cluster {} - {}>'.format(self.id, self.ip_address)
+
+class Config(db.Model):
+    """Config model
+    """
+    attr = db.Column(db.String(128), primary_key=True)
+    value = db.Column(db.String(4096))
+
+    # Attributes list
+    REGISTRATION_CODE = 'registration.code'
+
+    def set_hash(self, value):
+        """Stores the hash of a value
+        """
+        self.value = generate_password_hash(value)
+
+    def check_hash(self, value):
+        """Check value against the existing hash
+        """
+        try:
+            return check_password_hash(self.value, value)
+        except:
+            return False
+
+    def __repr__(self):
+        return '<Config: {}={}>'.format(self.attr, self.value)
 
 @login.user_loader
 def load_user(user_id):

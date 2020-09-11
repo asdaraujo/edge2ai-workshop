@@ -18,9 +18,9 @@ LOG_FILE=$LOG_DIR/command.$(date +%s).log
 
 shift 1
 cmd=("$@")
-for line in $(awk '{print $1":"$3}' $INSTANCE_LIST_FILE); do
-  cluster_name="$(echo "$line" | awk -F: '{print $1}'): "
-  public_ip=$(echo "$line" | awk -F: '{print $2}')
+for cluster_id in $(cluster_instances | cluster_attr index); do
+  cluster_name="$(cluster_instances $cluster_id | cluster_attr name): "
+  public_ip="$(cluster_instances $cluster_id | cluster_attr public_ip)"
   ssh -q -o StrictHostKeyChecking=no -i $TF_VAR_ssh_private_key $TF_VAR_ssh_username@$public_ip "${cmd[@]}" 2>&1 | \
     sed "s/^/${cluster_name}/" | tee $LOG_FILE | sed "s/^[^:]*:/${C_NORMAL}${C_BOLD}&${C_NORMAL}/" &
 done

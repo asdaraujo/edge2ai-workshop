@@ -26,38 +26,13 @@ if [ ! -s $TF_VAR_ssh_private_key ]; then
   exit 1
 fi
 
-if [ ! -s $INSTANCE_LIST_FILE ]; then
-  echo "ERROR: File $INSTANCE_LIST_FILE does not exist."
-  exit 1
-fi
-
 if [ "$WEB_IP_ADDRESS" == "" ]; then
-  if [ -s $WEB_INSTANCE_LIST_FILE ]; then
-    WEB_IP_ADDRESS=$( awk '{print $3}' $WEB_INSTANCE_LIST_FILE )
-  else
-    echo "ERROR: File $WEB_INSTANCE_LIST_FILE doesn't exist and WEB Server IP address wasn't specified."
-    syntax
-    exit 1
-  fi
+  WEB_IP_ADDRESS=$( web_instance | web_attr public_ip )
 fi
 
-WAIT_FOR_WEB=10
-while [ "$WAIT_FOR_WEB" -gt "0" ]; do
-  set +e
-  RET=$(curl --connect-timeout 1 -s -o /dev/null -w "%{http_code}" -k -H "Content-Type: application/json" "http://${WEB_IP_ADDRESS}/api/ping")
-  set -e
-  if [ "$RET" == "200" ]; then
-    break
-  fi
-  WAIT_FOR_WEB=$((WAIT_FOR_WEB - 1))
-  echo "Waiting for web server to be ready..."
-done
-if [ "$RET" == "200" ]; then
-  echo "Web server is ready!"
-else
-  echo "ERROR: Web server didn't respond successfully."
-fi
+wait_for_web
 
+# Register admin user
 curl -k -H "Content-Type: application/json" -X POST \
   -d '{
        "email":"'"$ADMIN_EMAIL"'",
@@ -67,7 +42,10 @@ curl -k -H "Content-Type: application/json" -X POST \
       }' \
   "http://${WEB_IP_ADDRESS}/api/admins" 2>/dev/null
 
-awk '{print $2" "$3}' $INSTANCE_LIST_FILE | while read public_dns public_ip; do
+# Register clusters
+cluster_instances | cluster_attr index | while read cluster_id; do
+  public_dns=$(cluster_instances $cluster_id | cluster_attr public_dns)
+  public_ip=$(cluster_instances $cluster_id | cluster_attr public_ip)
   curl -k -H "Content-Type: application/json" -X POST \
     -u "${ADMIN_EMAIL}:${ADMIN_PWD}" \
     -d '{
@@ -78,3 +56,4 @@ awk '{print $2" "$3}' $INSTANCE_LIST_FILE | while read public_dns public_ip; do
          "ssh_private_key": "'"$(cat $TF_VAR_ssh_private_key | tr "\n" "#" | sed 's/#/\\n/g')"'"}' \
     "http://${WEB_IP_ADDRESS}/api/clusters" 2>/dev/null
 done
+

@@ -4,8 +4,14 @@ set -o nounset
 BASE_DIR=$(cd $(dirname $0); pwd -L)
 source $BASE_DIR/common.sh
 
+function cleanup() {
+  rm -f $INSTANCE_LIST_FILE $WEB_INSTANCE_LIST_FILE
+}
+
 EC2_PRICES_URL_TEMPLATE=https://raw.githubusercontent.com/yeo/ec2.shop/master/data/REGION-ondemand.json
 WEB_INSTANCE_TYPE=t2.medium
+INSTANCE_LIST_FILE=/tmp/.instance.list.$$
+WEB_INSTANCE_LIST_FILE=/tmp/.instance.web.$$
 
 if [ $# -gt 1 ]; then
   echo "Syntax: $0 [namespace]"
@@ -13,48 +19,6 @@ if [ $# -gt 1 ]; then
   exit 1
 fi
 NAMESPACE=${1:-}
-
-TF_JSON_DIR=/tmp/.tf.json.$$
-
-function web_instance() {
-  local tf_json_file=$1
-  if [ -s $tf_json_file ]; then
-    cat $tf_json_file | jq -r '.values[]?.resources[]? | select(.address == "aws_instance.web") | "\(.values.tags.Name) \(.values.public_dns) \(.values.public_ip) \(.values.private_ip)"'
-  fi
-}
-
-function cluster_instances() {
-  local tf_json_file=$1
-  if [ -s $tf_json_file ]; then
-    cat $tf_json_file | jq -r '.values[]?.resources[]? | select(.address == "aws_instance.cluster") | "\(.index) \(.values.tags.Name) \(.values.public_dns) \(.values.public_ip) \(.values.private_ip)"'
-  fi
-}
-
-function is_stoppable() {
-  local tf_json_file=$1
-  local vm_type=$2
-  local index=$3
-  if [ -s $tf_json_file ]; then
-    local count=$(cat $tf_json_file | jq -r '.values[]?.resources[]? | select(.address == "aws_eip.eip_'"$vm_type"'" and .index == '"$index"').address' | wc -l)
-    if [[ $count -eq 0 ]]; then
-      echo No
-    else
-      echo Yes
-    fi
-  fi
-}
-
-function enddate() {
-  local tf_json_file=$1
-  if [ -s $tf_json_file ]; then
-    cat $tf_json_file | jq -r '.values.root_module.resources[0].values.tags.enddate' | sed 's/null//'
-  fi
-}
-
-function calc() {
-  local expression=$1
-  echo "$expression" | bc -l
-}
 
 function show_costs() {
   local ec2_prices_url=$(echo "$EC2_PRICES_URL_TEMPLATE" | sed "s/REGION/$TF_VAR_aws_region/")
@@ -82,29 +46,23 @@ function show_details() {
 
   load_env $namespace
 
-  local tf_json_file=$TF_JSON_DIR/${namespace}
+  refresh_tf
 
-  rm -f $tf_json_file
-  mkdir -p $NAMESPACE_DIR
-  set +e
-  (cd $BASE_DIR && terraform show -json $NAMESPACE_DIR/terraform.state > $tf_json_file 2>/dev/null)
-  set +e
-
-  web_instance "$tf_json_file" | while read name public_dns public_ip private_ip; do
-    printf "%-40s %-55s %-15s %-15s %-9s\n" "$name" "$public_dns" "$public_ip" "$private_ip" "$(is_stoppable "$tf_json_file" web 0)"
+  web_instance | while read name public_dns public_ip private_ip; do
+    printf "%-40s %-55s %-15s %-15s %-9s\n" "$name" "$public_dns" "$public_ip" "$private_ip" "$(is_stoppable web 0)"
   done | sed 's/\([^ ]*-\)\([0-9]*\)\( .*\)/\1\2\3 \2/' | sort -k4n | sed 's/ [0-9]*$//' > $WEB_INSTANCE_LIST_FILE
 
-  cluster_instances "$tf_json_file" | while read index name public_dns public_ip private_ip; do
-    printf "%-40s %-55s %-15s %-15s %-9s\n" "$name" "$public_dns" "$public_ip" "$private_ip" "$(is_stoppable "$tf_json_file" cluster $index)"
+  cluster_instances | while read index name public_dns public_ip private_ip; do
+    printf "%-40s %-55s %-15s %-15s %-9s\n" "$name" "$public_dns" "$public_ip" "$private_ip" "$(is_stoppable cluster $index)"
   done | sed 's/\([^ ]*-\)\([0-9]*\)\( .*\)/\1\2\3 \2/' | sort -k4n | sed 's/ [0-9]*$//' > $INSTANCE_LIST_FILE
 
   if [ -s $WEB_INSTANCE_LIST_FILE ]; then
-    web_server="http://$(web_instance "$tf_json_file" | awk '{print $3}')"
+    web_server="http://$(web_instance | web_attr public_ip)"
   else
     web_server="-"
   fi
 
-  local enddate=$(enddate "$tf_json_file")
+  local enddate=$(enddate)
   local remaining_days=""
   local warning=""
   if [ "$enddate" != "" ]; then
@@ -135,8 +93,9 @@ function show_details() {
     fi
     echo ""
 
-    echo "Web Server:       $web_server"
-    echo "Web Server admin: $TF_VAR_web_server_admin_email"
+    echo "Web Server:        $web_server"
+    echo "Registration code: $(registration_code)"
+    echo "Web Server admin:  $TF_VAR_web_server_admin_email"
     echo ""
 
     echo "SSH username: $TF_VAR_ssh_username"
@@ -162,14 +121,10 @@ function show_details() {
     fi
 
     if [ "${DEBUG_DETAILS:-}" != "" ]; then
-      jq -r '.' $tf_json_file
+      jq -r '.' $TF_JSON_FILE
     fi
   fi
 }
-
-rm -rf $TF_JSON_DIR
-mkdir -p $TF_JSON_DIR
-trap "rm -rf $TF_JSON_DIR" 0
 
 if [ "$NAMESPACE" == "" ]; then
   printf "%-25s %-40s %10s  %8s  %9s\n" "Namespace" "Web Server" "# of VMs" "End Date" "Days Left"

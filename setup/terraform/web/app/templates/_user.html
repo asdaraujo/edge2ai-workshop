@@ -8,6 +8,12 @@
             <td>{{ user.company }}</td>
             <td>{{ user.is_admin }}</td>
             <td>{{ user.cluster_id }}</td>
+            <td>{{ user.last_remote_ip }}</td>
+            <td>
+                <form action="/users" method="post">
+                    <input class="btn btn-primary" id="resetpwd-{{ user.id }}" name="{{ user.id }}" type="submit" value="Reset Pwd">
+                </form>
+            </td>
             <td>
                 <form action="/users" method="post">
                     <input class="btn btn-primary" id="delete-{{ user.id }}" name="{{ user.id }}" type="submit" value="Delete">

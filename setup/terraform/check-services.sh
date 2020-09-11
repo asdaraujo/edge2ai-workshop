@@ -5,7 +5,9 @@ source $BASE_DIR/common.sh
 
 CURL=(curl -L -k --connect-timeout 5)
 
-trap "rm -f .curl.*.$$" {0..16} {18..31}
+function cleanup() {
+  rm -f .curl.*.$$
+}
 
 if [ $# != 1 ]; then
   echo "Syntax: $0 <namespace>"

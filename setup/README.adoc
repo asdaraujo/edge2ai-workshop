@@ -25,14 +25,7 @@ This script automatically sets up a CDH cluster on the public cloud on a single 
 |* CDSW
 |====
 
-As this cluster is meant to be used for demos, experimenting, training, and workshops, it doesn't setup Kerberos and TLS.
-
-== Instructions
-
-Below are instructions for creating the cluster. You can choose between the automated setup, using Terraform, or a manual setup.
-
-* Automated setup - uses Terraform to instantiate VMs in a cloud provider and execute the setup scripts to prepare the environment
-* Manual setup - you instantiate the VM with the provided specs and run the setup scripts manually.
+This cluster is meant to be used for demos, experimenting, training, and workshops.
 
 == Namespaces
 
@@ -112,65 +105,73 @@ The following services can show an unhealthy state after the stop/start. The are
 * Spark
 * YARN
 
+== User registration
+
+For security reasons, the workshop environment is created by default without access from the public Internet. The environment includes a Web Server that allows users to register using a registration code. Once they register in the portal the admin is able to open the necessary firewall ports so that they can access their individual clusters.
+
+The admin can control the registration process, opening and closing registration as needed, as explained below.
+
+After launching your environment successfully (see the Setup section below), use the following steps to manage the registration process:
+
+. Before the users can connect to the Web Portal to register it is necessary to allow limited access to the portal from the public Internet. To do this, run the following command:
++
+[source,shell]
+----
+cd edge2ai-workshop/setup/terraform/
+./open-registration.sh <namespace>
+----
++
+This command will allow public access to the Web Portal so that users can connect and start to register. The command will then enter a loop, monitoring the users' registration and will open the needed firewall ports for each individual user's IP address. Leave the command running while users are registering.
+
+. Provide the users with the Web Server address and the registration code displayed on the screen by the command above so that they can start to register.
+
+. Once you confirm that all users have registered, press `ENTER` on the window running the command above. The command will exit the monitoring loop, close the public access to the Web Server and ensure that all the necessary rules in place so that all users can continue to use the environment even without the public access rule.
+
+=== Additional commands
+
+The `open-registration.sh` command above is typically all you need to manage the registration process. The commands below, however, may come handy in certain situations:
+
+* `sync-ip-addresses.sh` - this is the command that runs during the `open-registration.sh` loop to synchronize the user IPs registered in the portal with the environment security groups. If the IPs in the portal get out of sync with the IP rules in the environment's security groups, you can run the following command to sync them:
++
+[source,shell]
+----
+./sync-ip-addresses.sh <namespace>
+----
+
+* `close-registration.sh` - if the `open-registration.sh` command didn't finish gracefully for any reason (e.g. window was closed or an error was thrown), the public access to the Web Portal will remain open. To close the public access (and the registration), run:
++
+[source,shell]
+----
+./close-registration.sh <namespace>
+----
+
+* `update-registration-code.sh` - used to change the portal registration code if needed:
++
+[source,shell]
+----
+./update-registration-code.sh <namespace>
+----
+
+* `manage-ip.sh` - used to manually add or remove IPs to/from the environment security groups:
++
+[source,shell]
+----
+./manage-ip.sh <namespace> add <ip_address>
+./manage-ip.sh <namespace> remove <ip_address>
+----
+
 == Setup
 
 The setup of the workshop environment is fully automated. Before launching the workshop environment you need to ensure your laptop has the necessary pre-requisites to execute the setup script.
 
 === Pre-requisites
 
-You can either manually install all the pre-requisites on your laptop or use a Docker image that already contains all the necessary bits in it. For simplicity reasons, we highly recommend the Docker option.
-
-==== Option 1 (RECOMMENDED): Use the Docker image
-
 . Ensure a recent version of link:https://hub.docker.com/editions/community/docker-ce-desktop-mac[Docker] is running on your laptop
 . Pull the latest Docker image for the workshop:
 +
 [source,shell]
 ----
-docker pull asdaraujo/edge2ai-workshop
-----
-
-==== Option 2: Manually install pre-requisites
-
-NOTE: If you already have Docker and pulled the latest image, as per instructions in Option 1, you can *skip* this section.
-
-. Install Terraform
-+
-This setup uses link:https://www.terraform.io/[Terraform] to spin up the VMs and execute the required setup scripts.
-
-.. Check if Terraform is installed and version is 0.12.3 or later
-+
-[source,shell]
-----
-terraform version
-----
-.. If Terraform is not installed or the version is lower, install a later version:
-+
-[source,shell]
-----
-# The URL below is for Linux. For Terraform on Mac see www.terraform.io/downloads.html
-curl -O https://releases.hashicorp.com/terraform/0.12.6/terraform_0.12.6_linux_amd64.zip
-mkdir ./bin
-unzip -d ./bin/ terraform_0.12.6_linux_amd64.zip
-export PATH=$PWD/bin:$PATH
-----
-
-. Install `jq`
-.. If you are using a Mac, you can install `jq` using Homebrew:
-+
-[source,shell]
-----
-brew update
-brew install jq
-----
-
-.. Otherwise, see download and install instructions link:https://stedolan.github.io/jq/download/[here]. Make sure `jq` is in your PATH after it's installed.
-
-. Install required Python modules
-+
-[source,shell]
-----
-pip install jinja2 pyyaml
+docker pull asdaraujo/edge2ai-workshop:latest
 ----
 
 === Launching the workshop environment
@@ -241,6 +242,8 @@ The variables in this file are explained below:
 +
 --
 * `TF_VAR_cluster_count`: number of one-node cluster to be created
+* `TF_VAR_registration_code`: registration code for the workshop environment. This is the code to be used as a password for users to successfully register in the workshop Web Portal. If not set or empty, a random registration code will be generated when the environment is launched.
+* `TF_VAR_use_elastic_ip`: enable elastic IPs for the environment VMs. This is required if you need to stop/start VMs.
 
 '''
 
@@ -277,7 +280,6 @@ NOTE: This is a vanilla Centos 7 AMI. No other prerequistes are necessary. All t
 [source,shell]
 ----
 cd edge2ai-workshop/setup/terraform/
-terraform init # this only has to be executed once after cloning the repo
 ./launch.sh <namespace>
 ----
 +
@@ -314,12 +316,6 @@ where `<namespace>` is the name of one of your namespaces.
 * `./upload-instance-details.sh <namespace> [web_ip_adress] [admin_email] [admin_password] [admin_full_name]` - upload all the instances' details to the web server. If no parameters are specified it will use the default web server for the current deployment, otherwise will upload to the specified webserver. Note that this script is automatically executed upon launch for the current web server.
 
 Clusters numbers start from 0 (zero).
-
-== Namespaces
-
-The automated setup scripts support the concept of *namespaces*. All the resources of a single deployment are associated with a single namespace. By creating multiple namespaces, one can manage multiple independent deployment without them interfering with each other.
-
-A namespace is defined by simply creating a configuration file called `.env.<namespace>`, where `<namespace>` is a string that identifies the namespace uniquely. The namespace identifier cannot contain spaces or special characters.
 
 == Use
 
@@ -403,6 +399,49 @@ You can also run the commands above for a single instance.
 * *Start*: `sudo /opt/dataloader/smm-generator.sh start`
 * *Stop*: `sudo /opt/dataloader/smm-generator.sh stop`
 * *Status*: `sudo /opt/dataloader/smm-generator.sh status`
+
+== Running without Docker
+
+If you need or want to run the setup scripts without installing Docker, you should install the following prerequisites in your laptop.
+
+. Install Terraform
++
+This setup uses link:https://www.terraform.io/[Terraform] to spin up the VMs and execute the required setup scripts.
+
+.. Check if Terraform is installed and version is 0.12.3 or later
++
+[source,shell]
+----
+terraform version
+----
+.. If Terraform is not installed or the version is lower, install a later version:
++
+[source,shell]
+----
+# The URL below is for Linux. For Terraform on Mac see www.terraform.io/downloads.html
+curl -O https://releases.hashicorp.com/terraform/0.12.6/terraform_0.12.6_linux_amd64.zip
+mkdir ./bin
+unzip -d ./bin/ terraform_0.12.6_linux_amd64.zip
+export PATH=$PWD/bin:$PATH
+----
+
+. Install `jq`
+.. If you are using a Mac, you can install `jq` using Homebrew:
++
+[source,shell]
+----
+brew update
+brew install jq
+----
+
+.. Otherwise, see download and install instructions link:https://stedolan.github.io/jq/download/[here]. Make sure `jq` is in your PATH after it's installed.
+
+. Install required Python modules
++
+[source,shell]
+----
+pip install jinja2 pyyaml awscli
+----
 
 == Troubleshooting and known issues
 
