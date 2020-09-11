@@ -1,2 +1,2 @@
-20200821131341
-Previous commit: 9c31edb Fix local kinit on Mac when browsing secure cluster
+20200910235031
+Previous commit: a899696 Minor fix on check-services.sh for CDP 7.1.3
