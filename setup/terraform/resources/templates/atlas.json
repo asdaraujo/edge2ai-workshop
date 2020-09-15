@@ -64,6 +64,14 @@
             {
               "name" : "atlas_authentication_method_file",
               "value" : "true"
+            },
+            {
+              "name": "atlas_server_http_port",
+              "value": "31000"
+            },
+            {
+              "name": "atlas_server_https_port",
+              "value": "31443"
             }
           ]
         },

@@ -572,12 +572,6 @@ add_user admin admins,shadow
 add_user alice users
 add_user bob users
 
-# Set shadow permissions - needed by Knox when using PAM authentication
-chgrp shadow /etc/shadow
-chmod g+r /etc/shadow
-usermod -G knox,hadoop,shadow knox || true
-id knox > /dev/null 2>&1 && usermod -G knox,hadoop,shadow knox || echo "User knox does not exist. Skipping usermod"
-
 wait_for_cm
 
 echo "-- Generate cluster template"
@@ -632,6 +626,11 @@ else
       --template $TEMPLATE_FILE \
       --tls-ca-cert /opt/cloudera/security/x509/truststore.pem
 fi
+
+# Set shadow permissions - needed by Knox when using PAM authentication
+chgrp shadow /etc/shadow
+chmod g+r /etc/shadow
+id knox > /dev/null 2>&1 && usermod -G knox,hadoop,shadow knox || echo "User knox does not exist. Skipping usermod"
 
 echo "-- Ensure Zepellin is on the shadow group for PAM auth to work (service needs restarting)"
 id zeppelin > /dev/null 2>&1 && usermod -G shadow zeppelin || echo "User zeppelin does not exist. Skipping usermod"

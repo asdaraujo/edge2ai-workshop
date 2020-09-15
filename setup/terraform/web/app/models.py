@@ -64,6 +64,7 @@ class Config(db.Model):
 
     # Attributes list
     REGISTRATION_CODE = 'registration.code'
+    SERVICE_URLS = 'cluster.service.urls'
 
     def set_hash(self, value):
         """Stores the hash of a value

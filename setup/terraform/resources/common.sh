@@ -654,3 +654,80 @@ function retry_if_needed() {
     echo "Retrying command [$cmd]"
   done
 }
+
+#
+# Template parsing functions
+#
+
+function service_port() {
+  local template_file=$1
+  local service_type=$2
+  local role_type=$3
+  local non_tls_config=$4
+  local tls_config=${5:-}
+
+  if [[ $tls_config == "" || $ENABLE_TLS != "yes" ]]; then
+    local config=$non_tls_config
+  else
+    local config=$tls_config
+  fi
+  if [[ $role_type != "" ]]; then
+    jq -r '.services[] | select(.serviceType == "'"$service_type"'").roleConfigGroups[] | select(.roleType == "'"$role_type"'").configs[] | select(.name == "'"$config"'").value' $template_file
+  else
+    jq -r '.services[] | select(.serviceType == "'"$service_type"'").serviceConfigs[] | select(.name == "'"$config"'").value' $template_file
+  fi
+}
+
+function get_service_urls() {
+  local tmp_template_file=/tmp/template.$$
+  load_stack $NAMESPACE $BASE_DIR/resources validate_only exclude_signed
+  CLUSTER_HOST=dummy PRIVATE_IP=dummy PUBLIC_DNS=dummy DOCKER_DEVICE=dummy CDSW_DOMAIN=dummy \
+  python $BASE_DIR/resources/cm_template.py --cdh-major-version $CDH_MAJOR_VERSION $CM_SERVICES > $tmp_template_file
+
+  local cm_port=$([[ $ENABLE_TLS == "yes" ]] && echo 7183 || echo 7180)
+  local protocol=$([[ $ENABLE_TLS == "yes" ]] && echo https || echo http)
+  (
+    echo "Cloudera Manager=${protocol}://{hostname}:${cm_port}/"
+    (
+      echo "Edge Flow Manager=${protocol}://{hostname}:10080/efm/ui/"
+      if [[ ${HAS_FLINK:-0} == 1 ]]; then
+        local flink_port=$(service_port $tmp_template_file FLINK FLINK_HISTORY_SERVER historyserver_web_port)
+        echo "Flink Dashboard=${protocol}://{hostname}:${flink_port}/"
+      fi
+      if [[ ${HAS_NIFI:-0} == 1 ]]; then
+        local nifi_port=$(service_port $tmp_template_file NIFI NIFI_NODE nifi.web.http.port nifi.web.https.port)
+        local nifireg_port=$(service_port $tmp_template_file NIFIREGISTRY NIFI_REGISTRY_SERVER nifi.registry.web.http.port nifi.registry.web.https.port)
+        echo "NiFi=${protocol}://{hostname}:${nifi_port}/nifi/"
+        echo "NiFi Registry=${protocol}://{hostname}:${nifireg_port}/nifi-registry/"
+      fi
+      if [[ ${HAS_SCHEMAREGISTRY:-0} == 1 ]]; then
+        local schemareg_port=$(service_port $tmp_template_file SCHEMAREGISTRY SCHEMA_REGISTRY_SERVER schema.registry.port schema.registry.ssl.port)
+        echo "Schema Registry=${protocol}://{hostname}:${schemareg_port}/"
+      fi
+      if [[ ${HAS_SMM:-0} == 1 ]]; then
+        local smm_port=$(service_port $tmp_template_file STREAMS_MESSAGING_MANAGER STREAMS_MESSAGING_MANAGER_UI streams.messaging.manager.ui.port)
+        echo "SMM=${protocol}://{hostname}:${smm_port}/"
+      fi
+      if [[ ${HAS_HUE:-0} == 1 ]]; then
+        local hue_port=$(service_port $tmp_template_file HUE HUE_LOAD_BALANCER listen)
+        echo "Hue=${protocol}://{hostname}:${hue_port}/"
+      fi
+      if [[ ${HAS_ATLAS:-0} == 1 ]]; then
+        local atlas_port=$(service_port $tmp_template_file ATLAS ATLAS_SERVER atlas_server_http_port atlas_server_https_port)
+        echo "Atlas=${protocol}://{hostname}:${atlas_port}/"
+      fi
+      if [[ ${HAS_RANGER:-0} == 1 ]]; then
+        local ranger_port=$(service_port $tmp_template_file RANGER "" ranger_service_http_port ranger_service_https_port)
+        echo "Ranger=${protocol}://{hostname}:${ranger_port}/"
+      fi
+      if [[ ${HAS_KNOX:-0} == 1 ]]; then
+        local knox_port=$(service_port $tmp_template_file KNOX KNOX_GATEWAY gateway_port)
+        echo "Knox=${protocol}://{hostname}:${knox_port}/gateway/homepage/home/"
+      fi
+      if [[ ${HAS_CDSW:-0} == 1 ]]; then
+        echo "CDSW=${protocol}://cdsw.{ip_address}.nip.io/"
+      fi
+    ) | sort
+  ) | tr "\n" "," | sed 's/,$//'
+  rm -f $tmp_template_file
+}

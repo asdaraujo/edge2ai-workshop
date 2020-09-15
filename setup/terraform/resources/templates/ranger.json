@@ -30,6 +30,14 @@
         {
           "name": "keyadmin_user_password",
           "value": "supersecret1"
+        },
+        {
+          "name": "ranger_service_http_port",
+          "value": "6080"
+        },
+        {
+          "name": "ranger_service_https_port",
+          "value": "6182"
         }
 {% if (CM_VERSION == '7.1.1' and (CM_BUILD_NUMBER|int) >= 2929688) or CM_VERSION is gt('7.1.1') %}
         ,{

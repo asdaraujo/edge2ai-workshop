@@ -79,8 +79,12 @@
           "roleType": "HUE_LOAD_BALANCER",
           "base": true,
           "configs": [
-{% if ENABLE_TLS == 'yes' %}
             {
+              "name": "listen",
+              "value": "8889"
+            }
+{% if ENABLE_TLS == 'yes' %}
+            ,{
               "name": "hue_load_balancer_safety_valve",
               "value": "SSLCertificateChainFile /opt/cloudera/security/x509/cert.pem"
             },

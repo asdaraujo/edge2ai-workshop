@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export PS4='+ [${BASH_SOURCE#'"$BASE_DIR"/'}:${LINENO}]: ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
+
 DEFAULT_DOCKER_IMAGE=asdaraujo/edge2ai-workshop:latest
 GITHUB_REPO=asdaraujo/edge2ai-workshop
 GITHUB_BRANCH=master
@@ -477,11 +479,12 @@ print((datetime.strptime('$enddate', '%m%d%Y') - dt).days)
 }
 
 function wait_for_web() {
+  local web_ip_address=${1:-$(web_instance | web_attr public_ip)}
   local retries=120
   local ret=0
   while [[ $retries -gt "0" ]]; do
     set +e
-    ret=$(curl --connect-timeout 5 -s -o /dev/null -w "%{http_code}" -k -H "Content-Type: application/json" "http://${WEB_IP_ADDRESS}/api/ping")
+    ret=$(curl --connect-timeout 5 -s -o /dev/null -w "%{http_code}" -k -H "Content-Type: application/json" "http://${web_ip_address}/api/ping")
     set -e
     if [ "$ret" == "200" ]; then
       break
@@ -822,6 +825,32 @@ function get_ips() {
     -u "${admin_email}:${admin_pwd}" \
     "http://${web_ip_address}/api/ips" 2>/dev/null | \
   jq -r '.ips[]'
+}
+
+function update_web_server() {
+  local attr=$1
+  local value=$2
+  local sensitive=${3:-false}
+  local web_ip_address=${4:-$(web_instance | web_attr public_ip)}
+  local admin_email=${5:-$TF_VAR_web_server_admin_email}
+  local admin_pwd=${6:-$TF_VAR_web_server_admin_password}
+  
+  sensitive=$(echo "$sensitive" | tr "A-Z" "a-z")
+  if [[ $sensitive != "true" && $sensitive != "false" ]]; then
+    echo "ERROR: sensitive must be either true or false."
+    exit 1
+  fi
+  wait_for_web "$web_ip_address"
+  
+  # Set registration code
+  curl -k -H "Content-Type: application/json" -X POST \
+    -u "${admin_email}:${admin_pwd}" \
+    -d '{
+         "attr":"'"$attr"'",
+         "value": "'"$value"'",
+         "sensitive": '"$sensitive"'
+        }' \
+    "http://${web_ip_address}/api/config" 2>/dev/null
 }
 
 #

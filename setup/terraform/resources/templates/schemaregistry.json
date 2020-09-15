@@ -67,8 +67,16 @@
           "roleType": "SCHEMA_REGISTRY_SERVER",
           "base": true,
           "configs": [
-{% if ENABLE_TLS == 'yes' %}
             {
+              "name": "schema.registry.port",
+              "value": "7788"
+            },
+            {
+              "name": "schema.registry.ssl.port",
+              "value": "7790"
+            }
+{% if ENABLE_TLS == 'yes' %}
+            ,{
               "name": "ssl_client_truststore_location",
               "value": "/opt/cloudera/security/jks/truststore.jks"
             },
@@ -89,11 +97,8 @@
               "value": "supersecret1"
             }
 {% endif %}
-{% if CM_VERSION is lt('7.1.1') and ENABLE_TLS == 'yes' %}
-            ,
-{% endif %}
 {% if CM_VERSION is lt('7.1.1') %}
-            {
+            ,{
               "name" : "schema.registry.storage.connector.connectURI",
               "value" : "jdbc:postgresql://localhost:5432/registry"
             },

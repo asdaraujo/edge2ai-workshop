@@ -26,16 +26,6 @@ if [ "$WEB_IP_ADDRESS" == "" ]; then
 fi
 
 ensure_registration_code "$CODE"
-wait_for_web
-
-# Set registration code
-curl -k -H "Content-Type: application/json" -X POST \
-  -u "${ADMIN_EMAIL}:${ADMIN_PWD}" \
-  -d '{
-       "attr":"registration.code",
-       "value": "'"$TF_VAR_registration_code"'",
-       "sensitive": "true"
-      }' \
-  "http://${WEB_IP_ADDRESS}/api/config" 2>/dev/null
+update_web_server registration.code "$TF_VAR_registration_code" true
 
 echo "Registration code set to: $TF_VAR_registration_code"

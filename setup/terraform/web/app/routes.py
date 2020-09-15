@@ -28,7 +28,7 @@ def verify_password(email, pwd):
 def index_page():
     """Home page
     """
-    return render_template('index.html', title='Home', user=current_user)\
+    return render_template('index.html', title='Home', service_urls=service_urls(), user=current_user)\
 
 @app.route('/login', methods=['GET', 'POST'])
 def login_page():
@@ -303,3 +303,11 @@ def get_real_ip(request):
     if 'X-Real-Ip' in request.headers:
         return request.headers['X-Real-Ip']
     return request.remote_addr
+
+def service_urls():
+    """Return the service URLs
+    """
+    urls = Config.query.get(Config.SERVICE_URLS)
+    if urls:
+        return [s.split('=') for s in urls.value.split(',')]
+    return None

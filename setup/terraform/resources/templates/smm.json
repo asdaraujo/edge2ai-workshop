@@ -193,8 +193,12 @@
           "roleType": "STREAMS_MESSAGING_MANAGER_UI",
           "base": true,
           "configs": [
-{% if ENABLE_TLS == 'yes' %}
             {
+              "name": "streams.messaging.manager.ui.port",
+              "value": "9991"
+            }
+{% if ENABLE_TLS == 'yes' %}
+            ,{
               "name": "ssl_client_truststore_location",
               "value": "/opt/cloudera/security/x509/truststore.pem"
             },

@@ -55,14 +55,14 @@ mkdir -p "${NAMESPACE_DIR}"
 source $BASE_DIR/resources/common.sh
 validate_stack $NAMESPACE $BASE_DIR/resources
 
+log "Validate services selection: $CM_SERVICES"
+CLUSTER_HOST=dummy PRIVATE_IP=dummy PUBLIC_DNS=dummy DOCKER_DEVICE=dummy CDSW_DOMAIN=dummy \
+python $BASE_DIR/resources/cm_template.py --cdh-major-version $CDH_MAJOR_VERSION $CM_SERVICES --validate-only
+
 # Presign URLs, if needed
 STACK_FILE=$(get_stack_file $NAMESPACE $BASE_DIR/resources exclude-signed)
 echo "Using stack: $STACK_FILE"
 presign_urls $STACK_FILE
-
-log "Validate services selection: $CM_SERVICES"
-CLUSTER_HOST=dummy PRIVATE_IP=dummy PUBLIC_DNS=dummy DOCKER_DEVICE=dummy CDSW_DOMAIN=dummy \
-python $BASE_DIR/resources/cm_template.py --cdh-major-version $CDH_MAJOR_VERSION $CM_SERVICES --validate-only
 
 log "Check for parcels"
 chmod +x $BASE_DIR/resources/check-for-parcels.sh
@@ -106,9 +106,11 @@ echo "Uploading instance details to Web Server:"
 echo ""
 echo "Updating Web Server configuration:"
 "${BASE_DIR}/update-registration-code.sh" "${NAMESPACE}" "$TF_VAR_registration_code"
+update_web_server cluster.service.urls "$(get_service_urls)"
 
 END_TIME=$(date +%s)
 DURATION=$((END_TIME-START_TIME))
 log "Deployment completed in $(printf "%d:%02d" "$((DURATION/60))" "$((DURATION%60))") minutes"
 
 ) 2>&1 | tee $LOG_NAME
+trap - 0

@@ -1,0 +1,8 @@
+            <tr valign="top">
+                <th class="table-header">{{ svc_name }}</th>
+                <td class="table-cell">
+                    <a href="{{ svc_url | replace("{hostname}", user.cluster.hostname) | replace("{ip_address}", user.cluster.ip_address) }}" target="_blank">
+                        {{ svc_url | replace("{hostname}", user.cluster.hostname) | replace("{ip_address}", user.cluster.ip_address) }}
+                    </a>
+                </td>
+            </tr>
