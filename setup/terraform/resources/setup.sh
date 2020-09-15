@@ -636,10 +636,15 @@ fi
 chgrp shadow /etc/shadow
 chmod g+r /etc/shadow
 id knox > /dev/null 2>&1 && usermod -G knox,hadoop,shadow knox || echo "User knox does not exist. Skipping usermod"
+if [[ ${HAS_KNOX:-0} == 1 ]]; then
+  curl -k -L -X POST -u admin:admin "http://${CLUSTER_HOST}:7180/api/v19/clusters/OneNodeCluster/services/knox/commands/restart"
+fi
 
 echo "-- Ensure Zepellin is on the shadow group for PAM auth to work (service needs restarting)"
 id zeppelin > /dev/null 2>&1 && usermod -G shadow zeppelin || echo "User zeppelin does not exist. Skipping usermod"
-curl -k -L -X POST -u admin:admin "http://${CLUSTER_HOST}:7180/api/v19/clusters/OneNodeCluster/services/zeppelin/commands/restart"
+if [[ ${HAS_ZEPPELIN:-0} == 1 ]]; then
+  curl -k -L -X POST -u admin:admin "http://${CLUSTER_HOST}:7180/api/v19/clusters/OneNodeCluster/services/zeppelin/commands/restart"
+fi
 
 echo "-- Tighten permissions"
 if [[ $ENABLE_TLS == yes ]]; then
