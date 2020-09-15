@@ -47,14 +47,19 @@ class Cluster(db.Model):
     """
     id = db.Column(db.Integer, primary_key=True)
     ip_address = db.Column(db.String(15), unique=True)
+    namespace = db.Column(db.String(128))
+    instance_id = db.Column(db.Integer) # cluster ID within the namespace
     hostname = db.Column(db.String(256))
     ssh_user = db.Column(db.String(32))
     ssh_password = db.Column(db.String(64))
     ssh_private_key = db.Column(db.String(4096))
     user = db.relationship('User', backref='cluster', lazy='dynamic')
+    __table_args__ = (
+        db.UniqueConstraint('namespace', 'instance_id', name='uq_namespace_instance'),
+    )
 
     def __repr__(self):
-        return '<Cluster {} - {}>'.format(self.id, self.ip_address)
+        return '<Cluster {} - {}:{} - {}>'.format(self.id, self.namespace, self.instance_id, self.ip_address)
 
 class Config(db.Model):
     """Config model
@@ -64,7 +69,7 @@ class Config(db.Model):
 
     # Attributes list
     REGISTRATION_CODE = 'registration.code'
-    SERVICE_URLS = 'cluster.service.urls'
+    NAMESPACE_URLS_PREFIX = 'namespace.service.urls.'
 
     def set_hash(self, value):
         """Stores the hash of a value

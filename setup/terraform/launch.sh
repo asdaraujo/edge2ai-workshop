@@ -104,9 +104,8 @@ echo "Uploading instance details to Web Server:"
 "${BASE_DIR}/upload-instance-details.sh" "${NAMESPACE}"
 
 echo ""
-echo "Updating Web Server configuration:"
+echo "Updating registration code:"
 "${BASE_DIR}/update-registration-code.sh" "${NAMESPACE}" "$TF_VAR_registration_code"
-update_web_server cluster.service.urls "$(get_service_urls)"
 
 END_TIME=$(date +%s)
 DURATION=$((END_TIME-START_TIME))

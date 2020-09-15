@@ -445,6 +445,11 @@ subjectAltName = DNS:${CLUSTER_HOST},IP:${PRIVATE_IP},IP:${PUBLIC_IP},DNS:edge2a
 EOF
 )
 cat key.pem cert.pem > /var/lib/shellinabox/certificate.pem
+chown shellinabox:shellinabox /var/lib/shellinabox/certificate.pem
+chmod 400 /var/lib/shellinabox/certificate.pem
+ln -s /var/lib/shellinabox/certificate.pem /var/lib/shellinabox/certificate-localhost.pem
+ln -s /var/lib/shellinabox/certificate.pem /var/lib/shellinabox/certificate-edge2ai-1.dim.local.pem
+ln -s /var/lib/shellinabox/certificate.pem /var/lib/shellinabox/certificate-${CLUSTER_HOST}.pem
 
 # Enable and start ShelInABox
 systemctl enable shellinaboxd

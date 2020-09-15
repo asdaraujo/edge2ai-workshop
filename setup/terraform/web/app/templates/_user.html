@@ -7,7 +7,7 @@
             <td>{{ user.full_name }}</td>
             <td>{{ user.company }}</td>
             <td>{{ user.is_admin }}</td>
-            <td>{{ user.cluster_id }}</td>
+            <td><a href="https://{{ user.cluster.hostname }}:4200/" target="_blank">{{ user.cluster.namespace }}:{{ user.cluster.instance_id }}</a></td>
             <td>{{ user.last_remote_ip }}</td>
             <td>
                 <form action="/users" method="post">

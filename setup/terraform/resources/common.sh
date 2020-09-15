@@ -479,7 +479,8 @@ function create_certs() {
   openssl genrsa -des3 -out ${KEY_PEM} -passout pass:${KEY_PWD} 2048
 
   # Create CSR
-  export ALT_NAMES=DNS:$(hostname -f)
+  local public_ip=$(curl https://ifconfig.me 2>/dev/null || curl https://api.ipify.org/ 2> /dev/null)
+  export ALT_NAMES=DNS:edge2ai-1.dim.local,DNS:$(hostname -f),IP:$(hostname -I),IP:${public_ip}
   openssl req\
     -new\
     -key ${KEY_PEM} \
@@ -687,42 +688,42 @@ function get_service_urls() {
   local cm_port=$([[ $ENABLE_TLS == "yes" ]] && echo 7183 || echo 7180)
   local protocol=$([[ $ENABLE_TLS == "yes" ]] && echo https || echo http)
   (
-    echo "Cloudera Manager=${protocol}://{hostname}:${cm_port}/"
+    echo "Cloudera Manager=${protocol}://{host}:${cm_port}/"
     (
-      echo "Edge Flow Manager=${protocol}://{hostname}:10080/efm/ui/"
+      echo "Edge Flow Manager=http://{host}:10080/efm/ui/"
       if [[ ${HAS_FLINK:-0} == 1 ]]; then
         local flink_port=$(service_port $tmp_template_file FLINK FLINK_HISTORY_SERVER historyserver_web_port)
-        echo "Flink Dashboard=${protocol}://{hostname}:${flink_port}/"
+        echo "Flink Dashboard=${protocol}://{host}:${flink_port}/"
       fi
       if [[ ${HAS_NIFI:-0} == 1 ]]; then
         local nifi_port=$(service_port $tmp_template_file NIFI NIFI_NODE nifi.web.http.port nifi.web.https.port)
         local nifireg_port=$(service_port $tmp_template_file NIFIREGISTRY NIFI_REGISTRY_SERVER nifi.registry.web.http.port nifi.registry.web.https.port)
-        echo "NiFi=${protocol}://{hostname}:${nifi_port}/nifi/"
-        echo "NiFi Registry=${protocol}://{hostname}:${nifireg_port}/nifi-registry/"
+        echo "NiFi=${protocol}://{host}:${nifi_port}/nifi/"
+        echo "NiFi Registry=${protocol}://{host}:${nifireg_port}/nifi-registry/"
       fi
       if [[ ${HAS_SCHEMAREGISTRY:-0} == 1 ]]; then
         local schemareg_port=$(service_port $tmp_template_file SCHEMAREGISTRY SCHEMA_REGISTRY_SERVER schema.registry.port schema.registry.ssl.port)
-        echo "Schema Registry=${protocol}://{hostname}:${schemareg_port}/"
+        echo "Schema Registry=${protocol}://{host}:${schemareg_port}/"
       fi
       if [[ ${HAS_SMM:-0} == 1 ]]; then
         local smm_port=$(service_port $tmp_template_file STREAMS_MESSAGING_MANAGER STREAMS_MESSAGING_MANAGER_UI streams.messaging.manager.ui.port)
-        echo "SMM=${protocol}://{hostname}:${smm_port}/"
+        echo "SMM=${protocol}://{host}:${smm_port}/"
       fi
       if [[ ${HAS_HUE:-0} == 1 ]]; then
         local hue_port=$(service_port $tmp_template_file HUE HUE_LOAD_BALANCER listen)
-        echo "Hue=${protocol}://{hostname}:${hue_port}/"
+        echo "Hue=${protocol}://{host}:${hue_port}/"
       fi
       if [[ ${HAS_ATLAS:-0} == 1 ]]; then
         local atlas_port=$(service_port $tmp_template_file ATLAS ATLAS_SERVER atlas_server_http_port atlas_server_https_port)
-        echo "Atlas=${protocol}://{hostname}:${atlas_port}/"
+        echo "Atlas=${protocol}://{host}:${atlas_port}/"
       fi
       if [[ ${HAS_RANGER:-0} == 1 ]]; then
         local ranger_port=$(service_port $tmp_template_file RANGER "" ranger_service_http_port ranger_service_https_port)
-        echo "Ranger=${protocol}://{hostname}:${ranger_port}/"
+        echo "Ranger=${protocol}://{host}:${ranger_port}/"
       fi
       if [[ ${HAS_KNOX:-0} == 1 ]]; then
         local knox_port=$(service_port $tmp_template_file KNOX KNOX_GATEWAY gateway_port)
-        echo "Knox=${protocol}://{hostname}:${knox_port}/gateway/homepage/home/"
+        echo "Knox=${protocol}://{host}:${knox_port}/gateway/homepage/home/"
       fi
       if [[ ${HAS_CDSW:-0} == 1 ]]; then
         echo "CDSW=${protocol}://cdsw.{ip_address}.nip.io/"

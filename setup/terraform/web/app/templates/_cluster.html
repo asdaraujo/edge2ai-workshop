@@ -1,5 +1,6 @@
         <tr>
             <td>{{ cluster.id }}</td>
+            <td><a href="https://{{ cluster.hostname }}:4200/" target="_blank">{{ cluster.namespace }}:{{ cluster.instance_id }}</a></td>
             <td>{{ cluster.ip_address }}</td>
             <td>{{ cluster.hostname }}</td>
             <td>{{ cluster.ssh_user }}</td>

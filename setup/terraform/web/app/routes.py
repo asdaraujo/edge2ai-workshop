@@ -28,7 +28,10 @@ def verify_password(email, pwd):
 def index_page():
     """Home page
     """
-    return render_template('index.html', title='Home', service_urls=service_urls(), user=current_user)\
+    urls = []
+    if current_user.cluster:
+        urls = service_urls(current_user.cluster.namespace)
+    return render_template('index.html', title='Home', service_urls=urls, user=current_user)\
 
 @app.route('/login', methods=['GET', 'POST'])
 def login_page():
@@ -214,16 +217,20 @@ def add_cluster():
         return jsonify({'success': False, 'message': 'Unauthorized'}), 403
 
     has_ip_address = 'ip_address' in request.json and isinstance(request.json['ip_address'], str)
+    has_namespace = 'namespace' in request.json and isinstance(request.json['namespace'], str)
+    has_instance_id = 'instance_id' in request.json and isinstance(request.json['instance_id'], str)
     has_hostname = 'hostname' in request.json and isinstance(request.json['hostname'], str)
     has_ssh_user = 'ssh_user' in request.json and isinstance(request.json['ssh_user'], str)
     has_ssh_pwd = 'ssh_password' in request.json and isinstance(request.json['ssh_password'], str)
     has_ssh_pk = 'ssh_private_key' in request.json and \
                  isinstance(request.json['ssh_private_key'], str)
-    if not request.json or not has_ip_address or not has_hostname or not has_ssh_user \
-       or not has_ssh_pwd or not has_ssh_pk:
+    if not request.json or not has_ip_address or not has_namespace or not has_instance_id or \
+       not has_hostname or not has_ssh_user or not has_ssh_pwd or not has_ssh_pk:
         return jsonify({'success': False, 'message': 'No JSON payload or payload is invalid'}), 400
     try:
         cluster = Cluster(ip_address=request.json['ip_address'],
+                          namespace=request.json['namespace'],
+                          instance_id=request.json['instance_id'],
                           hostname=request.json['hostname'],
                           ssh_user=request.json['ssh_user'],
                           ssh_password=request.json['ssh_password'],
@@ -304,10 +311,10 @@ def get_real_ip(request):
         return request.headers['X-Real-Ip']
     return request.remote_addr
 
-def service_urls():
+def service_urls(namespace):
     """Return the service URLs
     """
-    urls = Config.query.get(Config.SERVICE_URLS)
+    urls = Config.query.get(Config.NAMESPACE_URLS_PREFIX + namespace)
     if urls:
         return [s.split('=') for s in urls.value.split(',')]
-    return None
+    return []
