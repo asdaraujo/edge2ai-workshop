@@ -1,2 +1,2 @@
-20200915164610
-Previous commit: 27a48ed Add reference to the cluster namespace and instance id on web server
+20200917133102
+Previous commit: e1bd8c7 Restart Knox after shadow setting for it to take effect

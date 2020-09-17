@@ -168,10 +168,18 @@ try:
         models = [m for m in r.json() if m['id'] == str(model_id)]
         if models:
             build_status = models[0]['latestModelBuild']['status']
+            build_id = models[0]['latestModelBuild']['id']
             deployment_status = models[0]['latestModelDeployment']['status']
             print('Model %s: build status: %s, deployment status: %s' % (model_id, build_status, deployment_status))
             if build_status == 'built' and deployment_status == 'deployed':
                 break
+            elif build_status == 'built' and deployment_status == 'stopped':
+                # If the deployment stops for any reason, try to give it a little push
+                r = s.post(CDSW_ALTUS_API + '/models/deploy-model', json={
+                        'modelBuildId': build_id,
+                        'cpuMillicores': 1000,
+                        'memoryMb': 4096,
+                })
             elif build_status == 'failed' or deployment_status == 'failed':
                 raise RuntimeError('Model deployment failed')
         time.sleep(10)
