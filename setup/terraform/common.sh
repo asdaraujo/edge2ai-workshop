@@ -802,6 +802,7 @@ EOF
     fi
     export TF_VAR_registration_code
   fi
+  mkdir -p "$(dirname $REGISTRATION_CODE_FILE)"
   echo -n "$TF_VAR_registration_code" > $REGISTRATION_CODE_FILE
 }
 

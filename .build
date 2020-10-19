@@ -1,2 +1,2 @@
-20200917133102
-Previous commit: e1bd8c7 Restart Knox after shadow setting for it to take effect
+20201019153839
+Previous commit: 54eb7c0 Ensure model is restarted if it stops unexpectedly during deployment
