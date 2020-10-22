@@ -42,6 +42,24 @@
               "name": "oozie_https_truststore_password",
               "value": "supersecret1"
             },
+{% if CM_VERSION is ge('7.1.4') %}
+            {
+              "name": "oozie_zookeeper_https_keystore_file",
+              "value": "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name": "oozie_zookeeper_https_keystore_password",
+              "value": "supersecret1"
+            },
+            {
+              "name": "oozie_zookeeper_https_truststore_file",
+              "value": "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name": "oozie_zookeeper_https_truststore_password",
+              "value": "supersecret1"
+            },
+{% endif %}
 {% endif %}
             {
               "name": "oozie_database_user",
