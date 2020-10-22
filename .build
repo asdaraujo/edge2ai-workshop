@@ -1,2 +1,2 @@
-20201019153839
-Previous commit: 54eb7c0 Ensure model is restarted if it stops unexpectedly during deployment
+20201021221927
+Previous commit: e9e6f76 Ensure directory exists when creating registration code file

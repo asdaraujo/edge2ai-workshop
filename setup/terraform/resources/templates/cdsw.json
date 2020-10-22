@@ -52,6 +52,12 @@
           "name": "cdsw.master.ip.config",
           "value": "{{PRIVATE_IP}}"
         }
+{% if CM_VERSION is ge('7.1.3') %}
+        ,{
+          "name": "cdsw.enable.mlmodelmetrics.config",
+          "value": "true"
+        }
+{% endif %}
       ],
       "roleConfigGroups": [
         {
