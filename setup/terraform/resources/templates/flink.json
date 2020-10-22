@@ -22,8 +22,16 @@
       "refName": "flink",
       "serviceType": "FLINK",
       "serviceConfigs": [
-{% if ENABLE_KERBEROS == 'yes' %}
         {
+          "name": "atlas_collection_enable",
+          "value": "true"
+        },
+        {
+          "name": "enable_hive_catalog",
+          "value": "true"
+        }
+{% if ENABLE_KERBEROS == 'yes' %}
+        ,{
           "name": "kerberos.auth.enabled",
           "value": "true"
         }
