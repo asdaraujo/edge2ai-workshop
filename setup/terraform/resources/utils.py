@@ -33,7 +33,7 @@ _NIFIREG_API_URL = 'http://edge2ai-1.dim.local:18080/nifi-registry-api'
 _SCHREG_API_URL = 'http://edge2ai-1.dim.local:7788/api/v1'
 _SMM_API_URL = 'http://edge2ai-1.dim.local:8585'
 
-_SCHEMA_URI = 'https://raw.githubusercontent.com/asdaraujo/edge2ai-workshop/master/sensor.avsc'
+_SCHEMA_URI = 'https://raw.githubusercontent.com/cloudera-labs/edge2ai-workshop/master/sensor.avsc'
 
 _CDSW_MODEL_NAME = 'IoT Prediction Model'
 _CDSW_USERNAME = 'admin'

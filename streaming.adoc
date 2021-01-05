@@ -156,11 +156,11 @@ image::images/queued_events.png[width=300]
 [[lab_3, Lab 3]]
 == Lab 3 - Registering our schema in Schema Registry
 
-The data produced by the temperature sensors is described by the schema in file `link:https://raw.githubusercontent.com/asdaraujo/edge2ai-workshop/master/sensor.avsc[sensor.avsc]`. In this lab we will register this schema in Schema Registry so that our flows in NiFi can refer to schema using an unified service. This will also allow us to evolve the schema in the future, if needed, keeping older versions under version control, so that existing flows and flowfiles will continue to work.
+The data produced by the temperature sensors is described by the schema in file `link:https://raw.githubusercontent.com/cloudera-labs/edge2ai-workshop/master/sensor.avsc[sensor.avsc]`. In this lab we will register this schema in Schema Registry so that our flows in NiFi can refer to schema using an unified service. This will also allow us to evolve the schema in the future, if needed, keeping older versions under version control, so that existing flows and flowfiles will continue to work.
 
 . Go to the following URL, which contains the schema definition we'll use for this lab. Select all contents of the page and copy it.
 +
-`link:https://raw.githubusercontent.com/asdaraujo/edge2ai-workshop/master/sensor.avsc[https://raw.githubusercontent.com/asdaraujo/edge2ai-workshop/master/sensor.avsc, window="_blank"]`
+`link:https://raw.githubusercontent.com/cloudera-labs/edge2ai-workshop/master/sensor.avsc[https://raw.githubusercontent.com/cloudera-labs/edge2ai-workshop/master/sensor.avsc, window="_blank"]`
 
 . In the Schema Registry Web UI, click the `+` sign to register a new schema.
 

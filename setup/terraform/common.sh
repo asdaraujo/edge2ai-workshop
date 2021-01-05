@@ -3,7 +3,7 @@
 export PS4='+ [${BASH_SOURCE#'"$BASE_DIR"/'}:${LINENO}]: ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
 
 DEFAULT_DOCKER_IMAGE=asdaraujo/edge2ai-workshop:latest
-GITHUB_REPO=asdaraujo/edge2ai-workshop
+GITHUB_REPO=cloudera-labs/edge2ai-workshop
 GITHUB_BRANCH=master
 
 BUILD_FILE=.build

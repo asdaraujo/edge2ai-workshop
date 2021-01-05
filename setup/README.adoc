@@ -184,7 +184,7 @@ docker pull asdaraujo/edge2ai-workshop:latest
 sudo yum install -y git
 
 # Clone the repo
-git clone https://github.com/asdaraujo/edge2ai-workshop.git
+git clone https://github.com/cloudera-labs/edge2ai-workshop.git
 ----
 
 . Review software versions and edit them as needed. All the versions and locations of the software used for the setup are defined in the `edge2ai-workshop/setup/scripts/stack.sh` file. If this file does not exist, create it with one of the commands below:

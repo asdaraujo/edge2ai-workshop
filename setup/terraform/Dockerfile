@@ -1,6 +1,6 @@
 FROM golang:alpine
 
-LABEL maintainer="Dan Chaffelson <chaffelson@gmail.com>"
+LABEL maintainer="Andre Araujo <araujo@cloudera.com>"
 LABEL site="https://github.com/asdaraujo/edge2ai-workshop/tree/master/setup"
 
 ENV PYTHONUNBUFFERED=0

@@ -78,7 +78,7 @@ try:
         r = s.post(CDSW_API + '/users/admin/projects', json={'template': 'git',
                                                              'project_visibility': 'private',
                                                              'name': project_name,
-                                                             'gitUrl': 'https://github.com/asdaraujo/edge2ai-workshop'})
+                                                             'gitUrl': 'https://github.com/cloudera-labs/edge2ai-workshop'})
         project_id = r.json()['id']
     print('Project ID: %s'% (project_id,))
     

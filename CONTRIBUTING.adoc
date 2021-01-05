@@ -69,7 +69,7 @@ If you want to supply your own schema for testing, save it locally and export th
 
 [source,shell]
 ----
-wget https://raw.githubusercontent.com/asdaraujo/edge2ai-workshop/master/sensor.avsc
+wget https://raw.githubusercontent.com/cloudera-labs/edge2ai-workshop/trunk/sensor.avsc
 export SCHEMA_FILE=$PWD/sensor.avsc
 ----
 

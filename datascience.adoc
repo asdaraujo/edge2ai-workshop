@@ -31,7 +31,7 @@ image::images/engines.png[width=800]
 
 === STEP 2: Create the project
 
-    . Return to the main page and click on *New Project*, using this GitHub project as the source: `https://github.com/asdaraujo/edge2ai-workshop`
+    . Return to the main page and click on *New Project*, using this GitHub project as the source: `https://github.com/cloudera-labs/edge2ai-workshop`
 +
 image::images/create_project.png[width=800]
 

@@ -179,11 +179,11 @@ image::images/queued_events.png[width=300]
 [[lab_4, Lab 4]]
 == Lab 4 - Registering our schema in Schema Registry
 
-The data produced by the temperature sensors is described by the schema in file `link:https://raw.githubusercontent.com/asdaraujo/edge2ai-workshop/master/sensor.avsc[sensor.avsc]`. In this lab we will register this schema in Schema Registry so that our flows in NiFi can refer to schema using an unified service. This will also allow us to evolve the schema in the future, if needed, keeping older versions under version control, so that existing flows and flowfiles will continue to work.
+The data produced by the temperature sensors is described by the schema in file `link:https://raw.githubusercontent.com/cloudera-labs/edge2ai-workshop/master/sensor.avsc[sensor.avsc]`. In this lab we will register this schema in Schema Registry so that our flows in NiFi can refer to schema using an unified service. This will also allow us to evolve the schema in the future, if needed, keeping older versions under version control, so that existing flows and flowfiles will continue to work.
 
 . Go the following URL, which contains the schema definition we'll use for this lab. Select all contents of the page and copy it.
 +
-`link:https://raw.githubusercontent.com/asdaraujo/edge2ai-workshop/master/sensor.avsc[https://raw.githubusercontent.com/asdaraujo/edge2ai-workshop/master/sensor.avsc, window="_blank"]`
+`link:https://raw.githubusercontent.com/cloudera-labs/edge2ai-workshop/master/sensor.avsc[https://raw.githubusercontent.com/cloudera-labs/edge2ai-workshop/master/sensor.avsc, window="_blank"]`
 
 . In the Schema Registry Web UI, click the `+` sign to register a new schema.
 
@@ -912,7 +912,7 @@ image::images/engines.png[width=800]
 
 === STEP 2: Create the project
 
-    . Return to the main page and click on *New Project*, using this GitHub project as the source: `https://github.com/asdaraujo/edge2ai-workshop`
+    . Return to the main page and click on *New Project*, using this GitHub project as the source: `https://github.com/cloudera-labs/edge2ai-workshop`
 +
 image::images/create_project.png[width=800]
 
