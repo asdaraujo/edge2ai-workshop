@@ -39,50 +39,6 @@ resource "aws_instance" "cluster" {
     project = var.project
     enddate = var.enddate
   }
-
-  provisioner "file" {
-    source      = "resources"
-    destination = "/tmp/resources"
-
-    connection {
-      host        = coalesce(self.public_ip, self.private_ip)
-      type        = "ssh"
-      user        = var.ssh_username
-      private_key = file(var.ssh_private_key)
-    }
-  }
-
-  provisioner "file" {
-    source      = "smm"
-    destination = "/tmp/smm"
-
-    connection {
-      host        = coalesce(self.public_ip, self.private_ip)
-      type        = "ssh"
-      user        = var.ssh_username
-      private_key = file(var.ssh_private_key)
-    }
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      "set -o nounset",
-      "set -o errexit",
-      "set -o pipefail",
-      "sudo mkdir -p /opt/dataloader/",
-      "sudo cp /tmp/smm/* /opt/dataloader/",
-      "sudo chmod 755 /opt/dataloader/*.sh",
-      "chmod +x /tmp/resources/*sh",
-      "sudo bash -x /tmp/resources/setup.sh aws \"${var.ssh_username}\" \"${var.ssh_password}\" \"${var.namespace}\" 2>&1 | tee /tmp/resources/setup.log",
-    ]
-
-    connection {
-      host        = coalesce(self.public_ip, self.private_ip)
-      type        = "ssh"
-      user        = var.ssh_username
-      private_key = file(var.ssh_private_key)
-    }
-  }
 }
 
 resource "aws_network_interface" "eni_cluster" {
@@ -99,9 +55,9 @@ resource "aws_network_interface" "eni_cluster" {
 }
 
 resource "aws_eip" "eip_cluster" {
-  count             = (var.use_elastic_ip ? var.cluster_count : 0)
-  network_interface = aws_network_interface.eni_cluster[count.index].id
-  vpc               = true
+  count    = (var.use_elastic_ip ? var.cluster_count : 0)
+  instance = aws_instance.cluster[count.index].id
+  vpc      = true
 
   tags = {
     Name    = "${var.owner}-${var.name_prefix}-cluster-eip-${count.index}"
@@ -139,32 +95,6 @@ resource "aws_instance" "web" {
     project = var.project
     enddate = var.enddate
   }
-
-  provisioner "file" {
-    source      = "web"
-    destination = "/home/${var.ssh_username}/web"
-
-    connection {
-      host        = coalesce(self.public_ip, self.private_ip)
-      type        = "ssh"
-      user        = var.ssh_username
-      private_key = file(var.web_ssh_private_key)
-    }
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      "cd web/",
-      "bash -x ./start-web.sh 2>&1 | tee ./start-web.log",
-    ]
-
-    connection {
-      host        = coalesce(self.public_ip, self.private_ip)
-      type        = "ssh"
-      user        = var.ssh_username
-      private_key = file(var.web_ssh_private_key)
-    }
-  }
 }
 
 resource "aws_network_interface" "eni_web" {
@@ -180,9 +110,9 @@ resource "aws_network_interface" "eni_web" {
 }
 
 resource "aws_eip" "eip_web" {
-  count             = (var.use_elastic_ip ? 1 : 0)
-  network_interface = aws_network_interface.eni_web.id
-  vpc               = true
+  count    = (var.use_elastic_ip ? 1 : 0)
+  instance = aws_instance.web.id
+  vpc      = true
 
   tags = {
     Name    = "${var.owner}-${var.name_prefix}-web-eip"

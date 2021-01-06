@@ -134,7 +134,7 @@ function check_vars() {
   while [ $# -gt 0 ]; do
     local var_name=$1; shift
     if [ "$(eval "echo \${${var_name}:-}")" == "" ]; then
-      echo "ERROR: The required property ${var_name} is not set" > /dev/stderr 
+      echo "ERROR: The required property ${var_name} is not set" > /dev/stderr
       errors=1
     fi
   done
@@ -221,7 +221,7 @@ function validate_stack() {
   fi
 
   if [ "$errors" != "0" ]; then
-    echo "ERROR: Please fix the errors above in the configuration file $stack_file and try again." > /dev/stderr 
+    echo "ERROR: Please fix the errors above in the configuration file $stack_file and try again." > /dev/stderr
     exit 1
   fi
 }
@@ -317,25 +317,56 @@ function install_kerberos() {
   cat /proc/sys/kernel/random/entropy_avail
 
   # Update krb5.conf
-  replace_pattern="s/kerberos.example.com/$krb_server/g;s/EXAMPLE.COM/$KRB_REALM/g;s/example.com/$krb_realm_lc/g;s/^#\(.*[={}]\)/\1/;/KEYRING/ d"
-  sed -i.bak "$replace_pattern" /etc/krb5.conf
-  ls -l /etc/krb5.conf /etc/krb5.conf.bak
-  diff  /etc/krb5.conf /etc/krb5.conf.bak || true
+  cat > /etc/krb5.conf <<EOF
+[logging]
+ default = FILE:/var/log/krb5libs.log
+ kdc = FILE:/var/log/krb5kdc.log
+ admin_server = FILE:/var/log/kadmind.log
+
+[libdefaults]
+ dns_lookup_realm = false
+ ticket_lifetime = 24h
+ renew_lifetime = 7d
+ forwardable = true
+ rdns = false
+ pkinit_anchors = FILE:/etc/pki/tls/certs/ca-bundle.crt
+ default_realm = $KRB_REALM
+
+[realms]
+ $KRB_REALM = {
+  kdc = $krb_server
+  admin_server = $krb_server
+ }
+
+[domain_realm]
+ .$krb_realm_lc = $KRB_REALM
+ $krb_realm_lc = $KRB_REALM
+EOF
 
   # Update kdc.conf
-  replace_pattern="s/EXAMPLE.COM = {/$KRB_REALM = {\n  max_renewable_life = 7d 0h 0m 0s/"
-  sed -i.bak "$replace_pattern" /var/kerberos/krb5kdc/kdc.conf
-  ls -l /var/kerberos/krb5kdc/kdc.conf /var/kerberos/krb5kdc/kdc.conf.bak
-  diff  /var/kerberos/krb5kdc/kdc.conf /var/kerberos/krb5kdc/kdc.conf.bak || true
+  cat > /var/kerberos/krb5kdc/kdc.conf <<EOF
+[kdcdefaults]
+ kdc_ports = 88
+ kdc_tcp_ports = 88
+
+[realms]
+ $KRB_REALM = {
+  max_renewable_life = 7d 0h 0m 0s
+  #master_key_type = aes256-cts
+  acl_file = /var/kerberos/krb5kdc/kadm5.acl
+  dict_file = /usr/share/dict/words
+  admin_keytab = /var/kerberos/krb5kdc/kadm5.keytab
+  supported_enctypes = aes256-cts:normal aes128-cts:normal des3-hmac-sha1:normal arcfour-hmac:normal camellia256-cts:normal camellia128-cts:normal des-hmac-sha1:normal des-cbc-md5:normal des-cbc-crc:normal
+ }
+EOF
 
   # Create database
   /usr/sbin/kdb5_util create -s -P supersecret1
 
   # Update kadm5.acl
-  replace_pattern="s/kerberos.example.com/$krb_server/g;s/EXAMPLE.COM/$KRB_REALM/g;s/example.com/$krb_realm_lc/g;"
-  sed -i.bak "$replace_pattern" /var/kerberos/krb5kdc/kadm5.acl
-  ls -l /var/kerberos/krb5kdc/kadm5.acl /var/kerberos/krb5kdc/kadm5.acl.bak
-  diff /var/kerberos/krb5kdc/kadm5.acl /var/kerberos/krb5kdc/kadm5.acl.bak || true
+  cat > /var/kerberos/krb5kdc/kadm5.acl <<EOF
+*/admin@$KRB_REALM    *
+EOF
 
   # Create CM principal
   add_user scm/admin
@@ -731,4 +762,38 @@ function get_service_urls() {
     ) | sort
   ) | tr "\n" "," | sed 's/,$//'
   rm -f $tmp_template_file
+}
+
+function clean_all() {
+  systemctl stop cloudera-scm-server cloudera-scm-agent cloudera-scm-supervisord kadmin krb5kdc chronyd mosquitto postgresql-10 httpd shellinaboxd
+  service minifi stop
+  service efm stop
+  pids=$(ps -ef | grep cloudera | grep -v grep | awk '{print $2}')
+  if [[ $pids != "" ]]; then
+    kill -9 $pids
+  fi
+
+  while true; do /opt/cloudera/parcels/CDSW/scripts/stop-cdsw-app-standalone.sh && break; done
+  while true; do /opt/cloudera/parcels/CDSW/scripts/stop-kubelet-standalone.sh && break; done
+  while true; do /opt/cloudera/parcels/CDSW/scripts/stop-dockerd-standalone.sh && break; done
+
+  mounts=$(grep docker /proc/mounts | awk '{print $2}')
+  if [[ $mounts != "" ]]; then
+    umount $mounts
+  fi
+  pids=$(grep docker /proc/*/mountinfo | awk -F/ '{print $3}' | sort -u)
+  if [[ $pids != "" ]]; then
+    kill -9 $pids
+  fi
+  [[ -h /dev/mapper/docker-thinpool ]] && while true; do dmsetup remove docker-thinpool && break; sleep 1; done
+  [[ -h /dev/mapper/docker-thinpool_tdata ]] && while true; do dmsetup remove docker-thinpool_tdata && break; sleep 1; done
+  [[ -h /dev/mapper/docker-thinpool_tmeta ]] && while true; do dmsetup remove docker-thinpool_tmeta && break; sleep 1; done
+  lvdisplay docker/thinpool >/dev/null 2>&1 && while true; do lvremove docker/thinpool && break; sleep 1; done
+  vgdisplay docker >/dev/null 2>&1 && while true; do vgremove docker && break; sleep 1; done
+  pvdisplay /dev/nvme1n1 >/dev/null 2>&1 && while true; do pvremove /dev/nvme1n1 && break; sleep 1; done
+  dd if=/dev/zero of=/dev/nvme1n1 bs=1M count=100
+
+  cp -f /etc/cloudera-scm-agent/config.ini.original /etc/cloudera-scm-agent/config.ini
+
+  rm -rf /var/lib/pgsql/10/data/* /var/lib/pgsql/10/initdb.log /var/kerberos/krb5kdc/* /var/lib/{accumulo,cdsw,cloudera-host-monitor,cloudera-scm-agent,cloudera-scm-eventserver,cloudera-scm-server,cloudera-service-monitor,cruise_control,druid,flink,hadoop-hdfs,hadoop-httpfs,hadoop-kms,hadoop-mapreduce,hadoop-yarn,hbase,hive,impala,kafka,knox,kudu,livy,nifi,nifiregistry,nifitoolkit,oozie,phoenix,ranger,rangerraz,schemaregistry,shellinabox,solr,solr-infra,spark,sqoop,streams_messaging_manager,streams_replication_manager,superset,yarn-ce,zeppelin,zookeeper}/* /var/log/{atlas,catalogd,cdsw,cloudera-scm-agent,cloudera-scm-alertpublisher,cloudera-scm-eventserver,cloudera-scm-firehose,cloudera-scm-server,cruisecontrol,flink,hadoop-hdfs,hadoop-httpfs,hadoop-mapreduce,hadoop-yarn,hbase,hive,httpd,hue,hue-httpd,impalad,impala-minidumps,kafka,kudu,livy,nifi,nifiregistry,nifi-registry,oozie,schemaregistry,solr-infra,spark,statestore,streams-messaging-manager,yarn,zeppelin,zookeeper}/* /kudu/*/* /dfs/*/* /var/local/kafka/data/* /var/{lib,run}/docker/* /var/run/cloudera-scm-agent/process/*
 }

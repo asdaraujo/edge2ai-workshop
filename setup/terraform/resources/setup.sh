@@ -44,9 +44,9 @@ if [ "$PUBLIC_DNS" == "" ]; then
   exit 1
 fi
 export PRIVATE_DNS=$(curl http://169.254.169.254/latest/meta-data/local-hostname)
+export PRIVATE_IP=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)
 export CLUSTER_HOST=$PUBLIC_DNS
 export CDSW_DOMAIN=cdsw.${PUBLIC_IP}.nip.io
-export PRIVATE_IP=$(hostname -I | tr -d '[:space:]')
 
 function enable_py3() {
   if [[ $(which python) != /opt/rh/rh-python36/root/usr/bin/python ]]; then
@@ -314,6 +314,9 @@ EOF
   echo "-- Finished image preinstall"
 else
   echo "-- Cloudera Manager repo already present, assuming this is a prewarmed image"
+  set +e
+  clean_all
+  set -e
 fi
 ####### Finish packer build
 
@@ -364,7 +367,7 @@ fi
 
 if [ "$(grep 3333 /etc/httpd/conf/httpd.conf > /dev/null && echo ok || echo no)" == "ok" ]; then
   echo "-- Enable httpd to serve local repository"
-  systemctl start httpd
+  systemctl restart httpd
 fi
 
 echo "-- Enable password authentication"
@@ -376,6 +379,7 @@ echo "$SSH_PWD" | sudo passwd --stdin "$SSH_USER"
 echo "-- Handle cases for cloud provider customisations"
 case "${CLOUD_PROVIDER}" in
       aws)
+          sed -i.bak '/server 169.254.169.123/ d' /etc/chrony.conf
           echo "server 169.254.169.123 prefer iburst minpoll 4 maxpoll 4" >> /etc/chrony.conf
           systemctl restart chronyd
           ;;
@@ -393,6 +397,7 @@ case "${CLOUD_PROVIDER}" in
 esac
 
 echo "-- Set /etc/hosts - Public DNS must come first"
+sed -i.bak '/edge2ai-1.dim.local/ d' /etc/hosts
 echo "$PRIVATE_IP $PUBLIC_DNS $PRIVATE_DNS edge2ai-1.dim.local" >> /etc/hosts
 
 echo "-- Configure networking"
@@ -447,13 +452,14 @@ EOF
 cat key.pem cert.pem > /var/lib/shellinabox/certificate.pem
 chown shellinabox:shellinabox /var/lib/shellinabox/certificate.pem
 chmod 400 /var/lib/shellinabox/certificate.pem
+rm -f /var/lib/shellinabox/certificate-{localhost,edge2ai-1.dim.local,${CLUSTER_HOST}}.pem
 ln -s /var/lib/shellinabox/certificate.pem /var/lib/shellinabox/certificate-localhost.pem
 ln -s /var/lib/shellinabox/certificate.pem /var/lib/shellinabox/certificate-edge2ai-1.dim.local.pem
 ln -s /var/lib/shellinabox/certificate.pem /var/lib/shellinabox/certificate-${CLUSTER_HOST}.pem
 
 # Enable and start ShelInABox
 systemctl enable shellinaboxd
-systemctl start shellinaboxd
+systemctl restart shellinaboxd
 # Patch ShellInABox's JS to allow for multi-line pastes
 sleep 1
 curl -k "https://localhost:4200/ShellInABox.js" > /var/lib/shellinabox/ShellInABox.js
@@ -554,6 +560,7 @@ systemctl enable cloudera-scm-agent
 systemctl start cloudera-scm-server
 
 echo "-- Enable passwordless root login via rsa key"
+rm -f $KEY_FILE
 ssh-keygen -f $KEY_FILE -t rsa -N ""
 mkdir -p ~/.ssh
 chmod 700 ~/.ssh
@@ -613,6 +620,9 @@ else
   # Restart CM
   systemctl restart cloudera-scm-server
   # Reconfigure agent
+  if [[ ! -f /etc/cloudera-scm-agent/config.ini.original ]]; then
+    cp /etc/cloudera-scm-agent/config.ini /etc/cloudera-scm-agent/config.ini.original
+  fi
   sed -i.bak \
 "s%^[# ]*server_host=.*%server_host=${CLUSTER_HOST}%;"\
 's%^[# ]*use_tls=.*%use_tls=1%;'\
@@ -823,7 +833,7 @@ if [[ ",${CM_SERVICES}," == *",FLINK,"* ]]; then
 fi
 
 echo "-- Cleaning up"
-rm -f $BASE_DIR/stack.*.sh*
+rm -f $BASE_DIR/stack.*.sh* $BASE_DIR/stack.sh*
 
 source /etc/workshop.conf
 echo "-- At this point you can login into Cloudera Manager host on port 7180 and follow the deployment of the cluster"
