@@ -15,6 +15,7 @@
     {
       "refName": "hue",
       "serviceType": "HUE",
+      "displayName": "Hue",
       "serviceConfigs": [
         {
           "name": "database_password",

@@ -12,6 +12,7 @@
     {
       "refName": "zeppelin",
       "serviceType": "ZEPPELIN",
+      "displayName": "Zeppelin",
       "roleConfigGroups": [
         {
           "refName": "zeppelin-ZEPPELIN_SERVER-BASE",

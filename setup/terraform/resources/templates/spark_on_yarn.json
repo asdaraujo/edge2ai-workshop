@@ -12,6 +12,7 @@
     {
       "refName": "spark_on_yarn",
       "serviceType": "SPARK_ON_YARN",
+      "displayName": "Spark",
       "roleConfigGroups": [
         {
           "refName": "spark_on_yarn-SPARK_YARN_HISTORY_SERVER-BASE",

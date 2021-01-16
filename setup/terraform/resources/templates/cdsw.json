@@ -27,6 +27,7 @@
     {
       "refName": "cdsw",
       "serviceType": "CDSW",
+      "displayName": "Cloudera Data Science Workbench",
       "serviceConfigs": [
         {
           "name": "yarn_service",

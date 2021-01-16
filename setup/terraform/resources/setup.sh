@@ -96,6 +96,11 @@ if [[ ! -f $CM_REPO_FILE ]]; then
   yum_install ${JAVA_PACKAGE_NAME} vim wget curl git bind-utils centos-release-scl figlet cowsay
   yum_install npm gcc-c++ make shellinabox mosquitto jq transmission-cli rng-tools rh-python36 httpd
 
+  echo "-- Installing redis (for SSB)"
+  yum_install redis
+  sudo systemctl start redis
+  sudo systemctl enable redis
+
   echo "-- Install CM repo"
   if [ "${CM_REPO_AS_TARBALL_URL:-}" == "" ]; then
     retry_if_needed 5 5 "wget --progress=dot:giga $wget_basic_auth '${CM_REPO_FILE_URL}' -O '$CM_REPO_FILE'"
@@ -131,7 +136,9 @@ EOF
   fi
 
   echo "-- Install Postgresql repo"
-  rpm -Uvh https://yum.postgresql.org/10/redhat/rhel-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+  if [[ $(rpm -qa | grep pgdg-redhat-repo- | wc -l) -eq 0 ]]; then
+    rpm -Uvh https://yum.postgresql.org/10/redhat/rhel-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+  fi
 
   echo "-- Clean repos"
   yum clean all
@@ -159,7 +166,7 @@ EOF
   fi
 
   echo "-- Install and disable PostgreSQL"
-  yum_install postgresql10-server postgresql10 postgresql-jdbc
+  yum_install postgresql10-server postgresql10 postgresql10-contrib postgresql-jdbc
   systemctl disable postgresql-10
 
   echo "-- Handle additional installs"
@@ -167,6 +174,7 @@ EOF
   enable_py3
   pip install --quiet --upgrade pip
   pip install --progress-bar off cm_client paho-mqtt pytest nipyapi psycopg2-binary pyyaml jinja2 impyla
+  rm -f /usr/bin/python3 /usr/bin/pip3
   ln -s /opt/rh/rh-python36/root/bin/python3 /usr/bin/python3
   ln -s /opt/rh/rh-python36/root/bin/pip3 /usr/bin/pip3
 
@@ -202,6 +210,7 @@ EOF
   EFM_TARBALL=$(find /opt/cloudera/cem/ -name "efm-*-bin.tar.gz")
   EFM_BASE_NAME=$(basename $EFM_TARBALL | sed 's/-bin.tar.gz//')
   tar -zxf ${EFM_TARBALL} -C /opt/cloudera/cem
+  rm -f /opt/cloudera/cem/efm /etc/init.d/efm
   ln -s /opt/cloudera/cem/${EFM_BASE_NAME} /opt/cloudera/cem/efm
   ln -s /opt/cloudera/cem/efm/bin/efm.sh /etc/init.d/efm
   sed -i '1s/.*/&\n# chkconfig: 2345 20 80\n# description: EFM is a Command \& Control service for managing MiNiFi deployments/' /opt/cloudera/cem/efm/bin/efm.sh
@@ -228,6 +237,7 @@ EOF
   MINIFITK_BASE_NAME=$(basename $MINIFITK_TARBALL | sed 's/-bin.tar.gz//')
   tar -zxf ${MINIFI_TARBALL} -C /opt/cloudera/cem
   tar -zxf ${MINIFITK_TARBALL} -C /opt/cloudera/cem
+  rm -f /opt/cloudera/cem/minifi
   ln -s /opt/cloudera/cem/${MINIFI_BASE_NAME} /opt/cloudera/cem/minifi
   chown -R root:root /opt/cloudera/cem/${MINIFI_BASE_NAME}
   chown -R root:root /opt/cloudera/cem/${MINIFITK_BASE_NAME}
@@ -283,7 +293,8 @@ EOF
     for parcel_file in /opt/cloudera/parcel-repo/*.parcel; do
       parcel_name="$(basename "$parcel_file")"
       product_name="${parcel_name%%-*}"
-      sudo ln -s "${parcel_name%-*.parcel}" "${product_name}"
+      rm -f "${product_name}"
+      ln -s "${parcel_name%-*.parcel}" "${product_name}"
       touch "/opt/cloudera/parcels/${product_name}/.dont_delete"
     done
   fi
@@ -527,6 +538,7 @@ systemctl start postgresql-10
 
 echo "-- Create DBs required by CM"
 sudo -u postgres psql < ${BASE_DIR}/create_db_pg.sql
+sudo -u postgres psql -A -t -f ${BASE_DIR}/ssb/sql/schema.sql
 
 echo "-- Prepare CM database 'scm'"
 if [[ $CM_MAJOR_VERSION != 5 ]]; then
@@ -642,7 +654,13 @@ else
       --tls-ca-cert /opt/cloudera/security/x509/truststore.pem
 fi
 
-# Set shadow permissions - needed by Knox when using PAM authentication
+if [[ ${HAS_FLINK:-0} == 1 ]]; then
+  echo "-- Finish SSB setup"
+  # TODO: This is a workaround. It should be removed once release is finished.
+  bash ${BASE_DIR}/ssb/setup-ssb.sh
+fi
+
+echo "Set shadow permissions - needed by Knox when using PAM authentication"
 chgrp shadow /etc/shadow
 chmod g+r /etc/shadow
 id knox > /dev/null 2>&1 && usermod -G knox,hadoop,shadow knox || echo "User knox does not exist. Skipping usermod"

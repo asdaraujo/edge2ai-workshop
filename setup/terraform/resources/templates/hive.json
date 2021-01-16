@@ -19,6 +19,7 @@
     {
       "refName": "hive",
       "serviceType": "HIVE",
+      "displayName": "Hive",
       "serviceConfigs": [
 {% if ENABLE_TLS == 'yes' %}
         {
@@ -107,6 +108,7 @@
     ,{
       "refName": "tez",
       "serviceType": "TEZ",
+      "displayName": "Tez",
       "roleConfigGroups": [
         {
           "refName": "tez-GATEWAY-BASE",
@@ -118,6 +120,7 @@
     {
       "refName": "hive_on_tez",
       "serviceType": "HIVE_ON_TEZ",
+      "displayName": "Hive on Tez",
       "roleConfigGroups": [
         {
           "refName": "hive_on_tez-GATEWAY-BASE",

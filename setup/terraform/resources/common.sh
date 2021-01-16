@@ -773,9 +773,11 @@ function clean_all() {
     kill -9 $pids
   fi
 
-  while true; do /opt/cloudera/parcels/CDSW/scripts/stop-cdsw-app-standalone.sh && break; done
-  while true; do /opt/cloudera/parcels/CDSW/scripts/stop-kubelet-standalone.sh && break; done
-  while true; do /opt/cloudera/parcels/CDSW/scripts/stop-dockerd-standalone.sh && break; done
+  if [[ -d /opt/cloudera/parcels/CDSW/scripts ]]; then
+    while true; do /opt/cloudera/parcels/CDSW/scripts/stop-cdsw-app-standalone.sh && break; done
+    while true; do /opt/cloudera/parcels/CDSW/scripts/stop-kubelet-standalone.sh && break; done
+    while true; do /opt/cloudera/parcels/CDSW/scripts/stop-dockerd-standalone.sh && break; done
+  fi
 
   mounts=$(grep docker /proc/mounts | awk '{print $2}')
   if [[ $mounts != "" ]]; then

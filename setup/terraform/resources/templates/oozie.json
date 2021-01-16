@@ -11,6 +11,7 @@
     {
       "refName": "oozie",
       "serviceType": "OOZIE",
+      "displayName": "Oozie",
       "serviceConfigs": [
 {% if ENABLE_TLS == 'yes' %}
         {

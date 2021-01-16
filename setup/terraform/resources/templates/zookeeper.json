@@ -11,6 +11,7 @@
     {
       "serviceType": "ZOOKEEPER",
       "refName": "zookeeper",
+      "displayName": "ZooKeeper",
       "serviceConfigs": [
 {% if ENABLE_TLS == 'yes' and CDH_VERSION is ge('7.1') %}
             {

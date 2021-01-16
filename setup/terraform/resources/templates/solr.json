@@ -11,6 +11,7 @@
     {
       "refName": "solr",
       "serviceType": "SOLR",
+      "displayName": "Solr",
       "serviceConfigs": [
 {% if ENABLE_TLS == 'yes' %}
         {

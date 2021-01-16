@@ -14,6 +14,7 @@
     {
       "refName": "knox",
       "serviceType": "KNOX",
+      "displayName": "Knox",
       "serviceConfigs": [
 {% if ENABLE_KERBEROS == 'yes' %}
         {

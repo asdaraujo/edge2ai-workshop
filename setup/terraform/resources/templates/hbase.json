@@ -13,6 +13,7 @@
     {
       "refName": "hbase",
       "serviceType": "HBASE",
+      "displayName": "HBase",
       "serviceConfigs": [
 {% if ENABLE_KERBEROS == 'yes' %}
 {% if CDH_VERSION is ge('7.1') %}

@@ -17,6 +17,7 @@
     {
       "refName": "yarn",
       "serviceType": "YARN",
+      "displayName": "YARN",
       "serviceConfigs": [
 {% if ENABLE_TLS == 'yes' %}
         {
@@ -80,6 +81,7 @@
     {
       "refName": "queuemanager",
       "serviceType": "QUEUEMANAGER",
+      "displayName": "YARN Queue Manager",
       "serviceConfigs": [
 {% if ENABLE_KERBEROS == 'yes' %}
         {

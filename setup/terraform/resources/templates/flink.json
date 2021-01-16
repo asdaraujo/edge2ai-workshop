@@ -5,6 +5,11 @@
       "roleConfigGroupsRefNames": [
          "flink-FLINK_HISTORY_SERVER-BASE"
         ,"flink-GATEWAY-BASE"
+{% if CM_VERSION is ge('7.3.1') and CDH_VERSION is ge('7.1.6') %}
+        ,"sql_stream_builder-STREAMING_SQL_CONSOLE-BASE"
+        ,"sql_stream_builder-STREAMING_SQL_ENGINE-BASE"
+{#        ,"sql_stream_builder-MATERIALIZED_VIEW_ENGINE-BASE" #}
+{% endif %}
       ]
     }
   ],
@@ -21,11 +26,14 @@
     {
       "refName": "flink",
       "serviceType": "FLINK",
+      "displayName": "Flink",
       "serviceConfigs": [
+{% if CDH_VERSION is lt('7.1.6') %}
         {
           "name": "atlas_collection_enable",
           "value": "true"
         },
+{% endif %}
         {
           "name": "enable_hive_catalog",
           "value": "true"
@@ -96,5 +104,71 @@
         }
       ]
     }
+{% if CM_VERSION is ge('7.3.1') and CDH_VERSION is ge('7.1.6') %}
+    ,{
+      "refName": "sql_stream_builder",
+      "serviceType": "SQL_STREAM_BUILDER",
+      "displayName": "SQL Stream Builder",
+      "serviceConfigs": [],
+      "roleConfigGroups": [
+        {
+          "refName": "sql_stream_builder-STREAMING_SQL_ENGINE-BASE",
+          "roleType": "STREAMING_SQL_ENGINE",
+          "base": true,
+          "configs": []
+        },
+        {
+          "refName": "sql_stream_builder-MATERIALIZED_VIEW_ENGINE-BASE",
+          "roleType": "MATERIALIZED_VIEW_ENGINE",
+          "base": true,
+          "configs": [
+            {
+              "name": "ssb.mve.admin.datasource.username",
+              "value": "eventador_admin"
+            },
+            {
+              "name": "ssb.mve.datasource.url",
+              "value": "jdbc:postgresql://{{CLUSTER_HOST}}:5432/eventador_snapper"
+            },
+            {
+              "name": "ssb.mve.datasource.username",
+              "value": "eventador_snapper"
+            },
+            {
+              "name": "ssb.mve.admin.datasource.url",
+              "value": "jdbc:postgresql://{{CLUSTER_HOST}}:5432/eventador_snapper"
+            },
+            {
+              "name": "ssb.mve.datasource.password",
+              "value": "supersecret1"
+            },
+            {
+              "name": "ssb.mve.admin.datasource.password",
+              "value": "supersecret1"
+            }
+          ]
+        },
+        {
+          "refName": "sql_stream_builder-STREAMING_SQL_CONSOLE-BASE",
+          "roleType": "STREAMING_SQL_CONSOLE",
+          "base": true,
+          "configs": [
+            {
+              "name": "eventador_admin_database.password",
+              "value": "supersecret1"
+            },
+            {
+              "name": "database_password",
+              "value": "supersecret1"
+            },
+            {
+              "name" : "ssb-conf/ssb-console-conf.yaml_role_safety_valve",
+              "value" : "cloudera_env.yarn_rm_rest_url: http://{{CLUSTER_HOST}}:8088\nsqlio.sqlio_url: http://{{CLUSTER_HOST}}:18081"
+            }
+          ]
+        }
+      ]
+    }
+{% endif %}
   ]
 }

@@ -13,6 +13,7 @@
     {
       "refName": "livy",
       "serviceType": "LIVY",
+      "displayName": "Livy",
       "roleConfigGroups": [
         {
           "refName": "livy-GATEWAY-BASE",

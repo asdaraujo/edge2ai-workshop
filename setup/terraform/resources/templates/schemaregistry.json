@@ -22,6 +22,7 @@
     {
       "refName": "schemaregistry",
       "serviceType": "SCHEMAREGISTRY",
+      "displayName": "Schema Registry",
       "serviceConfigs": [
 {% if ENABLE_KERBEROS == 'yes' %}
         {

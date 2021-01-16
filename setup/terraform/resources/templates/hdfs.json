@@ -15,6 +15,7 @@
     {
       "refName": "hdfs",
       "serviceType": "HDFS",
+      "displayName": "HDFS",
       "serviceConfigs": [
 {% if ENABLE_TLS == 'yes' %}
         {

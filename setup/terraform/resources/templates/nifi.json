@@ -29,6 +29,7 @@
     {
       "refName": "nifitoolkitca",
       "serviceType": "NIFITOOLKITCA",
+      "displayName": "NiFi Toolkit CA",
       "serviceConfigs": [
         {
           "name": "nifi.toolkit.tls.ca.server.token",
@@ -47,6 +48,7 @@
     {
       "refName": "nifiregistry",
       "serviceType": "NIFIREGISTRY",
+      "displayName": "NiFi Registry",
       "serviceConfigs": [
 {% if ENABLE_KERBEROS == 'yes' %}
         {
@@ -102,6 +104,7 @@
     {
       "refName": "nifi",
       "serviceType": "NIFI",
+      "displayName": "NiFi",
       "serviceConfigs": [
 {% if ENABLE_KERBEROS == 'yes' %}
         {

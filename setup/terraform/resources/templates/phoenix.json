@@ -12,6 +12,7 @@
     {
       "refName": "phoenix",
       "serviceType": "PHOENIX",
+      "displayName": "Phoenix",
       "roleConfigGroups": [
         {
           "refName": "phoenix-PHOENIX_QUERY_SERVER-BASE",

@@ -18,6 +18,7 @@
     {
       "refName": "kafka",
       "serviceType": "KAFKA",
+      "displayName": "Kafka",
       "serviceConfigs": [
 {% if ENABLE_KERBEROS == 'yes' %}
         {
@@ -194,6 +195,7 @@
     ,{
       "refName": "cruise_control",
       "serviceType": "CRUISE_CONTROL",
+      "displayName": "Cruise Control",
       "serviceConfigs": [],
       "roleConfigGroups": [
         {
@@ -231,6 +233,7 @@
               "value": "supersecret1"
             }
 {% endif %}
+{% if CM_VERSION is lt('7.3.1') %}
 {% if ENABLE_TLS == 'yes' %}
 {% if ENABLE_KERBEROS == 'yes' %}
             ,{
@@ -254,6 +257,7 @@
               "name" : "security.protocol",
               "value" : "PLAINTEXT"
             }
+{% endif  %}
 {% endif  %}
 {% endif  %}
           ]

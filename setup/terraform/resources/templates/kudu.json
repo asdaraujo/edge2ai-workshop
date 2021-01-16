@@ -12,6 +12,7 @@
     {
       "refName": "kudu",
       "serviceType": "KUDU",
+      "displayName": "Kudu",
       "serviceConfigs": [
 {% if ENABLE_KERBEROS == 'yes' %}
         {

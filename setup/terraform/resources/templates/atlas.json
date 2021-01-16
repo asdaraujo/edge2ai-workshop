@@ -13,6 +13,7 @@
     {
       "refName": "atlas",
       "serviceType": "ATLAS",
+      "displayName": "Atlas",
       "serviceConfigs": [
 {% if ENABLE_KERBEROS == 'yes' %}
         {

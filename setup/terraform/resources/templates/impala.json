@@ -13,6 +13,7 @@
     {
       "refName": "impala",
       "serviceType": "IMPALA",
+      "displayName": "Impala",
       "serviceConfigs": [
 {% if ENABLE_TLS == 'yes' %}
         {
