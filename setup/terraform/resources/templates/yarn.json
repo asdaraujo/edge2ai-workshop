@@ -54,7 +54,7 @@
           "configs": [
             {
               "name": "yarn_scheduler_maximum_allocation_mb",
-              "value": "6144"
+              "value": "10240"
             }
           ]
         },
@@ -65,7 +65,7 @@
           "configs": [
             {
               "name": "yarn_nodemanager_resource_memory_mb",
-              "value": "6144"
+              "value": "10240"
             }
           ]
         },

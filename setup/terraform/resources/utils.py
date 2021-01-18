@@ -827,11 +827,11 @@ def lab6_expand_edge_flow(env):
 def lab7_rest_and_kudu(env):
     LOG.info("Running step7_rest_and_kudu")
     # Create controllers
-    json_reader_with_schema_svc = create_controller(env.sensor_pg,
-                                                    'org.apache.nifi.json.JsonTreeReader',
-                                                    {'schema-access-strategy': 'hwx-schema-ref-attributes', 'schema-registry': env.sr_svc.id},
-                                                    True,
-                                                    name='JsonTreeReader - With schema identifier')
+    env.json_reader_with_schema_svc = create_controller(env.sensor_pg,
+                                                        'org.apache.nifi.json.JsonTreeReader',
+                                                        {'schema-access-strategy': 'hwx-schema-ref-attributes', 'schema-registry': env.sr_svc.id},
+                                                        True,
+                                                        name='JsonTreeReader - With schema identifier')
     rest_lookup_svc = create_controller(env.sensor_pg,
                                         'org.apache.nifi.lookup.RestLookupService',
                                         {'rest-lookup-url': get_cdsw_altus_api() + '/models/call-model', 'rest-lookup-record-reader': env.json_reader_svc.id, 'rest-lookup-record-path': '/response'},
@@ -846,7 +846,7 @@ def lab7_rest_and_kudu(env):
                 'bootstrap.servers': 'edge2ai-1.dim.local:9092',
                 'topic': 'iot',
                 'topic_type': 'names',
-                'record-reader': json_reader_with_schema_svc.id,
+                'record-reader': env.json_reader_with_schema_svc.id,
                 'record-writer': env.json_writer_svc.id,
                 'honor-transactions': 'false',
                 'group.id': CONSUMER_GROUP_ID,
@@ -860,7 +860,7 @@ def lab7_rest_and_kudu(env):
     predict = create_processor(env.sensor_pg, 'Predict machine health', 'org.apache.nifi.processors.standard.LookupRecord', (700, 200),
         {
             'properties': {
-                'record-reader': json_reader_with_schema_svc.id,
+                'record-reader': env.json_reader_with_schema_svc.id,
                 'record-writer': env.json_writer_svc.id,
                 'lookup-service': rest_lookup_svc.id,
                 'result-record-path': '/response',
@@ -878,7 +878,7 @@ def lab7_rest_and_kudu(env):
     update_health = create_processor(env.sensor_pg, 'Update health flag', 'org.apache.nifi.processors.standard.UpdateRecord', (700, 400),
         {
             'properties': {
-                'record-reader': json_reader_with_schema_svc.id,
+                'record-reader': env.json_reader_with_schema_svc.id,
                 'record-writer': env.json_writer_svc.id,
                 'replacement-value-strategy': 'record-path-value',
                 '/is_healthy': '/response/result',
@@ -893,12 +893,28 @@ def lab7_rest_and_kudu(env):
             'properties': {
                 'Kudu Masters': 'edge2ai-1.dim.local:7051',
                 'Table Name': 'impala::default.sensors',
-                'record-reader': json_reader_with_schema_svc.id,
+                'record-reader': env.json_reader_with_schema_svc.id,
             },
         }
     )
     canvas.create_connection(write_kudu, fail_funnel, ['failure'])
     canvas.create_connection(update_health, write_kudu, ['success'])
+
+    pub_kafka_enriched = create_processor(env.sensor_pg, 'Publish to Kafka topic: iot_enriched', 'org.apache.nifi.processors.kafka.pubsub.PublishKafkaRecord_2_0', (300, 600),
+                                 {
+                                     'properties': {
+                                         'bootstrap.servers': 'edge2ai-1.dim.local:9092',
+                                         'topic': 'iot_enriched',
+                                         'record-reader': env.json_reader_with_schema_svc.id,
+                                         'record-writer': env.json_writer_svc.id,
+                                         'use-transactions': 'false',
+                                         'attribute-name-regex': 'schema.*',
+                                         'client.id': PRODUCER_CLIENT_ID,
+                                     },
+                                     'autoTerminatedRelationships': ['success', 'failure'],
+                                 }
+                                 )
+    canvas.create_connection(update_health, pub_kafka_enriched, ['success'])
 
     monitor_activity = create_processor(env.sensor_pg, 'Monitor Activity', 'org.apache.nifi.processors.standard.MonitorActivity', (700, 800),
         {

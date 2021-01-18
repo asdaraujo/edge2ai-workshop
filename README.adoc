@@ -14,6 +14,7 @@ If you already familiar with the instructions in the README, time to start worki
 
 * link:streaming.adoc[From Edge to Streams Processing]
 * link:streams_replication.adoc[Streams Replication]
+* link:sql_stream_builder.adoc[Querying streams with SQL]
 * link:spark_analytics.adoc[Spark and Fast Analytics with Kudu]
 * link:datascience.adoc[CDSW Experiments and Models]
 

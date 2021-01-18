@@ -735,6 +735,8 @@ if [[ ",${CM_SERVICES}," == *",KAFKA,"* ]]; then
   fi
   kafka-topics $CLIENT_CONFIG_OPTION --bootstrap-server ${CLUSTER_HOST}:${KAFKA_PORT} --create --topic iot --partitions 10 --replication-factor 1
   kafka-topics $CLIENT_CONFIG_OPTION --bootstrap-server ${CLUSTER_HOST}:${KAFKA_PORT} --describe --topic iot
+  kafka-topics $CLIENT_CONFIG_OPTION --bootstrap-server ${CLUSTER_HOST}:${KAFKA_PORT} --create --topic iot_enriched --partitions 10 --replication-factor 1
+  kafka-topics $CLIENT_CONFIG_OPTION --bootstrap-server ${CLUSTER_HOST}:${KAFKA_PORT} --describe --topic iot_enriched
   unauth
 fi
 

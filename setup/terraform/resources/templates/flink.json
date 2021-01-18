@@ -37,6 +37,10 @@
         {
           "name": "enable_hive_catalog",
           "value": "true"
+        },
+        {
+          "name" : "taskmanager_number_of_task_slots",
+          "value" : "5"
         }
 {% if ENABLE_KERBEROS == 'yes' %}
         ,{
