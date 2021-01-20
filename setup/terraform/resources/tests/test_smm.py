@@ -6,9 +6,22 @@
 Testing SMM
 """
 
+import pytest
+import requests
 from ..utils import CONSUMER_GROUP_ID, PRODUCER_CLIENT_ID
 from ..utils import smm_api_get, exception_context, retry_test
 
+EXPECTED_KAFKA_CONNECT_SINK_PLUGINS = set([
+        "com.cloudera.dim.kafka.connect.hdfs.HdfsSinkConnector",
+        "com.cloudera.dim.kafka.connect.s3.S3SinkConnector",
+        "org.apache.kafka.connect.file.FileStreamSinkConnector",
+    ])
+EXPECTED_KAFKA_CONNECT_SOURCE_PLUGINS = set([
+        "org.apache.kafka.connect.file.FileStreamSourceConnector",
+        "org.apache.kafka.connect.mirror.MirrorCheckpointConnector",
+        "org.apache.kafka.connect.mirror.MirrorHeartbeatConnector",
+        "org.apache.kafka.connect.mirror.MirrorSourceConnector",
+    ])
 
 @retry_test(max_retries=300, wait_time_secs=1)
 def test_smm_topic():
@@ -74,3 +87,35 @@ def test_smm_producer():
             assert metrics[partition]['partitionMetrics']['messagesInCount'] > 0
             assert metrics[partition]['partitionMetrics']['bytesInCount'] > 0
             assert metrics[partition]['partitionMetrics']['bytesOutCount'] > 0
+
+def _is_kafka_connect_configured():
+    resp = smm_api_get('/api/v1/admin/kafka-connect/is-configured')
+    assert resp.status_code == requests.codes.ok
+    return resp.text == 'true'
+
+@pytest.mark.skipif(not _is_kafka_connect_configured(), reason='Kafka Connect is not configured')
+@retry_test(max_retries=3, wait_time_secs=1)
+def test_smm_kafka_connect_workers():
+    resp = smm_api_get('/api/v1/admin/metrics/connect/workers')
+    workers = resp.json()
+    with exception_context(workers):
+        assert len(workers) == 1
+        assert 'hostName' in workers[0]
+
+@pytest.mark.skipif(not _is_kafka_connect_configured(), reason='Kafka Connect is not configured')
+@retry_test(max_retries=3, wait_time_secs=1)
+def test_smm_kafka_connect_connectors():
+    resp = smm_api_get('/api/v1/admin/kafka-connect/connectors')
+    connectors = resp.json()
+    with exception_context(connectors):
+        assert 'connectors' in connectors
+
+@pytest.mark.skipif(not _is_kafka_connect_configured(), reason='Kafka Connect is not configured')
+@retry_test(max_retries=3, wait_time_secs=1)
+def test_smm_kafka_connect_plugins():
+    resp = smm_api_get('/api/v1/admin/kafka-connect/connector-plugins')
+    plugins = resp.json()
+    with exception_context(plugins):
+        assert EXPECTED_KAFKA_CONNECT_SINK_PLUGINS.issubset([p['class'] for p in plugins if p['type'] == 'sink'])
+        assert EXPECTED_KAFKA_CONNECT_SOURCE_PLUGINS.issubset([p['class'] for p in plugins if p['type'] == 'source'])
+
