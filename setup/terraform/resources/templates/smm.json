@@ -131,14 +131,21 @@
             ,{
               "name" : "kafka.connect.protocol",
               "value" : "https"
-            },
-            {
+            }
+{% if CM_VERSION is lt('7.1.6') %}
+            ,{
               "name" : "kafka.connect.port",
               "value" : "38085"
             }
+{% else %}
+            ,{
+              "name" : "kafka.connect.port",
+              "value" : "28085"
+            }
+{% endif %}
 {% endif %}
 {% else %}
-{% if CM_VERSION is ge('7.1.1') %}
+{% if CM_VERSION is ge('7.1.1') and CM_VERSION is lt('7.1.6') %}
             ,{
               "name" : "kafka.connect.port",
               "value" : "38083"
@@ -172,7 +179,7 @@
             }
 {% endif %}
 {% if CM_VERSION is lt('7.1.1') %}
-            ,{
+              ,{
               "name" : "streams.messaging.manager.storage.connector.connectURI",
               "value" : "jdbc:postgresql://localhost:5432/streamsmsgmgr"
             },
