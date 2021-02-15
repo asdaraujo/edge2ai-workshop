@@ -137,8 +137,7 @@ EOF
 
   echo "-- Install Postgresql repo"
   if [[ $(rpm -qa | grep pgdg-redhat-repo- | wc -l) -eq 0 ]]; then
-#    rpm -Uvh https://yum.postgresql.org/10/redhat/rhel-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
-    rpm -Uvh https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+    yum_install https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
   fi
 
   echo "-- Clean repos"
@@ -154,8 +153,8 @@ EOF
   systemctl disable cloudera-scm-server
 
   echo "-- Hack KNOX CSD to include [knoxsso.cookie.domain.suffix] property"
-  KNOX_CSD=/opt/cloudera/cm/csd/KNOX-${CM_VERSION}.jar
-  if [[ -f $KNOX_CSD ]]; then
+  rm -rf /tmp/knoxcsd
+  for KNOX_CSD in $(ls -1 /opt/cloudera/cm/csd/KNOX*.jar 2>/dev/null || true); do
     mkdir -p /tmp/knoxcsd
     pushd /tmp/knoxcsd
     jar xvf $KNOX_CSD
@@ -164,7 +163,8 @@ EOF
     fi
     jar cvf $KNOX_CSD *
     popd
-  fi
+    rm -rf /tmp/knoxcsd
+  done
 
   echo "-- Install and disable PostgreSQL"
   yum_install postgresql10-server postgresql10 postgresql10-contrib postgresql-jdbc
