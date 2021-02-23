@@ -8,7 +8,7 @@
 {% if CM_VERSION is ge('7.3.1') and CDH_VERSION is ge('7.1.6') %}
         ,"sql_stream_builder-STREAMING_SQL_CONSOLE-BASE"
         ,"sql_stream_builder-STREAMING_SQL_ENGINE-BASE"
-{#        ,"sql_stream_builder-MATERIALIZED_VIEW_ENGINE-BASE" #}
+        ,"sql_stream_builder-MATERIALIZED_VIEW_ENGINE-BASE"
 {% endif %}
       ]
     }
@@ -113,7 +113,24 @@
       "refName": "sql_stream_builder",
       "serviceType": "SQL_STREAM_BUILDER",
       "displayName": "SQL Stream Builder",
-      "serviceConfigs": [],
+      "serviceConfigs": [
+        {
+          "name": "database_schema",
+          "value": "eventador_admin"
+        },
+        {
+          "name": "database_user",
+          "value": "eventador_admin"
+        },
+        {
+          "name": "database_password",
+          "value": "supersecret1"
+        },
+        {
+          "name": "database_port",
+          "value": "5432"
+        }
+      ],
       "roleConfigGroups": [
         {
           "refName": "sql_stream_builder-STREAMING_SQL_ENGINE-BASE",
@@ -159,10 +176,6 @@
           "configs": [
             {
               "name": "eventador_admin_database.password",
-              "value": "supersecret1"
-            },
-            {
-              "name": "database_password",
               "value": "supersecret1"
             },
             {
