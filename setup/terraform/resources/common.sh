@@ -725,6 +725,8 @@ function get_service_urls() {
       if [[ ${HAS_FLINK:-0} == 1 ]]; then
         local flink_port=$(service_port $tmp_template_file FLINK FLINK_HISTORY_SERVER historyserver_web_port)
         echo "Flink Dashboard=${protocol}://{host}:${flink_port}/"
+        local ssb_port=$(service_port $tmp_template_file SQL_STREAM_BUILDER STREAMING_SQL_CONSOLE console.port console.secure.port)
+        echo "SQL Stream Builder=${protocol}://{host}:${ssb_port}/"
       fi
       if [[ ${HAS_NIFI:-0} == 1 ]]; then
         local nifi_port=$(service_port $tmp_template_file NIFI NIFI_NODE nifi.web.http.port nifi.web.https.port)

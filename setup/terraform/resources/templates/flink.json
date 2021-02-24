@@ -175,6 +175,14 @@
           "base": true,
           "configs": [
             {
+              "name": "console.port",
+              "value": "8000"
+            },
+            {
+              "name": "console.secure.port",
+              "value": "8001"
+            },
+            {
               "name": "eventador_admin_database.password",
               "value": "supersecret1"
             },
