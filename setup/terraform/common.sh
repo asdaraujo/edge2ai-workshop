@@ -3,12 +3,14 @@
 export PS4='+ [${BASH_SOURCE#'"$BASE_DIR"/'}:${LINENO}]: ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
 
 DEFAULT_DOCKER_IMAGE=asdaraujo/edge2ai-workshop:latest
+GITHUB_FQDN="github.com"
 GITHUB_REPO=cloudera-labs/edge2ai-workshop
 GITHUB_BRANCH=master
 
 BUILD_FILE=.build
 STACK_BUILD_FILE=.stack.build
 LAST_STACK_CHECK_FILE=$BASE_DIR/.last.stack.build.check
+PUBLIC_IPS_FILE=$BASE_DIR/.hosts
 
 # Color codes
 C_NORMAL="$(echo -e "\033[0m")"
@@ -40,7 +42,9 @@ function check_version() {
     if [[ $(which git 2>/dev/null) ]]; then
       #
       mkdir -p ~/.ssh
-      ssh-keyscan "github.com" >> ~/.ssh/known_hosts 2>/dev/null
+      set -o pipefail
+      ssh-keyscan "$GITHUB_FQDN" 2>&1 | (egrep -v "${GITHUB_FQDN}:22|${GITHUB_FQDN} *ssh-rsa" || true) || (echo "ERROR: Docker is unable to resolve the IP for ${GITHUB_FQDN}"; false)
+      set +o pipefail
       # git is installed
       remote=$(git status | grep "Your branch" | egrep -o "[^']*/${GITHUB_BRANCH}\>" | sed 's#/.*##')
       if [[ $remote != "" ]]; then
@@ -96,7 +100,7 @@ function check_version() {
         echo "There is an update available for the edge2ai-workshop."
         echo "Please check the GitHub repository below and get the latest version from there:"
         echo ""
-        echo "   https://github.com/$GITHUB_REPO/"
+        echo "   https://${GITHUB_FQDN}/${GITHUB_REPO}/"
         echo ""
         echo -n "Do you want to perform the update now? (Y|n) $C_NORMAL"
         read confirm
@@ -139,43 +143,42 @@ function check_stack_version() {
   fi
 }
 
-function _find_docker_image() {
-  local img_candidates=($DEFAULT_DOCKER_IMAGE edge2ai-workshop:latest)
-  if [ "${EDGE2AI_DOCKER_IMAGE:-}" != "" ]; then
-    img_candidates=(${EDGE2AI_DOCKER_IMAGE})
-  fi
-  for img in "${img_candidates[@]}"; do
-    local label=${img%%:*}
-    local tag
-    if [[ $img == *":"* ]]; then
-      tag=${img##*:}
-    else
-      tag=latest
-    fi
-    local has_docker_img=$(docker image ls 2> /dev/null | awk '$1 == "'"$label"'" && $2 == "'"$tag"'"' | wc -l)
-    if [ "$has_docker_img" -eq "1" ]; then
-      echo "${label}:${tag}"
-      return
-    fi
+function is_docker_running() {
+  docker info >/dev/null 2>&1 && echo "yes" || echo "no"
+}
+
+function create_ips_file() {
+  # Sometimes docker fails to resolve IP addresses for public sites, like github.com
+  # To avoid problems, we resolve these outside of the docker container
+  rm -f $PUBLIC_IPS_FILE
+  for fqdn in \
+    github.com \
+    ; do
+    echo "$(dig $fqdn +short) $fqdn" >> $PUBLIC_IPS_FILE
   done
 }
 
+function use_ips_file() {
+  # Ensure we incorporate the good IPs into /etc/hosts
+  cat $PUBLIC_IPS_FILE >> /etc/hosts
+}
+
 function check_docker_launch() {
-  local is_inside_docker=$(egrep "/(lxc|docker)/" /proc/1/cgroup > /dev/null 2>&1 && echo yes || echo no)
-  if [ "${NO_DOCKER:-}" == "" -a "$is_inside_docker" == "no" ]; then
-    docker_img=$(_find_docker_image)
-    if [ "$docker_img" != "" ]; then
-      local cmd=./$(basename $0)
-      echo -e "${C_DIM}Using docker image: ${docker_img}${C_NORMAL}"
-      exec docker run -ti --rm --entrypoint="" -v $BASE_DIR/../..:/edge2ai-workshop $docker_img $cmd $*
+  local docker_img=${EDGE2AI_DOCKER_IMAGE:-$DEFAULT_DOCKER_IMAGE}
+  if [[ "${NO_DOCKER:-}" == "" && "$(is_docker_running)" == "yes" ]]; then
+    create_ips_file
+    local cmd=./$(basename $0)
+    echo -e "${C_DIM}Using docker image: ${docker_img}${C_NORMAL}"
+    if [[ "${NO_DOCKER_PULL:-}" == "" ]]; then
+      docker pull $docker_img || true
     fi
+    exec docker run -ti --rm --entrypoint="" -v $BASE_DIR/../..:/edge2ai-workshop $docker_img $cmd $*
   fi
-  if [ "${EDGE2AI_DOCKER_IMAGE:-}" != "" ]; then
-    echo "ERROR: Docker image [$EDGE2AI_DOCKER_IMAGE] does not exist. Please check your EDGE2AI_DOCKER_IMAGE env variable."
-    exit
-  fi
-  if [ "$is_inside_docker" == "no" ]; then
+  local is_inside_docker=$(egrep "/(lxc|docker)/" /proc/1/cgroup > /dev/null 2>&1 && echo yes || echo no)
+  if [[ "$is_inside_docker" == "no" ]]; then
     echo -e "${C_DIM}Running locally (no docker)${C_NORMAL}"
+  else
+    use_ips_file
   fi
 }
 
@@ -510,8 +513,9 @@ function collect_logs() {
   if [[ $0 != *"/launch.sh" ]]; then
     return
   fi
+  did_terraform_run=$(grep "Launching Terraform" $LOG_NAME | wc -l || true)
   no_run=$(grep "^Aborting." $LOG_NAME | wc -l || true)
-  if [[ $no_run -gt 0 ]]; then
+  if [[ $no_run -gt 0 || $did_terraform_run -eq 0 ]]; then
     return
   fi
   success=$(grep "Deployment completed successfully" $LOG_NAME | wc -l || true)
