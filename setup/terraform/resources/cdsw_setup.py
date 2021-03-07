@@ -60,7 +60,7 @@ try:
         else:
             print('Waiting for CDSW to be ready... (connection timed out)')
         time.sleep(10)
-
+    
     print('# Authenticate')
     r = s.post(CDSW_API + '/authenticate', json={'login': USERNAME, 'password': PASSWORD})
     s.headers.update({'Authorization': 'Bearer ' + r.json()['auth_token']})
@@ -71,8 +71,8 @@ try:
     models = [m for m in r.json() if m['name'] == model_name]
     if models and models[0]['latestModelDeployment']['status'] == 'deployed':
         print('Model is already deployed!! Skipping.')
-        exit(0)
-
+        #exit(0)
+    
     print('# Add engine')
     r = s.post(CDSW_API + '/site/engine-profiles', json={'cpu': 1, 'memory': 4})
     engine_id = r.json()['id']
@@ -99,11 +99,11 @@ try:
     
     print('# Upload setup script')
     setup_script = """!pip3 install --upgrade pip scikit-learn
-!HADOOP_USER_NAME=hdfs hdfs dfs -mkdir /user/$HADOOP_USER_NAME
-!HADOOP_USER_NAME=hdfs hdfs dfs -chown $HADOOP_USER_NAME:$HADOOP_USER_NAME /user/$HADOOP_USER_NAME
-!hdfs dfs -put data/historical_iot.txt /user/$HADOOP_USER_NAME
-!hdfs dfs -ls -R /user/$HADOOP_USER_NAME
-"""
+    !HADOOP_USER_NAME=hdfs hdfs dfs -mkdir /user/$HADOOP_USER_NAME
+    !HADOOP_USER_NAME=hdfs hdfs dfs -chown $HADOOP_USER_NAME:$HADOOP_USER_NAME /user/$HADOOP_USER_NAME
+    !hdfs dfs -put data/historical_iot.txt /user/$HADOOP_USER_NAME
+    !hdfs dfs -ls -R /user/$HADOOP_USER_NAME
+    """
     r = s.put(CDSW_API + '/projects/admin/edge2ai-workshop/files/setup_workshop.py', files={'name': setup_script})
     
     print('# Upload model')
@@ -174,6 +174,71 @@ try:
     model_id = r.json()['id']
     print('Model ID: %s' % (model_id,))
     
+    # ================================================================================
+    
+    # See https://docs.cloudera.com/cdsw/latest/analytical-apps/topics/cdsw-application-limitations.html
+    
+    print('# Allow applications to be configured with unauthenticated access')
+    r = s.patch(CDSW_API + '/site/config', json={"allow_unauthenticated_access_to_app": True})
+    print('Set unauthenticated access flag to: %s'% (r.json()["allow_unauthenticated_access_to_app"],))
+    
+    print('# Add project for Data Visualization server')
+    project_name = 'viz'
+    viz_project_id = None
+    r = s.get(CDSW_API + '/users/admin/projects')
+    for project in r.json():
+        if project['name'] == project_name:
+            viz_project_id = project['id']
+            break
+    if not viz_project_id:
+        r = s.post(CDSW_API + '/users/admin/projects', json={'template': 'blank',
+                                                             'project_visibility': 'private',
+                                                             'name': project_name})
+        viz_project_id = r.json()['id']
+    print('Viz project ID: %s'% (viz_project_id,))
+    
+    print('# Add custom engine for Data Visualization server')
+    params = { 
+      "engineImage": {
+        "description": "dataviz-623",
+        "repository": "docker.repository.cloudera.com/cloudera/cdv/cdswdataviz",
+        "tag": "6.2.3-b18"}
+    }
+    r = s.post(CDSW_API + '/engine-images', json=params)
+    engine_image_id = r.json()['id']
+    print('Engine Image ID: %s'% (engine_image_id,))
+    
+    print('# Set new engine image as default for the viz project')
+    r = s.patch(CDSW_API + '/projects/admin/viz/engine-images',
+                json={'engineImageId': engine_image_id})
+    r = s.get(CDSW_API + '/projects/admin/viz/engine-images')
+    project_engine_image_id = r.json()['id']
+    print('Project image default engine Image ID set to: %s'% (project_engine_image_id))  
+      
+    print('# Create application with Data Visualization server')
+    application_name = 'viz'
+    
+    params = { 
+        'bypass_authentication': True,
+        'cpu': 1,
+        'environment': {},
+        'description': 'viz server app',
+        'kernel': 'python3',
+        'memory': 2,
+        'name': 'viz-server',
+        'nvidia_gpu': 0,
+        'script': '/opt/vizapps/tools/arcviz/startup_app.py',
+        'subdomain': 'viz',
+        'type': 'manual'
+    }
+    
+    r = s.post(CDSW_API + '/projects/admin/viz/applications', json=params)
+    r = s.get(CDSW_API + '/projects/admin/viz/applications')
+    r.json()
+    
+    
+    # ================================================================================
+    
     while True:
         r = s.post(CDSW_ALTUS_API + '/models/list-models', json={
             'project': str(project_id),
@@ -198,6 +263,23 @@ try:
             elif build_status == 'failed' or deployment_status == 'failed':
                 raise RuntimeError('Model deployment failed')
         time.sleep(10)
+    
+    while True:
+        r = s.get(CDSW_API + '/projects/admin/viz/applications')
+        app_status = r.json()[0]['status']
+        print('Data Visualization app status: %s' % (app_status))
+        if app_status == 'running':
+          print('# Viz server app is running. CDSW setup complete!')
+          break
+        elif build_status == 'stopped':
+            # Additional error handling - if the app exists and is stopped, start it?
+            break
+        elif build_status == 'failed':
+            raise RuntimeError('Application deployment failed')
+        time.sleep(10)
+    
+    # Connect to Viz App API, validate status
+    
 except Exception as e:
     if r:
         print(r.text)

@@ -940,6 +940,7 @@ function get_service_urls() {
       fi
       if [[ ${HAS_CDSW:-0} == 1 ]]; then
         echo "CDSW=${protocol}://cdsw.{ip_address}.nip.io/"
+        echo "CDP Data Visualization=${protocol}://viz.cdsw.{ip_address}.nip.io/"
       fi
     ) | sort
   ) | tr "\n" "," | sed 's/,$//'
