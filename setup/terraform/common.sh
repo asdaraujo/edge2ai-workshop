@@ -174,7 +174,7 @@ function check_docker_launch() {
     if [[ "${NO_DOCKER_PULL:-}" == "" ]]; then
       docker pull $docker_img || true
     fi
-    exec docker run -ti --rm --entrypoint="" -v $BASE_DIR/../..:/edge2ai-workshop $docker_img $cmd $*
+    exec docker run -ti --rm --detach-keys="ctrl-@" --entrypoint="" -v $BASE_DIR/../..:/edge2ai-workshop $docker_img $cmd $*
   fi
   local is_inside_docker=$(egrep "/(lxc|docker)/" /proc/1/cgroup > /dev/null 2>&1 && echo yes || echo no)
   if [[ "$is_inside_docker" == "no" ]]; then
