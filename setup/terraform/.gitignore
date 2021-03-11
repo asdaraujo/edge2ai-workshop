@@ -1,4 +1,3 @@
-NO_VERSION_CHECK
 *.signed
 *.urls
 *tfstate*
@@ -8,6 +7,7 @@ NO_VERSION_CHECK
 .cm
 .env
 .env.*
+.hosts
 .hue
 .instance.list
 .instance.web
@@ -19,13 +19,15 @@ NO_VERSION_CHECK
 .schreg
 .smm
 .terraform/
+.test.env.template
 .tf.json*
 .web.key.file.name
+NO_VERSION_CHECK
 app.db
 namespaces/
 rules.tf
-stack.sh
 stack.*.sh
+stack.sh
 terraform.tfstate
 terraform.tfstate.backup
 web/logs/

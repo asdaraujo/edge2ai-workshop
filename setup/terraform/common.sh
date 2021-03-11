@@ -153,6 +153,8 @@ function create_ips_file() {
   rm -f $PUBLIC_IPS_FILE
   for fqdn in \
     github.com \
+    frightanic.com \
+    raw.githubusercontent.com \
     ; do
     echo "$(dig $fqdn +short) $fqdn" >> $PUBLIC_IPS_FILE
   done
