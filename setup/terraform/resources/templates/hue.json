@@ -19,7 +19,7 @@
       "serviceConfigs": [
         {
           "name": "database_password",
-          "value": "supersecret1"
+          "value": "{{THE_PWD}}"
         },
         {
           "name": "database_type",
@@ -70,7 +70,7 @@
             },
             {
               "name": "ssl_private_key_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             }
 {% endif %}
           ]

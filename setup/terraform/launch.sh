@@ -56,7 +56,7 @@ source $BASE_DIR/resources/common.sh
 validate_stack $NAMESPACE $BASE_DIR/resources
 
 log "Validate services selection: $CM_SERVICES"
-CLUSTER_HOST=dummy PRIVATE_IP=dummy PUBLIC_DNS=dummy DOCKER_DEVICE=dummy CDSW_DOMAIN=dummy \
+THE_PWD=dummy CLUSTER_HOST=dummy PRIVATE_IP=dummy PUBLIC_DNS=dummy DOCKER_DEVICE=dummy CDSW_DOMAIN=dummy \
 python $BASE_DIR/resources/cm_template.py --cdh-major-version $CDH_MAJOR_VERSION $CM_SERVICES --validate-only
 
 # Presign URLs, if needed
@@ -69,17 +69,18 @@ chmod +x $BASE_DIR/resources/check-for-parcels.sh
 $BASE_DIR/resources/check-for-parcels.sh
 
 log "Ensure key pair exists"
+check_for_orphaned_keys
 ensure_key_pairs
 
 log "Launching Terraform"
-(cd $BASE_DIR && terraform init)
+(cd $BASE_DIR && run_terraform init)
 # Sets the var below to prevent managed SGs from being added to the SGs we create
-if [ -s $NAMESPACE_DIR/terraform.state ]; then
-  export TF_VAR_managed_security_group_ids="[$(cd $BASE_DIR && terraform show -json $NAMESPACE_DIR/terraform.state | \
+if [ -s $TF_STATE ]; then
+  export TF_VAR_managed_security_group_ids="[$(cd $BASE_DIR && run_terraform show -json $TF_STATE | \
     jq -r '.values[]?.resources[]? | select(.type == "aws_security_group").values.id | "\"\(.)\""' | \
     tr "\n" "," | sed 's/,$//')]"
 fi
-(cd $BASE_DIR && terraform apply -auto-approve -parallelism="${TF_VAR_parallelism}" -refresh=true -state=$NAMESPACE_DIR/terraform.state)
+(cd $BASE_DIR && run_terraform apply -auto-approve -parallelism="${TF_VAR_parallelism}" -refresh=true -state=$TF_STATE)
 
 log "Deployment completed successfully"
 

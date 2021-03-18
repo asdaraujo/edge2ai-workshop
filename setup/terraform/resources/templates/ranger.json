@@ -18,19 +18,19 @@
       "serviceConfigs": [
         {
           "name": "rangeradmin_user_password",
-          "value": "supersecret1"
+          "value": "{{THE_PWD}}"
         },
         {
           "name": "rangertagsync_user_password",
-          "value": "supersecret1"
+          "value": "{{THE_PWD}}"
         },
         {
           "name": "rangerusersync_user_password",
-          "value": "supersecret1"
+          "value": "{{THE_PWD}}"
         },
         {
           "name": "keyadmin_user_password",
-          "value": "supersecret1"
+          "value": "{{THE_PWD}}"
         },
         {
           "name": "ranger_service_http_port",
@@ -59,7 +59,7 @@
         },
         {
           "name": "ranger_database_password",
-          "value": "supersecret1"
+          "value": "{{THE_PWD}}"
         }
 {% endif %}
       ],
@@ -76,7 +76,7 @@
             },
             {
               "name": "ssl_client_truststore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             }
 {% endif %}
           ]
@@ -93,7 +93,7 @@
             },
             {
               "name": "ssl_client_truststore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             },
             {
               "name": "ssl_enabled",
@@ -105,7 +105,7 @@
             },
             {
               "name": "ssl_server_keystore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             }
 {% endif %}
           ]
@@ -122,7 +122,7 @@
             },
             {
               "name": "ssl_client_truststore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             },
             {
               "name": "ssl_enabled",
@@ -134,7 +134,7 @@
             },
             {
               "name": "ssl_server_keystore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             }
 {% endif %}
 {% if ((CM_VERSION == '7.1.1' and (CM_BUILD_NUMBER|int) < 2929688) or CM_VERSION is lt('7.1.1')) and ENABLE_TLS == 'yes' %}
@@ -155,7 +155,7 @@
             },
             {
               "name": "ranger_database_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             }
 {% endif %}
           ]

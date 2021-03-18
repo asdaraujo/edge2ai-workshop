@@ -32,7 +32,7 @@ resource "null_resource" "deploy_cdp" {
       "# Deploy workshop",
       "sudo bash -x /tmp/resources/setup.sh aws \"${var.ssh_username}\" \"${var.ssh_password}\" \"${var.namespace}\" 2>&1 | tee /tmp/resources/setup.log",
       "# Deploy CDSW setup",
-      "nohup python -u /tmp/resources/cdsw_setup.py $(curl ifconfig.me 2>/dev/null) /tmp/resources/iot_model.pkl > /tmp/resources/cdsw_setup.log 2>&1 &",
+      "nohup python -u /tmp/resources/cdsw_setup.py $(curl ifconfig.me 2>/dev/null) /tmp/resources/iot_model.pkl /tmp/resources/the_pwd.txt > /tmp/resources/cdsw_setup.log 2>&1 &",
       "sleep 1 # don't remove - needed for the nohup to work",
     ]
   }

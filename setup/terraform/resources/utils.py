@@ -37,7 +37,7 @@ _SCHEMA_URI = 'https://raw.githubusercontent.com/cloudera-labs/edge2ai-workshop/
 
 _CDSW_MODEL_NAME = 'IoT Prediction Model'
 _CDSW_USERNAME = 'admin'
-_CDSW_PASSWORD = 'supersecret1'
+_CDSW_PASSWORD = os.environ['THE_PWD'] if 'THE_PWD' in os.environ else open(os.path.join(os.path.dirname(__file__), 'the_pwd.txt')).read()
 _CDSW_FULL_NAME = 'Workshop Admin'
 _CDSW_EMAIL = 'admin@cloudera.com'
 

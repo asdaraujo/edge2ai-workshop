@@ -2,7 +2,8 @@
 
 export PS4='+ [${BASH_SOURCE#'"$BASE_DIR"/'}:${LINENO}]: ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
 
-DEFAULT_DOCKER_IMAGE=asdaraujo/edge2ai-workshop:latest
+DOCKER_REPO=asdaraujo/edge2ai-workshop
+DEFAULT_DOCKER_IMAGE=${DOCKER_REPO}:latest
 GITHUB_FQDN="github.com"
 GITHUB_REPO=cloudera-labs/edge2ai-workshop
 GITHUB_BRANCH=master
@@ -10,7 +11,9 @@ GITHUB_BRANCH=master
 BUILD_FILE=.build
 STACK_BUILD_FILE=.stack.build
 LAST_STACK_CHECK_FILE=$BASE_DIR/.last.stack.build.check
-PUBLIC_IPS_FILE=$BASE_DIR/.hosts
+PUBLIC_IPS_FILE=$BASE_DIR/.hosts.$$
+
+THE_PWD=supersecret1
 
 # Color codes
 C_NORMAL="$(echo -e "\033[0m")"
@@ -155,32 +158,80 @@ function create_ips_file() {
     github.com \
     frightanic.com \
     raw.githubusercontent.com \
+    auth.docker.io \
+    index.docker.io \
     ; do
-    echo "$(dig $fqdn +short) $fqdn" >> $PUBLIC_IPS_FILE
+    echo "$(dig $fqdn +short | head -1) $fqdn" >> $PUBLIC_IPS_FILE
   done
 }
 
 function use_ips_file() {
   # Ensure we incorporate the good IPs into /etc/hosts
-  cat $PUBLIC_IPS_FILE >> /etc/hosts
+  if [[ ${HOSTS_ADD:-} != "" && -f $BASE_DIR/$HOSTS_ADD ]]; then
+    cat $BASE_DIR/$HOSTS_ADD >> /etc/hosts
+    rm -f $BASE_DIR/$HOSTS_ADD
+  fi
+}
+
+function is_docker_image_stale() {
+  local image_id=$(docker inspect $DEFAULT_DOCKER_IMAGE | jq -r '.[].Id')
+  local token=$(curl -s "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${DOCKER_REPO}:pull" | jq -r .token)
+  local latest_image_id=$(curl -s -H "Authorization: Bearer $token" -H "Accept: application/vnd.docker.distribution.manifest.v2+json" "https://index.docker.io/v2/${DOCKER_REPO}/manifests/latest" | jq -r '.config.digest')
+  if [[ $image_id != $latest_image_id ]]; then
+    echo "yes"
+  else
+    echo "no"
+  fi
 }
 
 function check_docker_launch() {
-  local docker_img=${EDGE2AI_DOCKER_IMAGE:-$DEFAULT_DOCKER_IMAGE}
-  if [[ "${NO_DOCKER:-}" == "" && "$(is_docker_running)" == "yes" ]]; then
+  if [[ "${NO_DOCKER:-}" == "" && "${NO_DOCKER_EXEC:-}" == "" && "$(is_docker_running)" == "yes" ]]; then
     create_ips_file
-    local cmd=./$(basename $0)
-    echo -e "${C_DIM}Using docker image: ${docker_img}${C_NORMAL}"
-    if [[ "${NO_DOCKER_PULL:-}" == "" ]]; then
-      docker pull $docker_img || true
+
+    local docker_img=${EDGE2AI_DOCKER_IMAGE:-$DEFAULT_DOCKER_IMAGE}
+    if [[ ${NO_DOCKER_MSG:-} == "" ]]; then
+      echo -e "${C_DIM}Using docker image: ${docker_img}${C_NORMAL}"
+      export NO_DOCKER_MSG=1
     fi
-    exec docker run -ti --rm --detach-keys="ctrl-@" --entrypoint="" -v $BASE_DIR/../..:/edge2ai-workshop $docker_img $cmd $*
+    if [[ "${NO_DOCKER_PULL:-}" == "" && $docker_img == $DEFAULT_DOCKER_IMAGE ]]; then
+      if [[ $(is_docker_image_stale) == "yes" ]]; then
+        docker pull $docker_img || true
+      fi
+    fi
+
+    local cmd=./$(basename $0)
+    exec docker run -ti --rm \
+      --detach-keys="ctrl-@" \
+      --entrypoint="" \
+      -v $BASE_DIR/../..:/edge2ai-workshop \
+      -e HOSTS_ADD=$(basename $PUBLIC_IPS_FILE) \
+      $docker_img \
+      $cmd $*
   fi
   local is_inside_docker=$(egrep "/(lxc|docker)/" /proc/1/cgroup > /dev/null 2>&1 && echo yes || echo no)
   if [[ "$is_inside_docker" == "no" ]]; then
-    echo -e "${C_DIM}Running locally (no docker)${C_NORMAL}"
+    if [[ ${NO_DOCKER_MSG:-} == "" ]]; then
+      echo -e "${C_DIM}Running locally (no docker)${C_NORMAL}"
+      export NO_DOCKER_MSG=1
+    fi
   else
     use_ips_file
+  fi
+}
+
+function try_in_docker() {
+  local namespace=$1
+  shift
+  local -a cmd=("$@")
+  if [[ "${NO_DOCKER:-}" == "" && "$(is_docker_running)" == "yes" ]]; then
+    local docker_img=${EDGE2AI_DOCKER_IMAGE:-$DEFAULT_DOCKER_IMAGE}
+    exec docker run --rm \
+      --entrypoint="" \
+      -v $BASE_DIR/../..:/edge2ai-workshop \
+      $docker_img \
+      /bin/bash -c "cd /edge2ai-workshop/setup/terraform; export BASE_DIR=\$PWD; source common.sh; load_env $namespace; ${cmd[@]}"
+  else
+    (load_env $namespace; "${cmd[@]}")
   fi
 }
 
@@ -248,6 +299,7 @@ function load_env() {
   NAMESPACE_DIR=$BASE_DIR/namespaces/$namespace
   TF_JSON_FILE=$NAMESPACE_DIR/${namespace}.tf.json
   REGISTRATION_CODE_FILE=$NAMESPACE_DIR/registration.code
+  TF_STATE=$NAMESPACE_DIR/terraform.state
 
   export TF_VAR_namespace=$NAMESPACE
   export TF_VAR_name_prefix=$(echo "$namespace" | tr "A-Z" "a-z")
@@ -271,6 +323,42 @@ function load_env() {
     TF_VAR_use_elastic_ip=false
   fi
   export TF_VAR_use_elastic_ip
+
+}
+
+function run_terraform() {
+  local args=("$@")
+  check_terraform_version
+  $TERRAFORM "${args[@]}"
+}
+
+function check_terraform_version() {
+  # if there's a remnant of a state file, ensures it matches the Terraform version
+  local state_version="*"
+  if [[ -f $TF_STATE ]]; then
+    # if the state file is empty of resource, just remove it and start fresh
+    if [[ $(jq '.resources[]' $TF_STATE) == "" ]]; then
+      rm -f $TF_STATE ${TF_STATE}.backup
+    else
+      state_version=$(jq -r '.terraform_version' $TF_STATE | egrep -o "^[0-9]+\.[0-9]+")
+    fi
+  fi
+
+  for tf_binary in \
+    ${TERRAFORM:-} \
+    $(which terraform | grep -v not.found) \
+    ${TERRAFORM14:-} \
+    ${TERRAFORM12:-} \
+    ; do
+    local tf_version=$($tf_binary version | grep Terraform.v | egrep -o "[0-9]+\.[0-9]+")
+    if [[ $state_version == "*" || $state_version == $tf_version ]]; then
+      TERRAFORM=$tf_binary
+      return
+    fi
+  done
+  echo "${C_RED}ERROR: Could not find a version of Terraform that matches the state file $TF_STATE version ($state_version)." >&2
+  echo "       Please install Terraform v${state_version} and set/export the TERRAFORM environment variable with its path.${C_NORMAL}" >&2
+  exit 1
 }
 
 function get_namespaces() {
@@ -316,6 +404,55 @@ function ensure_key_pair() {
     ssh-keygen -f ${priv_key} -N "" -m PEM -t rsa -b 2048
     umask 0022
     log "Private key created: ${priv_key}"
+  fi
+}
+
+function aws_list_key_pairs() {
+      AWS_DEFAULT_REGION=$TF_VAR_aws_region \
+      AWS_ACCESS_KEY_ID=$TF_VAR_aws_access_key_id \
+      AWS_SECRET_ACCESS_KEY=$TF_VAR_aws_secret_access_key \
+        aws ec2 describe-key-pairs \
+          --filters Name=key-name,Values="${TF_VAR_key_name},${TF_VAR_web_key_name}" | \
+        jq -r '.KeyPairs[].KeyName' | tr '\n' ',' | sed 's/,$//'
+}
+
+function aws_delete_key_pairs() {
+  local keys=$1
+  for key_name in $(echo "$keys" | sed 's/,/ /g'); do
+    echo "Deleting key pair [$key_name]"
+    AWS_DEFAULT_REGION=$TF_VAR_aws_region \
+    AWS_ACCESS_KEY_ID=$TF_VAR_aws_access_key_id \
+    AWS_SECRET_ACCESS_KEY=$TF_VAR_aws_secret_access_key \
+      aws ec2 delete-key-pair --key-name "$key_name"
+  done
+}
+
+function check_for_orphaned_keys() {
+  if [[ ( ! -f $TF_STATE ) || ( -f $TF_STATE && $(jq '.resources[]' $TF_STATE) == "" ) ]]; then
+    # there's no state record, so there should be no deployments
+    keys=$(aws_list_key_pairs)
+    if [[ $keys != "" ]]; then
+      echo "${C_YELLOW}WARNING: The following keys seem to be orphaned in your AWS environment: ${keys}"
+      echo "         This may have happened either because your last deployment wasn't terminated gracefully"
+      echo "         or because you launched it from a different directory."
+      echo ""
+      echo "         You can choose to overwrite these keys, but if the previous environment still exists"
+      echo "         you will lose access to it."
+      echo ""
+      echo -n "Do you want to overwrite these key pairs? (y/N) "
+      read CONFIRM
+      if [[ $(echo "$CONFIRM" | tr "a-z" "A-Z") != "Y" ]]; then
+        echo "Ensure the key listed above don't exist before trying this command again."
+        echo "Alternatively, launch the environment using a different namespace."
+        exit 0
+      else
+        # Delete keys from the AWS environment
+        aws_delete_key_pairs "$keys"
+      fi
+      echo "${C_NORMAL}"
+    fi
+  else
+    echo "there's a deployment"
   fi
 }
 
@@ -648,15 +785,13 @@ function remove_ingress() {
 function refresh_tf() {
   mkdir -p $NAMESPACE_DIR
   rm -f $TF_JSON_FILE
-  set +e
   (cd $BASE_DIR && \
-     terraform refresh -state $NAMESPACE_DIR/terraform.state >/dev/null 2>&1 && \
-     terraform show -json $NAMESPACE_DIR/terraform.state > $TF_JSON_FILE 2>/dev/null)
-  set +e
+     run_terraform refresh -state $TF_STATE >/dev/null && \
+     run_terraform show -json $TF_STATE > $TF_JSON_FILE)
 }
 
 function ensure_tf_json_file() {
-  if [ ! -s $TF_JSON_FILE ]; then
+  if [[ -s $TF_STATE && ( ! -s $TF_JSON_FILE || $TF_STATE -nt $TF_JSON_FILE ) ]]; then
     refresh_tf
   fi
 }
@@ -664,7 +799,7 @@ function ensure_tf_json_file() {
 function web_instance() {
   ensure_tf_json_file
   if [ -s $TF_JSON_FILE ]; then
-    cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.address == "aws_instance.web") | "\(.values.tags.Name) \(.values.public_dns) \(.values.public_ip) \(.values.private_ip)"'
+    cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.type == "aws_instance" and .name == "web") | "\(.values.tags.Name) \(.values.public_dns) \(.values.public_ip) \(.values.private_ip)"'
   fi
 }
 
@@ -688,7 +823,7 @@ function cluster_instances() {
     if [[ $cluster_id != "" ]]; then
       filter='select(.index == '$cluster_id') |'
     fi
-    cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.address == "aws_instance.cluster") |'"$filter"' "\(.index) \(.values.tags.Name) \(.values.public_dns) \(.values.public_ip) \(.values.private_ip)"'
+    cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.type == "aws_instance" and .name == "cluster") |'"$filter"' "\(.index) \(.values.tags.Name) \(.values.public_dns) \(.values.public_ip) \(.values.private_ip)"'
   fi
 }
 
@@ -710,7 +845,7 @@ function is_stoppable() {
   local index=$2
   ensure_tf_json_file
   if [ -s $TF_JSON_FILE ]; then
-    local count=$(cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.address == "aws_eip.eip_'"$vm_type"'" and .index == '"$index"').address' | wc -l)
+    local count=$(cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.type == "aws_eip" and .name == "eip_'"$vm_type"'" and .index == '"$index"').address' | wc -l)
     if [[ $count -eq 0 ]]; then
       echo No
     else

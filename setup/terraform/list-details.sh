@@ -46,7 +46,7 @@ function show_details() {
 
   load_env $namespace
 
-  refresh_tf
+  ensure_tf_json_file
 
   web_instance | while read name public_dns public_ip private_ip; do
     printf "%-40s %-55s %-15s %-15s %-9s\n" "$name" "$public_dns" "$public_ip" "$private_ip" "$(is_stoppable web 0)"
@@ -112,7 +112,9 @@ function show_details() {
     printf "%-40s %-55s %-15s %-15s %-9s\n" "Cluster Name" "Public DNS Name" "Public IP" "Private IP" "Stoppable"
     cat $INSTANCE_LIST_FILE
 
-    show_costs
+    if [[ $summary_only == "no" ]]; then
+      show_costs
+    fi
 
     echo ""
     if [ "$warning" != "" ]; then

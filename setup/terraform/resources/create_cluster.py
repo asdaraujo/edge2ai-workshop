@@ -72,11 +72,13 @@ def parse_args():
 def cm_major_version():
     return int(os.environ.get('CM_MAJOR_VERSION', '7'))
 
+def the_pwd():
+    return os.environ['THE_PWD']
+    
 class ClusterCreator:
-    def __init__(self, host, krb_princ='scm/admin@WORKSHOP.COM', krb_pass='supersecret1', tls_ca_cert=None):
+    def __init__(self, host, krb_princ='scm/admin@WORKSHOP.COM', tls_ca_cert=None):
         self.host = host
         self.krb_princ = krb_princ
-        self.krb_pass = krb_pass
         
         self._api_client = None
         self._cm_api = None
@@ -86,7 +88,7 @@ class ClusterCreator:
         self._cluster_api = None
 
         cm_client.configuration.username = 'admin'
-        cm_client.configuration.password = 'admin'
+        cm_client.configuration.password = the_pwd()
         cm_client.configuration.ssl_ca_cert = tls_ca_cert
 
     def _import_paywall_credentials(self):
@@ -118,10 +120,10 @@ class ClusterCreator:
                 pass
 
     def _get_api_version(self):
-        resp = requests.get("http://" + self.host + ":7180/api/version", verify=False, auth=('admin', 'admin'))
+        resp = requests.get("http://" + self.host + ":7180/api/version", verify=False, auth=('admin', the_pwd()))
         if resp.status_code == 200 and resp.text:
             return resp.text
-        return requests.get("https://" + self.host + ":7183/api/version", verify=False, auth=('admin', 'admin')).text
+        return requests.get("https://" + self.host + ":7183/api/version", verify=False, auth=('admin', the_pwd())).text
 
     @property
     def api_client(self):
@@ -306,7 +308,7 @@ class ClusterCreator:
                                   ]))
 
         # Import Kerberos credentials
-        cmd = self.cm_api.import_admin_credentials(password=self.krb_pass, username=self.krb_princ)
+        cmd = self.cm_api.import_admin_credentials(password=the_pwd(), username=self.krb_princ)
         cmd = self.wait(cmd)
         if not cmd.success:
             raise RuntimeError('Failed to import admin credentials')
@@ -317,11 +319,11 @@ class ClusterCreator:
             message='Updating TLS config',
             body=cm_client.ApiConfigList([
                 cm_client.ApiConfig(name='AGENT_TLS', value='true'),
-                cm_client.ApiConfig(name='KEYSTORE_PASSWORD', value='supersecret1'),
+                cm_client.ApiConfig(name='KEYSTORE_PASSWORD', value=the_pwd()),
                 cm_client.ApiConfig(name='KEYSTORE_PATH', value='/opt/cloudera/security/jks/keystore.jks'),
                 cm_client.ApiConfig(name='NEED_AGENT_VALIDATION', value='true'),
                 cm_client.ApiConfig(name='SCM_PROXY_TIMEOUT', value='30000'),
-                cm_client.ApiConfig(name='TRUSTSTORE_PASSWORD', value='supersecret1'),
+                cm_client.ApiConfig(name='TRUSTSTORE_PASSWORD', value=the_pwd()),
                 cm_client.ApiConfig(name='TRUSTSTORE_PATH', value='/opt/cloudera/security/jks/truststore.jks'),
                 cm_client.ApiConfig(name='WEB_TLS', value='true'),
             ]))
@@ -329,7 +331,7 @@ class ClusterCreator:
             message='Updating TLS config for Mgmt Services',
             body=cm_client.ApiServiceConfig([
                 cm_client.ApiConfig(name='ssl_client_truststore_location', value='/opt/cloudera/security/jks/truststore.jks'),
-                cm_client.ApiConfig(name='ssl_client_truststore_password', value='supersecret1'),
+                cm_client.ApiConfig(name='ssl_client_truststore_password', value=the_pwd()),
             ]))
 
 if __name__ == '__main__':

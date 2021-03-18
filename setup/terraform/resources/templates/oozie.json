@@ -33,7 +33,7 @@
             },
             {
               "name": "oozie_https_keystore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             },
             {
               "name": "oozie_https_truststore_file",
@@ -41,7 +41,7 @@
             },
             {
               "name": "oozie_https_truststore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             },
 {% if CM_VERSION is ge('7.1.4') %}
             {
@@ -50,7 +50,7 @@
             },
             {
               "name": "oozie_zookeeper_https_keystore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             },
             {
               "name": "oozie_zookeeper_https_truststore_file",
@@ -58,7 +58,7 @@
             },
             {
               "name": "oozie_zookeeper_https_truststore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             },
 {% endif %}
 {% endif %}
@@ -76,7 +76,7 @@
             },
             {
               "name": "oozie_database_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             }
           ]
         }

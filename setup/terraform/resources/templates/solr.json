@@ -20,7 +20,7 @@
         },
         {
           "name": "solr_https_keystore_password",
-          "value": "supersecret1"
+          "value": "{{THE_PWD}}"
         },
         {
           "name": "solr_https_truststore_file",
@@ -28,7 +28,7 @@
         },
         {
           "name": "solr_https_truststore_password",
-          "value": "supersecret1"
+          "value": "{{THE_PWD}}"
         },
         {
           "name": "solr_use_ssl",

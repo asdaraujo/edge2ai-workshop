@@ -3,7 +3,7 @@
 set -o errexit
 set -o nounset
 BASE_DIR=$(cd $(dirname $0); pwd -L)
-export NO_DOCKER=1
+export NO_DOCKER_EXEC=1
 source $BASE_DIR/common.sh
 
 if [ $# != 2 -a $# != 3 ]; then
@@ -14,18 +14,14 @@ fi
 NAMESPACE=$1
 CLUSTER_ID=$2
 PROXY_PORT=${3:-}
-load_env $NAMESPACE
 
-source $BASE_DIR/resources/common.sh
-load_stack $NAMESPACE $BASE_DIR/resources local
-
-PUBLIC_DNS=$(public_dns $CLUSTER_ID)
+PUBLIC_DNS=$(try_in_docker $NAMESPACE public_dns $CLUSTER_ID)
 if [ "$PUBLIC_DNS" == "" ]; then
   echo "ERROR: Cluster ID $CLUSTER_ID not found."
   exit 1
 fi
 
-PUBLIC_IP=$(public_ip $CLUSTER_ID)
+PUBLIC_IP=$(try_in_docker $NAMESPACE public_ip $CLUSTER_ID)
 if [ "$PROXY_PORT" != "" ]; then
   PROXY_PORT="--proxy-server=socks5://localhost:$PROXY_PORT"
 fi

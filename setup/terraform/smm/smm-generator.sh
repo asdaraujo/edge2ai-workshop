@@ -24,7 +24,7 @@ export SR_ADDR=
 export SR_URL=
 
 CM_USER=admin
-CM_PWD=admin
+CM_PWD=supersecret1
 CM_HOST=$(grep "^ *server_host" /etc/cloudera-scm-agent/config.ini | sed 's/ //g;s/.*=//')
 
 declare -a KAFKA_TOPICS=(

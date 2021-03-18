@@ -1,18 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-
+import os
 import requests
 import sys
 import time
 
 PUBLIC_IP = sys.argv[1]
 MODEL_PKL_FILE = sys.argv[2]
+if len(sys.argv) > 3:
+    PASSWORD = open(sys.argv[3]).read()
+else:
+    PASSWORD = os.environ['THE_PWD']
+
 CDSW_API = 'http://cdsw.%s.nip.io/api/v1' % (PUBLIC_IP,)
 CDSW_ALTUS_API = 'http://cdsw.%s.nip.io/api/altus-ds-1' % (PUBLIC_IP,)
 
 USERNAME = 'admin'
-PASSWORD = 'supersecret1'
 FULL_NAME = 'Workshop Admin'
 EMAIL = 'admin@cloudera.com'
 

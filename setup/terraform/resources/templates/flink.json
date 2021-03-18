@@ -62,7 +62,7 @@
             },
             {
               "name": "ssl_client_truststore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             }
 {% endif %}
           ]
@@ -80,7 +80,7 @@
             },
             {
               "name": "ssl_client_truststore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             },
 {% endif %}
             {
@@ -89,7 +89,7 @@
             },
             {
               "name": "ssl_server_keystore_keypassword",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             },
             {
               "name": "ssl_server_keystore_location",
@@ -97,7 +97,7 @@
             },
             {
               "name": "ssl_server_keystore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             },
 {% endif %}
             {
@@ -124,11 +124,19 @@
         },
         {
           "name": "database_password",
-          "value": "supersecret1"
+          "value": "{{THE_PWD}}"
+        },
+        {
+          "name": "database_host",
+          "value": "{{CLUSTER_HOST}}"
         },
         {
           "name": "database_port",
           "value": "5432"
+        },
+        {
+          "name": "database_type",
+          "value": "postgresql"
         }
       ],
       "roleConfigGroups": [
@@ -144,10 +152,6 @@
           "base": true,
           "configs": [
             {
-              "name": "ssb.mve.admin.datasource.username",
-              "value": "eventador_admin"
-            },
-            {
               "name": "ssb.mve.datasource.url",
               "value": "jdbc:postgresql://{{CLUSTER_HOST}}:5432/eventador_snapper"
             },
@@ -156,16 +160,8 @@
               "value": "eventador_snapper"
             },
             {
-              "name": "ssb.mve.admin.datasource.url",
-              "value": "jdbc:postgresql://{{CLUSTER_HOST}}:5432/eventador_snapper"
-            },
-            {
               "name": "ssb.mve.datasource.password",
-              "value": "supersecret1"
-            },
-            {
-              "name": "ssb.mve.admin.datasource.password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             }
           ]
         },
@@ -183,12 +179,8 @@
               "value": "8001"
             },
             {
-              "name": "eventador_admin_database.password",
-              "value": "supersecret1"
-            },
-            {
-              "name" : "ssb-conf/ssb-console-conf.yaml_role_safety_valve",
-              "value" : "cloudera_env.yarn_rm_rest_url: http://{{CLUSTER_HOST}}:8088\nsqlio.sqlio_url: http://{{CLUSTER_HOST}}:18081"
+              "name": "cloudera_env.admin_password",
+              "value": "{{THE_PWD}}"
             }
           ]
         }

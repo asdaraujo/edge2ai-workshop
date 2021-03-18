@@ -4,6 +4,12 @@ KEYTABS_DIR=/keytabs
 KAFKA_CLIENT_PROPERTIES=${KEYTABS_DIR}/kafka-client.properties
 KRB_REALM=WORKSHOP.COM
 
+export THE_PWD=supersecret1
+export THE_PWD_HASH=2221f4b716722c14a16f02edc6a3dbeb3a12e63affa9bde99f9ac79f2bbcb276
+export THE_PWD_SALT=7690128891203708887
+
+echo -n "$THE_PWD" > $BASE_DIR/the_pwd.txt
+
 function is_kerberos_enabled() {
   echo $ENABLE_KERBEROS
 }
@@ -271,7 +277,7 @@ function add_user() {
   username=${username%%@*}
   if [ "$(getent passwd $username > /dev/null && echo exists || echo does_not_exist)" == "does_not_exist" ]; then
     useradd -U $username
-    echo -e "supersecret1\nsupersecret1" | passwd $username
+    echo -e "${THE_PWD}\n${THE_PWD}" | passwd $username
   fi
 
   # Add user to groups
@@ -285,11 +291,11 @@ function add_user() {
 
   if [ "$(is_kerberos_enabled)" == "yes" ]; then
     # Create Kerberos principal
-    (sleep 1 && echo -e "supersecret1\nsupersecret1") | /usr/sbin/kadmin.local -q "addprinc $princ"
+    (sleep 1 && echo -e "${THE_PWD}\n${THE_PWD}") | /usr/sbin/kadmin.local -q "addprinc $princ"
     mkdir -p ${KEYTABS_DIR}
 
     # Create keytab
-    echo -e "addent -password -p $princ -k 0 -e aes256-cts\nsupersecret1\nwrite_kt ${KEYTABS_DIR}/$username.keytab" | ktutil
+    echo -e "addent -password -p $princ -k 0 -e aes256-cts\n${THE_PWD}\nwrite_kt ${KEYTABS_DIR}/$username.keytab" | ktutil
     chmod 444 ${KEYTABS_DIR}/$username.keytab
 
     # Create a jaas.conf file
@@ -361,7 +367,7 @@ EOF
 EOF
 
   # Create database
-  /usr/sbin/kdb5_util create -s -P supersecret1
+  /usr/sbin/kdb5_util create -s -P ${THE_PWD}
 
   # Update kadm5.acl
   cat > /var/kerberos/krb5kdc/kadm5.acl <<EOF
@@ -393,7 +399,7 @@ EOF
 function create_ca() {
   export CA_DIR=/opt/cloudera/security/ca
   export CA_KEY=$CA_DIR/ca-key.pem
-  export CA_KEY_PWD=supersecret1
+  export CA_KEY_PWD=${THE_PWD}
   export ROOT_PEM=$CA_DIR/ca-cert.pem
   export CA_CONF=$CA_DIR/openssl.cnf
   export CA_EMAIL=admin@cloudera.com
@@ -494,7 +500,7 @@ function create_certs() {
   export KEY_PEM=/opt/cloudera/security/x509/key.pem
   export CSR_PEM=/opt/cloudera/security/x509/host.csr
   export HOST_PEM=/opt/cloudera/security/x509/host.pem
-  export KEY_PWD=supersecret1
+  export KEY_PWD=${THE_PWD}
 
   # Generated files
   export CERT_PEM=/opt/cloudera/security/x509/cert.pem
@@ -502,7 +508,7 @@ function create_certs() {
   export KEYSTORE_JKS=/opt/cloudera/security/jks/keystore.jks
   export TRUSTSTORE_JKS=/opt/cloudera/security/jks/truststore.jks
   export KEYSTORE_PWD=$KEY_PWD
-  export TRUSTSTORE_PWD=supersecret1
+  export TRUSTSTORE_PWD=${THE_PWD}
 
   mkdir -p $(dirname $KEY_PEM) $(dirname $CSR_PEM) $(dirname $HOST_PEM) /opt/cloudera/security/jks
 
@@ -657,7 +663,24 @@ function tighten_keystores_permissions() {
 
 function wait_for_cm() {
   echo "-- Wait for CM to be ready before proceeding"
-  until $(curl --insecure --output /dev/null --silent --head --fail -u "admin:admin" http://localhost:7180/api/version); do
+  while true; do
+    for pwd in admin ${THE_PWD}; do
+      local result=$(
+        curl \
+          --fail \
+          --head \
+          --insecure \
+          --location \
+          --output /dev/null \
+          --silent \
+          --user "admin:${pwd}" \
+          --write-out "%{http_code}" \
+          http://localhost:7180/api/version
+      )
+      if [[ $result == "200" ]]; then
+        break 2
+      fi
+    done
     echo "waiting 10s for CM to come up.."
     sleep 10
   done

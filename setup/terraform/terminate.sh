@@ -28,11 +28,13 @@ if [[ ${2:-you-are-wise} != "destroy-without-confirmation-do-not-try-this-at-hom
 fi
 
 log "Destroying instances"
-(cd $BASE_DIR && terraform init)
-(cd $BASE_DIR && terraform destroy -parallelism=1000 -auto-approve -state=$NAMESPACE_DIR/terraform.state)
+(cd $BASE_DIR && run_terraform init)
+(cd $BASE_DIR && run_terraform destroy -parallelism=1000 -auto-approve -state=$TF_STATE)
 
 log "Cleaning up"
 rm -f $NAMESPACE_DIR/{.instance.list,.instance.web}
+[[ -f $TF_STATE ]] && mv $TF_STATE ${TF_STATE}.OLD.$(date +%Y%m%d%H%M%S)
+[[ -f ${TF_STATE}.backup ]] && mv ${TF_STATE}.backup ${TF_STATE}.backup.OLD.$(date +%Y%m%d%H%M%S)
 delete_key_pairs
 
 log "Deployment destroyed successfully"

@@ -219,8 +219,8 @@ EOF
 's#^efm.event.maxAgeToKeep.debug=.*#efm.event.maxAgeToKeep.debug=5m#;'\
 's#^efm.db.url=.*#efm.db.url=jdbc:postgresql://edge2ai-1.dim.local:5432/efm#;'\
 's#^efm.db.driverClass=.*#efm.db.driverClass=org.postgresql.Driver#;'\
-'s#^efm.db.password=.*#efm.db.password=supersecret1#' /opt/cloudera/cem/efm/conf/efm.properties
-  echo -e "\nefm.encryption.password=supersecret1supersecret1" >> /opt/cloudera/cem/efm/conf/efm.properties
+'s#^efm.db.password=.*#efm.db.password='"${THE_PWD}"'#' /opt/cloudera/cem/efm/conf/efm.properties
+  echo -e "\nefm.encryption.password=${THE_PWD}${THE_PWD}" >> /opt/cloudera/cem/efm/conf/efm.properties
 
   echo "-- Install and configure MiNiFi"
   MINIFI_TARBALL=$(find /opt/cloudera/cem/ -name "minifi-[0-9]*-bin.tar.gz")
@@ -313,6 +313,9 @@ EOF
   done
 
   chown -R cloudera-scm:cloudera-scm /opt/cloudera
+
+  # Disable EPEL repo to avoid issues during agent deployment
+  sed -i 's/enabled=1/enabled=0/' /etc/yum.repos.d/epel*
 
   echo "-- Finished image preinstall"
 else
@@ -544,8 +547,7 @@ systemctl enable postgresql-10
 systemctl start postgresql-10
 
 echo "-- Create DBs required by CM"
-sudo -u postgres psql < ${BASE_DIR}/create_db_pg.sql
-sudo -u postgres psql -A -t -f ${BASE_DIR}/ssb/sql/schema.sql
+sudo -u postgres psql -v the_pwd="${THE_PWD}" < ${BASE_DIR}/create_db_pg.sql
 
 echo "-- Prepare CM database 'scm'"
 if [[ $CM_MAJOR_VERSION != 5 ]]; then
@@ -553,7 +555,7 @@ if [[ $CM_MAJOR_VERSION != 5 ]]; then
 else
   SCM_PREP_DB=/usr/share/cmf/schema/scm_prepare_database.sh
 fi
-$SCM_PREP_DB postgresql scm scm supersecret1
+$SCM_PREP_DB postgresql scm scm "${THE_PWD}"
 
 echo "-- Install additional CSDs"
 for csd in $(find $BASE_DIR/csds -name "*.jar"); do
@@ -605,9 +607,20 @@ add_user bob users
 
 wait_for_cm
 
-echo "-- Generate cluster template"
+echo "Reset CM admin password"
+sudo -u postgres psql -d scm -c "update users set password_hash = '${THE_PWD_HASH}', password_salt = ${THE_PWD_SALT} where user_name = 'admin'"
+
 enable_py3
-python $BASE_DIR/cm_template.py --cdh-major-version $CDH_MAJOR_VERSION $CM_SERVICES > $TEMPLATE_FILE
+if [[ ${HAS_FLINK:-0} == 1 ]]; then
+  echo "-- Install SSB dependencies"
+  mkdir -p /usr/share/python3
+  pip3 install \
+    mysql-connector-python==8.0.23 psycopg2-binary==2.8.5 \
+    -t /usr/share/python3
+fi
+
+echo "-- Generate cluster template"
+python -u $BASE_DIR/cm_template.py --cdh-major-version $CDH_MAJOR_VERSION $CM_SERVICES > $TEMPLATE_FILE
 
 echo "-- Create cluster"
 if [ "$(is_kerberos_enabled)" == "yes" ]; then
@@ -619,7 +632,7 @@ CM_REPO_URL=$(grep baseurl $CM_REPO_FILE | sed 's/.*=//;s/ //g')
 # In case this is a re-run and TLS was already enabled, provide the TLS truststore option
 TRUSTSTORE_OPTION=$([[ $(netstat -anp | grep ':7183 .*LISTEN ' | wc -l) > 0 ]] && echo "--tls-ca-cert /opt/cloudera/security/x509/truststore.pem" || echo "")
 if [ "$(is_tls_enabled)" != "yes" ]; then
-  python $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
+  python -u $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
     $TRUSTSTORE_OPTION \
     --setup-cm \
       --key-file $KEY_FILE \
@@ -628,7 +641,7 @@ if [ "$(is_tls_enabled)" != "yes" ]; then
     --create-cluster \
       --template $TEMPLATE_FILE
 else
-  python $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
+  python -u $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
     $TRUSTSTORE_OPTION \
     --setup-cm \
       --key-file $KEY_FILE \
@@ -655,16 +668,10 @@ else
   # Wait for CM to be ready
   wait_for_cm
 
-  python $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
+  python -u $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
     --create-cluster \
       --template $TEMPLATE_FILE \
       --tls-ca-cert /opt/cloudera/security/x509/truststore.pem
-fi
-
-if [[ ${HAS_FLINK:-0} == 1 ]]; then
-  echo "-- Finish SSB setup"
-  # TODO: This is a workaround. It should be removed once release is finished.
-  bash ${BASE_DIR}/ssb/setup-ssb.sh
 fi
 
 echo "Set shadow permissions - needed by Knox when using PAM authentication"
@@ -672,13 +679,13 @@ chgrp shadow /etc/shadow
 chmod g+r /etc/shadow
 id knox > /dev/null 2>&1 && usermod -G knox,hadoop,shadow knox || echo "User knox does not exist. Skipping usermod"
 if [[ ${HAS_KNOX:-0} == 1 ]]; then
-  curl -k -L -X POST -u admin:admin "http://${CLUSTER_HOST}:7180/api/v19/clusters/OneNodeCluster/services/knox/commands/restart"
+  curl -k -L -X POST -u admin:${THE_PWD} "http://${CLUSTER_HOST}:7180/api/v19/clusters/OneNodeCluster/services/knox/commands/restart"
 fi
 
 echo "-- Ensure Zepellin is on the shadow group for PAM auth to work (service needs restarting)"
 id zeppelin > /dev/null 2>&1 && usermod -G shadow zeppelin || echo "User zeppelin does not exist. Skipping usermod"
 if [[ ${HAS_ZEPPELIN:-0} == 1 ]]; then
-  curl -k -L -X POST -u admin:admin "http://${CLUSTER_HOST}:7180/api/v19/clusters/OneNodeCluster/services/zeppelin/commands/restart"
+  curl -k -L -X POST -u admin:${THE_PWD} "http://${CLUSTER_HOST}:7180/api/v19/clusters/OneNodeCluster/services/zeppelin/commands/restart"
 fi
 
 echo "-- Tighten permissions"
@@ -752,7 +759,7 @@ ATLAS_OK=0
 while [[ $RETRIES -gt 0 ]]; do
   echo "-- Wait for Atlas to be ready ($RETRIES retries left)"
   set +e
-  ret_code=$(curl -w '%{http_code}' -s -o /dev/null -k --location -u admin:supersecret1 "http://${CLUSTER_HOST}:31000/api/atlas/v2/types/typedefs")
+  ret_code=$(curl -w '%{http_code}' -s -o /dev/null -k --location -u admin:${THE_PWD} "http://${CLUSTER_HOST}:31000/api/atlas/v2/types/typedefs")
   set -e
   if [[ $ret_code == "200" ]]; then
     ATLAS_OK=1
@@ -766,7 +773,7 @@ if [[ $ATLAS_OK -eq 1 ]]; then
   echo "-- Load Flink entities in Atlas"
   curl \
     -k --location \
-    -u admin:supersecret1 \
+    -u admin:${THE_PWD} \
     --request POST "http://${CLUSTER_HOST}:31000/api/atlas/v2/types/typedefs" \
     --header 'Content-Type: application/json' \
     --data '{

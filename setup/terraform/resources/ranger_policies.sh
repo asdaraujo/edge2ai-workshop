@@ -2,7 +2,7 @@
 set -e
 set -u
 
-CURL=(curl -Lsku admin:supersecret1 -H "Accept: application/json" -H "Content-Type: application/json")
+CURL=(curl -Lsku admin:${THE_PWD} -H "Accept: application/json" -H "Content-Type: application/json")
 RANGER_API_URL="https://$(hostname -f):6182/service"
 NIFI_API_URL="https://$(hostname -f):8443/nifi-api"
 
@@ -79,7 +79,7 @@ function add_perms_to_policy() {
 }
 
 function get_root_pg {
-  local token=$(curl -X POST -H "Content-Type: application/x-www-form-urlencoded; charset=UTF-8" -d 'username=admin&password=supersecret1' -k "$NIFI_API_URL/access/token" 2>/dev/null)
+  local token=$(curl -X POST -H "Content-Type: application/x-www-form-urlencoded; charset=UTF-8" -d 'username=admin&password=${THE_PWD}' -k "$NIFI_API_URL/access/token" 2>/dev/null)
   local retries=120
   while [[ $retries -gt 0 ]]; do
     local root_pg_id=$(curl -H "Authorization: Bearer $token" -k "$NIFI_API_URL/flow/process-groups/root" 2> /dev/null | jq -r '.processGroupFlow.id' 2>/dev/null)

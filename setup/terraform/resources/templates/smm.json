@@ -56,7 +56,7 @@
         },
         {
           "name" : "smm_database_password",
-          "value" : "supersecret1"
+          "value" : "{{THE_PWD}}"
         },
         {
           "name" : "smm_database_port",
@@ -109,7 +109,7 @@
             },
             {
               "name": "ssl_client_truststore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             },
             {
               "name": "ssl_enabled",
@@ -117,7 +117,7 @@
             },
             {
               "name": "ssl_server_keystore_keypassword",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             },
             {
               "name": "ssl_server_keystore_location",
@@ -125,7 +125,7 @@
             },
             {
               "name": "ssl_server_keystore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             }
 {% if CM_VERSION is ge('7.1.1') %}
             ,{
@@ -185,7 +185,7 @@
             },
             {
               "name" : "streams.messaging.manager.storage.connector.password",
-              "value" : "supersecret1"
+              "value" : "{{THE_PWD}}"
             }
 {% else %}
             ,{
@@ -227,7 +227,7 @@
             },
             {
               "name": "ssl_server_privatekey_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             }
 {% endif %}
           ]

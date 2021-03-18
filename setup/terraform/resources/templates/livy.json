@@ -27,7 +27,7 @@
             },
             {
               "name": "ssl_client_truststore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             }
 {% endif %}
           ]
@@ -48,7 +48,7 @@
             },
             {
               "name": "ssl_server_keystore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             }
 {% endif %}
           ]

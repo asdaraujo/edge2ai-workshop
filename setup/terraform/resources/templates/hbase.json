@@ -45,7 +45,7 @@
         },
         {
           "name": "ssl_server_keystore_keypassword",
-          "value": "supersecret1"
+          "value": "{{THE_PWD}}"
         },
         {
           "name": "ssl_server_keystore_location",
@@ -53,7 +53,7 @@
         },
         {
           "name": "ssl_server_keystore_password",
-          "value": "supersecret1"
+          "value": "{{THE_PWD}}"
         }
 {% endif %}
       ],
@@ -70,7 +70,7 @@
             },
             {
               "name": "regionserver_truststore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             }
 {% endif %}
           ]
@@ -87,7 +87,7 @@
             },
             {
               "name": "master_truststore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             }
 {% endif %}
           ]
@@ -104,11 +104,11 @@
             },
             {
               "name": "hbase_thriftserver_http_keystore_keypassword",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             },
             {
               "name": "hbase_thriftserver_http_keystore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             },
             {
               "name": "hbase_thriftserver_http_use_ssl",
@@ -129,11 +129,11 @@
             },
             {
               "name": "hbase_restserver_keystore_keypassword",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             },
             {
               "name": "hbase_restserver_keystore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             },
             {
               "name": "hbase_restserver_ssl_enable",

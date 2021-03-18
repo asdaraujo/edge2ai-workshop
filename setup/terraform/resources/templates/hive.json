@@ -28,7 +28,7 @@
         },
         {
           "name": "hiveserver2_keystore_password",
-          "value": "supersecret1"
+          "value": "{{THE_PWD}}"
         },
         {
           "name": "hiveserver2_keystore_path",
@@ -40,7 +40,7 @@
         },
         {
           "name": "hiveserver2_truststore_password",
-          "value": "supersecret1"
+          "value": "{{THE_PWD}}"
         },
         {
           "name": "ssl_client_truststore_location",
@@ -48,12 +48,12 @@
         },
         {
           "name": "ssl_client_truststore_password",
-          "value": "supersecret1"
+          "value": "{{THE_PWD}}"
         },
 {% endif %}
         {
           "name": "hive_metastore_database_password",
-          "value": "supersecret1"
+          "value": "{{THE_PWD}}"
         },
         {
           "name" : "hive_metastore_database_type",
@@ -96,7 +96,7 @@
             },
             {
               "name": "ssl_server_keystore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             }
 {% endif %}
           ]

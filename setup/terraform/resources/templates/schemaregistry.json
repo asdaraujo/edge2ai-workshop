@@ -46,7 +46,7 @@
         },
         {
           "name": "database_password",
-          "value": "supersecret1"
+          "value": "{{THE_PWD}}"
         },
         {
           "name": "database_port",
@@ -83,7 +83,7 @@
             },
             {
               "name": "ssl_client_truststore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             },
             {
               "name": "ssl_enabled",
@@ -95,7 +95,7 @@
             },
             {
               "name": "ssl_server_keystore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             }
 {% endif %}
 {% if CM_VERSION is lt('7.1.1') %}
@@ -105,7 +105,7 @@
             },
             {
               "name": "schema.registry.storage.connector.password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             }
 {% endif %}
           ]

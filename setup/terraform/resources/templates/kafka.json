@@ -71,7 +71,7 @@
             },
             {
               "name": "ssl_client_truststore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             },
             {
               "name": "ssl_enabled",
@@ -79,7 +79,7 @@
             },
             {
               "name": "ssl_server_keystore_keypassword",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             },
             {
               "name": "ssl_server_keystore_location",
@@ -87,7 +87,7 @@
             },
             {
               "name": "ssl_server_keystore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             },
 {% endif %}
             {
@@ -115,7 +115,7 @@
             },
             {
               "name": "ssl_client_truststore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             },
             {
               "name": "ssl_enabled",
@@ -123,7 +123,7 @@
             },
             {
               "name": "ssl_server_keystore_keypassword",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             },
             {
               "name": "ssl_server_keystore_location",
@@ -131,7 +131,7 @@
             },
             {
               "name": "ssl_server_keystore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             },
 {% endif %}
             {
@@ -168,7 +168,7 @@
             },
             {
               "name": "ssl_client_truststore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             },
             {
               "name": "ssl_enabled",
@@ -176,7 +176,7 @@
             },
             {
               "name": "ssl_server_keystore_keypassword",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             },
             {
               "name": "ssl_server_keystore_location",
@@ -184,7 +184,7 @@
             },
             {
               "name": "ssl_server_keystore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             }
 {% endif %}
           ]
@@ -214,7 +214,7 @@
             },
             {
               "name": "ssl_client_truststore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             },
             {
               "name": "ssl_enabled",
@@ -222,7 +222,7 @@
             },
             {
               "name": "ssl_server_keystore_keypassword",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             },
             {
               "name": "ssl_server_keystore_location",
@@ -230,7 +230,7 @@
             },
             {
               "name": "ssl_server_keystore_password",
-              "value": "supersecret1"
+              "value": "{{THE_PWD}}"
             }
 {% endif %}
 {% if CM_VERSION is lt('7.3.1') %}
