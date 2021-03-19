@@ -38,15 +38,6 @@ if [[ ! $PUBLIC_IP =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
   echo "ERROR: Could not retrieve public IP for this instance. Probably a transient error. Please try again."
   exit 1
 fi
-export PUBLIC_DNS=$(curl http://169.254.169.254/latest/meta-data/public-hostname)
-if [ "$PUBLIC_DNS" == "" ]; then
-  echo "ERROR: Could not retrieve public DNS for this instance. Probably a transient error. Please try again."
-  exit 1
-fi
-export PRIVATE_DNS=$(curl http://169.254.169.254/latest/meta-data/local-hostname)
-export PRIVATE_IP=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)
-export CLUSTER_HOST=$PUBLIC_DNS
-export CDSW_DOMAIN=cdsw.${PUBLIC_IP}.nip.io
 
 function enable_py3() {
   if [[ $(which python) != /opt/rh/rh-python36/root/usr/bin/python ]]; then
@@ -269,7 +260,7 @@ EOF
       echo ">>> $component - $version - $url"
       # Download parcel manifest
       manifest_url="$(check_for_presigned_url "${url%%/}/manifest.json")"
-      retry_if_needed 5 5 "curl --referer '${BASE_URI%/}/' $curl_basic_auth --silent '$manifest_url' > /tmp/manifest.json"
+      retry_if_needed 5 5 "curl $curl_basic_auth --silent '$manifest_url' > /tmp/manifest.json"
       # Find the parcel name for the specific component and version
       parcel_name=$(jq -r '.parcels[] | select(.parcelName | contains("'"$version"'-el7.parcel")) | select(.components[] | .name == "'"$component"'").parcelName' /tmp/manifest.json)
       # Create the hash file
@@ -277,7 +268,7 @@ EOF
       echo "$hash" > "/opt/cloudera/parcel-repo/${parcel_name}.sha"
       # Download the parcel file - in the background
       parcel_url="$(check_for_presigned_url "${url%%/}/${parcel_name}")"
-      retry_if_needed 5 5 "wget --referer='${BASE_URI%/}/' --continue --progress=dot:giga $wget_basic_auth '${parcel_url}' -O '/opt/cloudera/parcel-repo/${parcel_name}'" &
+      retry_if_needed 5 5 "wget --continue --progress=dot:giga $wget_basic_auth '${parcel_url}' -O '/opt/cloudera/parcel-repo/${parcel_name}'" &
     done
     wait
     # Create the torrent file for the parcel
@@ -311,7 +302,7 @@ EOF
     else
       auth=""
     fi
-    retry_if_needed 5 5 "wget --referer='${BASE_URI%/}/' --progress=dot:giga $wget_basic_auth '${url}' -O '/opt/cloudera/csd/${file_name}'"
+    retry_if_needed 5 5 "wget --progress=dot:giga $wget_basic_auth '${url}' -O '/opt/cloudera/csd/${file_name}'"
     # Patch CDSW CSD so that we can use it on CDP
     if [ "${HAS_CDSW:-1}" == "1" -a "$url" == "$CDSW_CSD_URL" -a "$CM_MAJOR_VERSION" == "7" ]; then
       jar xvf /opt/cloudera/csd/CLOUDERA_DATA_SCIENCE_WORKBENCH-*.jar descriptor/service.sdl
@@ -394,19 +385,34 @@ case "${CLOUD_PROVIDER}" in
           sed -i.bak '/server 169.254.169.123/ d' /etc/chrony.conf
           echo "server 169.254.169.123 prefer iburst minpoll 4 maxpoll 4" >> /etc/chrony.conf
           systemctl restart chronyd
+          export PUBLIC_DNS=$(curl http://169.254.169.254/latest/meta-data/public-hostname)
+          export PRIVATE_DNS=$(curl http://169.254.169.254/latest/meta-data/local-hostname)
+          export PRIVATE_IP=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)
           ;;
       azure)
           umount /mnt/resource
           mount /dev/sdb1 /opt
+          export PUBLIC_DNS=$(TBD)
+          export PRIVATE_DNS=$(TBD)
+          export PRIVATE_IP=$(TBD)
           ;;
       gcp)
+          export PRIVATE_DNS=$(curl -H "Metadata-Flavor: Google" http://169.254.169.254/computeMetadata/v1/instance/hostname)
+          export PUBLIC_DNS=$PRIVATE_DNS
+          export PRIVATE_IP=$(curl -s -H "Metadata-Flavor: Google" http://169.254.169.254/computeMetadata/v1/instance/network-interfaces/0/ip)
           ;;
       *)
-          echo $"Usage: $0 {aws|azure|gcp} template-file [docker-device]"
-          echo $"example: ./setup.sh azure default_template.json"
-          echo $"example: ./setup.sh aws cluster_template.json /dev/xvdb"
-          exit 1
+          export PRIVATE_DNS=$(hostname -f)
+          export PUBLIC_DNS=$PRIVATE_DNS
+          export PRIVATE_IP=$(hostname -I | awk '{print $1}')
 esac
+
+if [ "$PUBLIC_DNS" == "" ]; then
+  echo "ERROR: Could not retrieve public DNS for this instance. Probably a transient error. Please try again."
+  exit 1
+fi
+export CLUSTER_HOST=$PUBLIC_DNS
+export CDSW_DOMAIN=cdsw.${PUBLIC_IP}.nip.io
 
 echo "-- Set /etc/hosts - Public DNS must come first"
 sed -i.bak '/edge2ai-1.dim.local/ d' /etc/hosts
@@ -856,7 +862,10 @@ fi
 echo "-- Cleaning up"
 rm -f $BASE_DIR/stack.*.sh* $BASE_DIR/stack.sh*
 
-source /etc/workshop.conf
-echo "-- At this point you can login into Cloudera Manager host on port 7180 and follow the deployment of the cluster"
-figlet -f small -w 300  "Cluster  ${CLUSTER_ID:-???}  deployed successfully"'!' | cowsay -n -f "$(ls -1 /usr/share/cowsay | grep "\.cow" | sed 's/\.cow//' | egrep -v "bong|head-in|sodomized|telebears" | shuf -n 1)"
-echo "Completed successfully: CLUSTER ${CLUSTER_ID:-???}"
+if [[ -f /etc/workshop.conf ]]; then
+  source /etc/workshop.conf
+  echo "-- At this point you can login into Cloudera Manager host on port 7180 and follow the deployment of the cluster"
+  figlet -f small -w 300  "Cluster  ${CLUSTER_ID:-???}  deployed successfully"'!' | cowsay -n -f "$(ls -1 /usr/share/cowsay | grep "\.cow" | sed 's/\.cow//' | egrep -v "bong|head-in|sodomized|telebears" | shuf -n 1)"
+  echo "Completed successfully: CLUSTER ${CLUSTER_ID:-???}"
+fi
+
