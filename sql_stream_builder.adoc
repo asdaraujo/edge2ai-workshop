@@ -260,3 +260,5 @@ FROM sensor6_stats_source
 . After a few seconds you should see the contents of the `sensor6_stats` topic displayed on the screen:
 +
 image::images/ssb-stats-results.png[width=800]
+
+We have now taken data from one topic, calculated aggregated results and written these to another topic. And to validate this was successful we have selected the result with an independent select query.
