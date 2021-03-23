@@ -30,5 +30,6 @@ stack.*.sh
 stack.sh
 terraform.tfstate
 terraform.tfstate.backup
+the_pwd.txt
 web/logs/
 web/migrations/
