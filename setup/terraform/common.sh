@@ -412,7 +412,7 @@ function aws_list_key_pairs() {
       AWS_ACCESS_KEY_ID=$TF_VAR_aws_access_key_id \
       AWS_SECRET_ACCESS_KEY=$TF_VAR_aws_secret_access_key \
         aws ec2 describe-key-pairs \
-          --filters Name=key-name,Values="${TF_VAR_key_name},${TF_VAR_web_key_name}" | \
+          --filters '[{"Name": "key-name","Values":["'"${TF_VAR_key_name}"'","'"${TF_VAR_web_key_name}"'"]}]' | \
         jq -r '.KeyPairs[].KeyName' | tr '\n' ',' | sed 's/,$//'
 }
 
@@ -442,7 +442,7 @@ function check_for_orphaned_keys() {
       echo -n "Do you want to overwrite these key pairs? (y/N) "
       read CONFIRM
       if [[ $(echo "$CONFIRM" | tr "a-z" "A-Z") != "Y" ]]; then
-        echo "Ensure the key listed above don't exist before trying this command again."
+        echo "Ensure the keys listed above don't exist before trying this command again."
         echo "Alternatively, launch the environment using a different namespace."
         exit 0
       else
