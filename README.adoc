@@ -38,13 +38,13 @@ You instructor will give access to a registration link where you can request a c
 [%autowidth,options="header"]
 |===
 |Service|URL|Credentials
-|Cloudera Manager|http://<public_dns>:7180/|`admin/admin`
+|Cloudera Manager|http://<public_dns>:7180/|`admin/supersecret1`
 |Edge Flow Manager|http://<public_dns>:10080/efm/ui/|
 |NiFi|http://<public_dns>:8080/nifi/|
 |NiFi Registry|http://<public_dns>:18080/nifi-registry/|
 |Schema Registry|http://<public_dns>:7788/|
 |SMM|http://<public_dns>:9991/|
-|Hue|http://<public_dns>:8888/|`admin/admin`
+|Hue|http://<public_dns>:8888/|`admin/supersecret1`
 |CDSW|http://cdsw.<public_IP>.nip.io/|`admin/supersecret1`
 |===
 . Login into *Cloudera Manager* and familiarize yourself with the services installed
