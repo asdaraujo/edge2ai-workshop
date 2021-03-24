@@ -73,7 +73,7 @@ image::images/model_access_key.png[width=800]
 ACCESS_KEY=<put here your cdsw model access key>
 
 cd ~
-wget http://central.maven.org/maven2/org/apache/kudu/kudu-spark2_2.11/1.9.0/kudu-spark2_2.11-1.9.0.jar
+wget https://repo.maven.apache.org/maven2/org/apache/kudu/kudu-spark2_2.11/1.9.0/kudu-spark2_2.11-1.9.0.jar
 wget https://raw.githubusercontent.com/swordsmanliu/SparkStreamingHbase/master/lib/spark-core_2.11-1.5.2.logging.jar
 
 rm -rf ~/.m2 ~/.ivy2/
