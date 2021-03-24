@@ -783,6 +783,7 @@ function remove_ingress() {
 #
 
 function refresh_tf() {
+  echo "${C_DIM}Refreshing deployment state. Please wait...${C_NORMAL}" >&2
   mkdir -p $NAMESPACE_DIR
   rm -f $TF_JSON_FILE
   (cd $BASE_DIR && \

@@ -95,7 +95,6 @@ if [[ ! -f $CM_REPO_FILE ]]; then
   echo "-- Install CM repo"
   if [ "${CM_REPO_AS_TARBALL_URL:-}" == "" ]; then
     retry_if_needed 5 5 "wget --progress=dot:giga $wget_basic_auth '${CM_REPO_FILE_URL}' -O '$CM_REPO_FILE'"
-    sed -i -E "s#https?://[^/]*#${CM_BASE_URL}#g" $CM_REPO_FILE
   else
     sed -i.bak 's/^ *Listen  *.*/Listen 3333/' /etc/httpd/conf/httpd.conf
     systemctl start httpd
@@ -162,7 +161,8 @@ EOF
   systemctl disable postgresql-10
 
   echo "-- Handle additional installs"
-  npm install --quiet forever -g
+  # NPM install is flaky and fails intermittently so we will retry if needed
+  retry_if_needed 5 5 "npm install --quiet forever -g"
   enable_py3
   pip install --quiet --upgrade pip
   pip install --progress-bar off cm_client paho-mqtt pytest nipyapi psycopg2-binary pyyaml jinja2 impyla

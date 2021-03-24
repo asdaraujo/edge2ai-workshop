@@ -186,7 +186,7 @@ function validate_stack() {
     fi
   fi
 
-  if [ "${HAS_NIFI:-}" == "1" ]; then
+  if [ "${HAS_FLINK:-}" == "1" ]; then
     if [ "$(check_vars "$stack_file" FLINK_CSD_URL)" != "0" ]; then
       errors=1
     fi
