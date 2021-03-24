@@ -46,5 +46,6 @@ touch "${BROWSER_DIR}/First Run"
   http://$PUBLIC_DNS:7788 \
   http://$PUBLIC_DNS:9991 \
   http://$PUBLIC_DNS:8888 \
-  http://cdsw.$PUBLIC_IP.nip.io
+  http://cdsw.$PUBLIC_IP.nip.io \
+  http://$PUBLIC_DNS:8000
 
