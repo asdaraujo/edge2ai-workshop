@@ -1,6 +1,8 @@
 #!/bin/bash
 BASE_DIR=$(cd $(dirname $0); pwd -L)
+CAFFEINATE_ME=1
 source $BASE_DIR/common.sh
+
 mkdir -p $BASE_DIR/logs
 (
 set -e
@@ -35,6 +37,7 @@ log "Cleaning up"
 rm -f $NAMESPACE_DIR/{.instance.list,.instance.web}
 [[ -f $TF_STATE ]] && mv $TF_STATE ${TF_STATE}.OLD.$(date +%Y%m%d%H%M%S)
 [[ -f ${TF_STATE}.backup ]] && mv ${TF_STATE}.backup ${TF_STATE}.backup.OLD.$(date +%Y%m%d%H%M%S)
+[[ -f $TF_JSON_FILE ]] && mv $TF_JSON_FILE ${TF_JSON_FILE}.OLD.$(date +%Y%m%d%H%M%S)
 delete_key_pairs
 
 log "Deployment destroyed successfully"

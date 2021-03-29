@@ -219,6 +219,23 @@ function check_docker_launch() {
   fi
 }
 
+function check_for_caffeine() {
+  if [[ ${NO_CAFFEINE:-} == "" && ${CAFFEINATE_ME:-} != "" && ${CAFFEINATED:-} == "" ]]; then
+    set +e
+    which caffeinate > /dev/null 2>&1
+    local no_caffeinate=$?
+    local system=$(uname -s 2> /dev/null | tr 'A-Z' 'a-z')
+    set -e
+    if [[ $no_caffeinate -eq 0 ]]; then
+      if [[ $system == "darwin" ]]; then
+        CAFFEINATED=1 exec caffeinate -i "$0" "$@"
+      elif [[ $system == "linux" ]]; then
+        CAFFEINATED=1 exec caffeinate "$0" "$@"
+      fi
+    fi
+  fi
+}
+
 function try_in_docker() {
   local namespace=$1
   shift
@@ -1041,6 +1058,8 @@ function reset_traps() {
 }
 
 ARGS=("$@")
+# Caffeine check must be first
+check_for_caffeine "$@"
 ensure_ulimit
 check_docker_launch "${ARGS[@]:-}"
 check_for_jq
