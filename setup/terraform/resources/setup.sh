@@ -734,7 +734,7 @@ systemctl start minifi
 
 # TODO: Implement Ranger DB and Setup in template
 # TODO: Fix kafka topic creation once Ranger security is setup
-if [[ ",${CM_SERVICES}," == *",KAFKA,"* ]]; then
+if [[ ${HAS_KAFKA:-0} == 1 ]]; then
   echo "-- Create Kafka topic (iot)"
   auth kafka
   if [[ -f $KAFKA_CLIENT_PROPERTIES ]]; then
@@ -747,104 +747,106 @@ if [[ ",${CM_SERVICES}," == *",KAFKA,"* ]]; then
   else
     KAFKA_PORT="9092"
   fi
-  kafka-topics $CLIENT_CONFIG_OPTION --bootstrap-server ${CLUSTER_HOST}:${KAFKA_PORT} --create --topic iot --partitions 10 --replication-factor 1
-  kafka-topics $CLIENT_CONFIG_OPTION --bootstrap-server ${CLUSTER_HOST}:${KAFKA_PORT} --describe --topic iot
-  kafka-topics $CLIENT_CONFIG_OPTION --bootstrap-server ${CLUSTER_HOST}:${KAFKA_PORT} --create --topic iot_enriched --partitions 10 --replication-factor 1
-  kafka-topics $CLIENT_CONFIG_OPTION --bootstrap-server ${CLUSTER_HOST}:${KAFKA_PORT} --describe --topic iot_enriched
+  for topic in iot iot_enriched iot_enriched_avro; do
+    kafka-topics $CLIENT_CONFIG_OPTION --bootstrap-server ${CLUSTER_HOST}:${KAFKA_PORT} --create --topic $topic --partitions 10 --replication-factor 1
+    kafka-topics $CLIENT_CONFIG_OPTION --bootstrap-server ${CLUSTER_HOST}:${KAFKA_PORT} --describe --topic $topic
+  done
   unauth
 fi
 
-RETRIES=30
-ATLAS_OK=0
-while [[ $RETRIES -gt 0 ]]; do
-  echo "-- Wait for Atlas to be ready ($RETRIES retries left)"
-  set +e
-  ret_code=$(curl -w '%{http_code}' -s -o /dev/null -k --location -u admin:${THE_PWD} "http://${CLUSTER_HOST}:31000/api/atlas/v2/types/typedefs")
-  set -e
-  if [[ $ret_code == "200" ]]; then
-    ATLAS_OK=1
-    break
-  fi
-  RETRIES=$((RETRIES - 1))
-  sleep 10
-done
+if [[ ${HAS_ATLAS:-0} == 1 ]]; then
+  RETRIES=30
+  ATLAS_OK=0
+  while [[ $RETRIES -gt 0 ]]; do
+    echo "-- Wait for Atlas to be ready ($RETRIES retries left)"
+    set +e
+    ret_code=$(curl -w '%{http_code}' -s -o /dev/null -k --location -u admin:${THE_PWD} "http://${CLUSTER_HOST}:31000/api/atlas/v2/types/typedefs")
+    set -e
+    if [[ $ret_code == "200" ]]; then
+      ATLAS_OK=1
+      break
+    fi
+    RETRIES=$((RETRIES - 1))
+    sleep 10
+  done
 
-if [[ $ATLAS_OK -eq 1 ]]; then
-  echo "-- Load Flink entities in Atlas"
-  curl \
-    -k --location \
-    -u admin:${THE_PWD} \
-    --request POST "http://${CLUSTER_HOST}:31000/api/atlas/v2/types/typedefs" \
-    --header 'Content-Type: application/json' \
-    --data '{
-    "enumDefs": [],
-    "structDefs": [],
-    "classificationDefs": [],
-    "entityDefs": [
-        {
-            "name": "flink_application",
-            "superTypes": [
-                "Process"
-            ],
-            "serviceType": "flink",
-            "typeVersion": "1.0",
-            "attributeDefs": [
-                {
-                    "name": "id",
-                    "typeName": "string",
-                    "cardinality": "SINGLE",
-                    "isIndexable": true,
-                    "isOptional": false,
-                    "isUnique": true
-                },
-                {
-                    "name": "startTime",
-                    "typeName": "date",
-                    "cardinality": "SINGLE",
-                    "isIndexable": false,
-                    "isOptional": true,
-                    "isUnique": false
-                },
-                {
-                    "name": "endTime",
-                    "typeName": "date",
-                    "cardinality": "SINGLE",
-                    "isIndexable": false,
-                    "isOptional": true,
-                    "isUnique": false
-                },
-                {
-                    "name": "conf",
-                    "typeName": "map<string,string>",
-                    "cardinality": "SINGLE",
-                    "isIndexable": false,
-                    "isOptional": true,
-                    "isUnique": false
-                },
-                {
-                    "name": "inputs",
-                    "typeName": "array<string>",
-                    "cardinality": "LIST",
-                    "isIndexable": false,
-                    "isOptional": false,
-                    "isUnique": false
-                },
-                {
-                    "name": "outputs",
-                    "typeName": "array<string>",
-                    "cardinality": "LIST",
-                    "isIndexable": false,
-                    "isOptional": false,
-                    "isUnique": false
-                }
-            ]
-        }
-    ],
-    "relationshipDefs": []
-}'
+  if [[ $ATLAS_OK -eq 1 ]]; then
+    echo "-- Load Flink entities in Atlas"
+    curl \
+      -k --location \
+      -u admin:${THE_PWD} \
+      --request POST "http://${CLUSTER_HOST}:31000/api/atlas/v2/types/typedefs" \
+      --header 'Content-Type: application/json' \
+      --data '{
+      "enumDefs": [],
+      "structDefs": [],
+      "classificationDefs": [],
+      "entityDefs": [
+          {
+              "name": "flink_application",
+              "superTypes": [
+                  "Process"
+              ],
+              "serviceType": "flink",
+              "typeVersion": "1.0",
+              "attributeDefs": [
+                  {
+                      "name": "id",
+                      "typeName": "string",
+                      "cardinality": "SINGLE",
+                      "isIndexable": true,
+                      "isOptional": false,
+                      "isUnique": true
+                  },
+                  {
+                      "name": "startTime",
+                      "typeName": "date",
+                      "cardinality": "SINGLE",
+                      "isIndexable": false,
+                      "isOptional": true,
+                      "isUnique": false
+                  },
+                  {
+                      "name": "endTime",
+                      "typeName": "date",
+                      "cardinality": "SINGLE",
+                      "isIndexable": false,
+                      "isOptional": true,
+                      "isUnique": false
+                  },
+                  {
+                      "name": "conf",
+                      "typeName": "map<string,string>",
+                      "cardinality": "SINGLE",
+                      "isIndexable": false,
+                      "isOptional": true,
+                      "isUnique": false
+                  },
+                  {
+                      "name": "inputs",
+                      "typeName": "array<string>",
+                      "cardinality": "LIST",
+                      "isIndexable": false,
+                      "isOptional": false,
+                      "isUnique": false
+                  },
+                  {
+                      "name": "outputs",
+                      "typeName": "array<string>",
+                      "cardinality": "LIST",
+                      "isIndexable": false,
+                      "isOptional": false,
+                      "isUnique": false
+                  }
+              ]
+          }
+      ],
+      "relationshipDefs": []
+  }'
+  fi
 fi
 
-if [[ ",${CM_SERVICES}," == *",FLINK,"* ]]; then
+if [[ ${HAS_FLINK:-0} == 1 ]]; then
   echo "-- Flink: extra workaround due to CSA-116"
   auth hdfs
   hdfs dfs -chown flink:flink /user/flink

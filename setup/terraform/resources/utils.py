@@ -748,6 +748,7 @@ def lab4_nifi_flow(env):
     env.sr_svc = create_controller(env.sensor_pg, 'org.apache.nifi.schemaregistry.hortonworks.HortonworksSchemaRegistry', {'url': _SCHREG_API_URL}, True)
     env.json_reader_svc = create_controller(env.sensor_pg, 'org.apache.nifi.json.JsonTreeReader', {'schema-access-strategy': 'schema-name', 'schema-registry': env.sr_svc.id}, True)
     env.json_writer_svc = create_controller(env.sensor_pg, 'org.apache.nifi.json.JsonRecordSetWriter', {'schema-access-strategy': 'schema-name', 'schema-registry': env.sr_svc.id, 'Schema Write Strategy': 'hwx-schema-ref-attributes'}, True)
+    env.avro_writer_svc = create_controller(env.sensor_pg, 'org.apache.nifi.avro.AvroRecordSetWriter', {'schema-access-strategy': 'schema-name', 'schema-registry': env.sr_svc.id, 'Schema Write Strategy': 'hwx-content-encoded-schema'}, True)
 
     # Create flow
     sensor_port = canvas.create_port(env.sensor_pg.id, 'INPUT_PORT', 'Sensor Data', 'RUNNING', (0, 0))
@@ -915,6 +916,22 @@ def lab7_rest_and_kudu(env):
                                  }
                                  )
     canvas.create_connection(update_health, pub_kafka_enriched, ['success'])
+
+    pub_kafka_enriched_avro = create_processor(env.sensor_pg, 'Publish to Kafka topic: iot_enriched_avro', 'org.apache.nifi.processors.kafka.pubsub.PublishKafkaRecord_2_0', (-100, 600),
+                                 {
+                                     'properties': {
+                                         'bootstrap.servers': 'edge2ai-1.dim.local:9092',
+                                         'topic': 'iot_enriched_avro',
+                                         'record-reader': env.json_reader_with_schema_svc.id,
+                                         'record-writer': env.avro_writer_svc.id,
+                                         'use-transactions': 'false',
+                                         'attribute-name-regex': 'schema.*',
+                                         'client.id': PRODUCER_CLIENT_ID,
+                                     },
+                                     'autoTerminatedRelationships': ['success', 'failure'],
+                                 }
+                                 )
+    canvas.create_connection(update_health, pub_kafka_enriched_avro, ['success'])
 
     monitor_activity = create_processor(env.sensor_pg, 'Monitor Activity', 'org.apache.nifi.processors.standard.MonitorActivity', (700, 800),
         {

@@ -24,7 +24,7 @@ ACTION=$2
 IP_ADDRESS=$3
 load_env $NAMESPACE
 
-if [[ $IP_ADDRESS == "MYIP" ]]; then
+if [[ $(echo "$IP_ADDRESS" | tr "a-z" "A-Z") == "MYIP" ]]; then
   IP_ADDRESS=$(curl -s ifconfig.me)
 fi
 
