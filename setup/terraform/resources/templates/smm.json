@@ -152,7 +152,7 @@
             }
 {% endif %}
 {% endif %}
-{% if HAS_SRM %}
+{% if HAS_SRM and CM_VERSION is lt('7.3.1') %}
             ,{
               "name" : "streams.replication.manager.configure",
               "value" : "true"
