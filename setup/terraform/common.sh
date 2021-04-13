@@ -156,6 +156,7 @@ function create_ips_file() {
   rm -f $PUBLIC_IPS_FILE
   for fqdn in \
     github.com \
+    ifconfig.me \
     frightanic.com \
     raw.githubusercontent.com \
     auth.docker.io \

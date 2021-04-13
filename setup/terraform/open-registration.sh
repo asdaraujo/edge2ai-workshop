@@ -16,9 +16,7 @@ fi
 NAMESPACE=$1
 load_env $NAMESPACE
 
-echo -n "Fetching current deployment state... "
 refresh_tf
-echo "state refreshed"
 
 echo "Opening public access to web server"
 web_sg=$(security_groups web)
