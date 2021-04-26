@@ -376,6 +376,7 @@ function check_terraform_version() {
   done
   echo "${C_RED}ERROR: Could not find a version of Terraform that matches the state file $TF_STATE version ($state_version)." >&2
   echo "       Please install Terraform v${state_version} and set/export the TERRAFORM environment variable with its path.${C_NORMAL}" >&2
+  echo "       If you are using a Docker container, please ensure that Docker is running." >&2
   exit 1
 }
 
