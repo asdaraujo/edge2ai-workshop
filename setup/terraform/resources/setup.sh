@@ -128,6 +128,8 @@ EOF
   echo "-- Install Postgresql repo"
   if [[ $(rpm -qa | grep pgdg-redhat-repo- | wc -l) -eq 0 ]]; then
     yum_install https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+    # Need to run makecache to load/accept PG GPG keys
+    yum makecache -y || true
   fi
 
   echo "-- Clean repos"
