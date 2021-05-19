@@ -30,10 +30,11 @@ resource "null_resource" "deploy_cdp" {
       "sudo chmod 755 /opt/dataloader/*.sh",
       "chmod +x /tmp/resources/*sh",
       "# Deploy workshop",
-      "sudo bash -x /tmp/resources/setup.sh aws \"${var.ssh_username}\" \"${var.ssh_password}\" \"${var.namespace}\" 2>&1 | tee /tmp/resources/setup.log",
+      "sudo bash -x /tmp/resources/setup.sh aws \"${var.ssh_username}\" \"${var.ssh_password}\" \"${var.namespace}\" \"\" \"${(var.use_ipa ? aws_instance.ipa[0].private_dns : "")}\" 2>&1 | tee /tmp/resources/setup.log",
       "# Deploy CDSW setup",
       "nohup python -u /tmp/resources/cdsw_setup.py $(curl ifconfig.me 2>/dev/null) /tmp/resources/iot_model.pkl /tmp/resources/the_pwd.txt > /tmp/resources/cdsw_setup.log 2>&1 &",
       "sleep 1 # don't remove - needed for the nohup to work",
     ]
   }
 }
+

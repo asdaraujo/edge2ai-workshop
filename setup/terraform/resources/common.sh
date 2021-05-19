@@ -86,13 +86,21 @@ function load_stack() {
   else
     ENABLE_KERBEROS=no
   fi
+  KERBEROS_TYPE=$(echo "${KERBEROS_TYPE:-MIT}" | tr a-z A-Z)
+  if [ "$KERBEROS_TYPE" == "IPA" ]; then
+    TF_VAR_use_ipa=true
+    USE_IPA=1
+  else
+    TF_VAR_use_ipa=false
+    USE_IPA=""
+  fi
   ENABLE_TLS=$(echo "${ENABLE_TLS:-NO}" | tr a-z A-Z)
   if [ "$ENABLE_TLS" == "YES" -o "$ENABLE_TLS" == "TRUE" -o "$ENABLE_TLS" == "1" ]; then
     ENABLE_TLS=yes
   else
     ENABLE_TLS=no
   fi
-  export ENABLE_KERBEROS ENABLE_TLS
+  export ENABLE_KERBEROS ENABLE_TLS KERBEROS_TYPE USE_IPA TF_VAR_use_ipa
   prepare_keytabs_dir
 }
 
@@ -107,12 +115,14 @@ security.protocol=SASL_SSL
 sasl.mechanism=GSSAPI
 sasl.kerberos.service.name=kafka
 ssl.truststore.location=/opt/cloudera/security/jks/truststore.jks
+sasl.jaas.config=com.sun.security.auth.module.Krb5LoginModule required useTicketCache=true;
 EOF
     elif [[ $(is_kerberos_enabled) == yes ]]; then
       cat > ${KAFKA_CLIENT_PROPERTIES} <<EOF
 security.protocol=SASL_PLAINTEXT
 sasl.mechanism=GSSAPI
 sasl.kerberos.service.name=kafka
+sasl.jaas.config=com.sun.security.auth.module.Krb5LoginModule required useTicketCache=true;
 EOF
     elif [[ $(is_tls_enabled) == yes ]]; then
       cat > ${KAFKA_CLIENT_PROPERTIES} <<EOF
@@ -272,6 +282,11 @@ function add_user() {
   local princ=$1
   local groups=${2:-}
 
+  if [[ $USE_IPA -eq 1 ]]; then
+    echo "Skipping creation of local user [$princ] since we're using a central IPA server"
+    return
+  fi
+
   # Ensure OS user exists
   local username=${princ%%/*}
   username=${username%%@*}
@@ -310,6 +325,43 @@ EOF
   fi
 }
 
+function install_ipa_client() {
+  local ipa_host=$1
+  if [[ $ipa_host == "" ]]; then
+    echo "ERROR: No IPA server detected."
+    exit 1
+  fi
+
+  # Install IPA client package
+  yum_install ipa-client openldap-clients krb5-workstation krb5-libs
+
+  # Install IPA client
+  ipa-client-install \
+    --principal=admin \
+    --password="$THE_PWD" \
+    --server="$IPA_HOST" \
+    --realm="$KRB_REALM" \
+    --domain="$(hostname -f | sed 's/^[^.]*\.//')" \
+    --force-ntpd \
+    --ssh-trust-dns \
+    --all-ip-addresses \
+    --ssh-trust-dns \
+    --unattended \
+    --mkhomedir
+
+  # Adjust krb5.conf
+  sed -i 's/udp_preference_limit.*/udp_preference_limit = 1/;/KEYRING/d' /etc/krb5.conf
+
+  # Copy keytabs from IPA server
+  rm -rf /tmp/keytabs
+  wget --recursive --no-parent --no-host-directories "http://${IPA_HOST}/keytabs/" -P /tmp/keytabs
+  mv /tmp/keytabs/keytabs/* ${KEYTABS_DIR}/
+  find ${KEYTABS_DIR} -name "index.html*" -delete
+  chmod 755 ${KEYTABS_DIR}
+  chmod -R 444 ${KEYTABS_DIR}/*
+
+}
+
 function install_kerberos() {
   krb_server=$(hostname -f)
   krb_realm_lc=$( echo $KRB_REALM | tr A-Z a-z )
@@ -337,6 +389,7 @@ function install_kerberos() {
  rdns = false
  pkinit_anchors = FILE:/etc/pki/tls/certs/ca-bundle.crt
  default_realm = $KRB_REALM
+ udp_preference_limit = 1
 
 [realms]
  $KRB_REALM = {
@@ -497,12 +550,15 @@ EOF
 }
 
 function create_certs() {
+  local ipa_host=$1
+
   export KEY_PEM=/opt/cloudera/security/x509/key.pem
   export CSR_PEM=/opt/cloudera/security/x509/host.csr
   export HOST_PEM=/opt/cloudera/security/x509/host.pem
   export KEY_PWD=${THE_PWD}
 
   # Generated files
+  export IPA_PEM=/opt/cloudera/security/x509/ipa.pem
   export CERT_PEM=/opt/cloudera/security/x509/cert.pem
   export TRUSTSTORE_PEM=/opt/cloudera/security/x509/truststore.pem
   export KEYSTORE_JKS=/opt/cloudera/security/jks/keystore.jks
@@ -559,9 +615,38 @@ EOF
     -extensions v3_user_extensions | \
   openssl x509 > $HOST_PEM
 
+  # Download IPA cert, if it exists
+  if [[ $ipa_host != "" ]]; then
+    curl "http://${ipa_host}/ca.crt" > $IPA_PEM
+    local retries=60
+    while [[ $retries -gt 0 ]]; do
+      ret=$(curl -s -o $IPA_PEM -w "%{http_code}" "http://${ipa_host}/ca.crt")
+      if [[ $ret == "200" ]]; then
+        break
+      else
+        rm -f $IPA_PEM
+        touch $IPA_PEM
+      fi
+      retries=$((retries - 1))
+      sleep 1
+      echo "Waiting for IPA to be ready (retries left: $retries)"
+    done
+    if [[ ! -s $IPA_PEM ]]; then
+      echo "ERROR: Cannot download the IPA CA certificate"
+      exit 1
+    fi
+  else
+    touch $IPA_PEM
+  fi
+
   # Create PEM truststore
   rm -f $TRUSTSTORE_PEM
-  cp $ROOT_PEM $TRUSTSTORE_PEM
+  cat > $TRUSTSTORE_PEM <<EOF
+# Local Root CA
+$(cat $ROOT_PEM)
+# IPA CA
+$(cat $IPA_PEM)
+EOF
 
   # Create PEM combined certificate
   cat > $CERT_PEM <<EOF
@@ -593,14 +678,18 @@ EOF
 
   # Generate JKS truststore
   rm -f $TRUSTSTORE_JKS
-  keytool \
-    -importcert \
-    -keystore $TRUSTSTORE_JKS \
-    -storepass $TRUSTSTORE_PWD \
-    -file $TRUSTSTORE_PEM \
-    -alias rootca \
-    -trustcacerts \
-    -no-prompt
+  for cert in $ROOT_PEM $IPA_PEM; do
+    if [[ -s $cert ]]; then
+      keytool \
+        -importcert \
+        -keystore $TRUSTSTORE_JKS \
+        -storepass $TRUSTSTORE_PWD \
+        -file $cert \
+        -alias $(basename $cert) \
+        -trustcacerts \
+        -no-prompt
+    fi
+  done
 
   # Create agent password file
   echo $KEY_PWD > /opt/cloudera/security/x509/pwfile
@@ -737,6 +826,7 @@ function get_service_urls() {
   local tmp_template_file=/tmp/template.$$
   load_stack $NAMESPACE $BASE_DIR/resources validate_only exclude_signed
   CLUSTER_HOST=dummy PRIVATE_IP=dummy PUBLIC_DNS=dummy DOCKER_DEVICE=dummy CDSW_DOMAIN=dummy \
+  IPA_HOST="$([[ $USE_IPA == "1" ]] && echo dummy || echo "")" \
   python $BASE_DIR/resources/cm_template.py --cdh-major-version $CDH_MAJOR_VERSION $CM_SERVICES > $tmp_template_file
 
   local cm_port=$([[ $ENABLE_TLS == "yes" ]] && echo 7183 || echo 7180)
@@ -819,6 +909,10 @@ function clean_all() {
   vgdisplay docker >/dev/null 2>&1 && while true; do vgremove docker && break; sleep 1; done
   pvdisplay /dev/nvme1n1 >/dev/null 2>&1 && while true; do pvremove /dev/nvme1n1 && break; sleep 1; done
   dd if=/dev/zero of=/dev/nvme1n1 bs=1M count=100
+
+  echo "$THE_PWD" | kinit admin
+  ipa host-del $(hostname -f)
+  ipa-client-install --uninstall --unattended
 
   cp -f /etc/cloudera-scm-agent/config.ini.original /etc/cloudera-scm-agent/config.ini
 

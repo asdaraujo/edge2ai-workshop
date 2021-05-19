@@ -5,13 +5,13 @@ BASE_DIR=$(cd $(dirname $0); pwd -L)
 source $BASE_DIR/common.sh
 
 function cleanup() {
-  rm -f $INSTANCE_LIST_FILE $WEB_INSTANCE_LIST_FILE
+  rm -f $INSTANCE_LIST_FILE $WEB_INSTANCE_LIST_FILE $IPA_INSTANCE_LIST_FILE
 }
 
 EC2_PRICES_URL_TEMPLATE=https://raw.githubusercontent.com/yeo/ec2.shop/master/data/REGION-ondemand.json
-WEB_INSTANCE_TYPE=t2.medium
 INSTANCE_LIST_FILE=/tmp/.instance.list.$$
 WEB_INSTANCE_LIST_FILE=/tmp/.instance.web.$$
+IPA_INSTANCE_LIST_FILE=/tmp/.instance.ipa.$$
 
 if [ $# -gt 1 ]; then
   echo "Syntax: $0 [namespace]"
@@ -26,14 +26,24 @@ function show_costs() {
 
   local ret=$(curl -w "%{http_code}" "$ec2_prices_url" -o $tmp_file --stderr /dev/null)
   if [[ $ret == 200 ]]; then
-    local web_price=$(jq -r '.prices[] | select(.attributes["aws:ec2:instanceType"] == "'"$WEB_INSTANCE_TYPE"'").price.USD' $tmp_file)
+    local web_instance_type=$(web_instance | web_attr instance_type)
+    local ipa_instance_type=$(ipa_instance | web_attr instance_type)
+    local web_price=$(jq -r '.prices[] | select(.attributes["aws:ec2:instanceType"] == "'"$web_instance_type"'").price.USD' $tmp_file)
+    local ipa_price=$(jq -r '.prices[] | select(.attributes["aws:ec2:instanceType"] == "'"$ipa_instance_type"'").price.USD' $tmp_file)
+    ipa_price=${ipa_price:-0}
     local cluster_price=$(jq -r '.prices[] | select(.attributes["aws:ec2:instanceType"] == "'"$TF_VAR_cluster_instance_type"'").price.USD' $tmp_file)
+
     echo -e "\nCLOUD COSTS:"
     echo "============"
     printf "%-11s %-15s %3s %15s %15s %15s\n" "Purpose" "Instance Type" "Qty" "Unit USD/Hr" "Total USD/Hr" "Total USD/Day"
-    printf "%-11s %-15s %3d %15.4f %15.4f %15.4f\n" "Web" "$WEB_INSTANCE_TYPE" "1" "$web_price" "$web_price" "$(calc "24*$web_price")"
+    if [[ $web_instance_type != "" ]]; then
+      printf "%-11s %-15s %3d %15.4f %15.4f %15.4f\n" "Web" "$web_instance_type" "1" "$web_price" "$web_price" "$(calc "24*$web_price")"
+    fi
+    if [[ $ipa_instance_type != "" ]]; then
+      printf "%-11s %-15s %3d %15.4f %15.4f %15.4f\n" "IPA" "$ipa_instance_type" "1" "$ipa_price" "$ipa_price" "$(calc "24*$ipa_price")"
+    fi
     printf "%-11s %-15s %3d %15.4f %15.4f %15.4f\n" "Cluster" "$TF_VAR_cluster_instance_type" "$TF_VAR_cluster_count" "$cluster_price" "$(calc "$TF_VAR_cluster_count*$cluster_price")" "$(calc "24*$TF_VAR_cluster_count*$cluster_price")"
-    printf "%-11s %35s %15.4f ${C_BG_MAGENTA}${C_WHITE}%15.4f${C_NORMAL}\n" "GRAND TOTAL" "---------------------------------->" "$(calc "$web_price+$TF_VAR_cluster_count*$cluster_price")" "$(calc "24*($web_price+$TF_VAR_cluster_count*$cluster_price)")"
+    printf "%-11s %35s %15.4f ${C_BG_MAGENTA}${C_WHITE}%15.4f${C_NORMAL}\n" "GRAND TOTAL" "---------------------------------->" "$(calc "$web_price+$ipa_price+$TF_VAR_cluster_count*$cluster_price")" "$(calc "24*($web_price+$ipa_price+$TF_VAR_cluster_count*$cluster_price)")"
   else
     echo -e "\nUnable to retrieve cloud costs."
   fi
@@ -48,11 +58,15 @@ function show_details() {
 
   ensure_tf_json_file
 
-  web_instance | while read name public_dns public_ip private_ip; do
+  web_instance | while read name public_dns public_ip private_ip instance_type; do
     printf "%-40s %-55s %-15s %-15s %-9s\n" "$name" "$public_dns" "$public_ip" "$private_ip" "$(is_stoppable web 0)"
   done | sed 's/\([^ ]*-\)\([0-9]*\)\( .*\)/\1\2\3 \2/' | sort -k4n | sed 's/ [0-9]*$//' > $WEB_INSTANCE_LIST_FILE
 
-  cluster_instances | while read index name public_dns public_ip private_ip; do
+  ipa_instance | while read name public_dns public_ip private_ip instance_type; do
+    printf "%-40s %-55s %-15s %-15s %-9s\n" "$name" "$public_dns" "$public_ip" "$private_ip" "Yes"
+  done | sed 's/\([^ ]*-\)\([0-9]*\)\( .*\)/\1\2\3 \2/' | sort -k4n | sed 's/ [0-9]*$//' > $IPA_INSTANCE_LIST_FILE
+
+  cluster_instances | while read index name public_dns public_ip private_ip instance_type; do
     printf "%-40s %-55s %-15s %-15s %-9s\n" "$name" "$public_dns" "$public_ip" "$private_ip" "$(is_stoppable cluster $index)"
   done | sed 's/\([^ ]*-\)\([0-9]*\)\( .*\)/\1\2\3 \2/' | sort -k4n | sed 's/ [0-9]*$//' > $INSTANCE_LIST_FILE
 
@@ -101,11 +115,21 @@ function show_details() {
     echo "SSH username: $TF_VAR_ssh_username"
     echo ""
 
-    echo "WEB SERVER VM:"
-    echo "=============="
-    printf "%-40s %-55s %-15s %-15s %-9s\n" "Web Server Name" "Public DNS Name" "Public IP" "Private IP" "Stoppable"
-    cat $WEB_INSTANCE_LIST_FILE
-    echo ""
+    if [[ -s $WEB_INSTANCE_LIST_FILE ]]; then
+      echo "WEB SERVER VM:"
+      echo "=============="
+      printf "%-40s %-55s %-15s %-15s %-9s\n" "Web Server Name" "Public DNS Name" "Public IP" "Private IP" "Stoppable"
+      cat $WEB_INSTANCE_LIST_FILE
+      echo ""
+    fi
+
+    if [[ -s $IPA_INSTANCE_LIST_FILE ]]; then
+      echo "IPA SERVER VM:"
+      echo "=============="
+      printf "%-40s %-55s %-15s %-15s %-9s\n" "IPA Server Name" "Public DNS Name" "Public IP" "Private IP" "Stoppable"
+      cat $IPA_INSTANCE_LIST_FILE
+      echo ""
+    fi
 
     echo "CLUSTER VMS:"
     echo "============"

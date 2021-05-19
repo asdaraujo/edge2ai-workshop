@@ -121,3 +121,31 @@ resource "aws_eip" "eip_web" {
     enddate = var.enddate
   }
 }
+
+resource "aws_instance" "ipa" {
+  count                 = (var.use_ipa ? 1 : 0)
+  ami                    = var.base_ami
+  instance_type          = "t2.medium"
+  subnet_id              = aws_subnet.subnet1.id
+  availability_zone      = aws_subnet.subnet1.availability_zone
+  key_name               = aws_key_pair.workshop_key_pair.key_name
+  vpc_security_group_ids = [aws_security_group.workshop_cluster_sg.id]
+
+  depends_on = [
+    aws_route_table_association.rtb_assoc,
+    aws_main_route_table_association.main_rtb_assoc,
+  ]
+
+  root_block_device {
+    volume_type           = "gp2"
+    volume_size           = "20"
+    delete_on_termination = true
+  }
+
+  tags = {
+    Name    = "${var.owner}-${var.name_prefix}-ipa"
+    owner   = var.owner
+    project = var.project
+    enddate = var.enddate
+  }
+}

@@ -13,6 +13,9 @@ resource "null_resource" "deploy_web" {
 
   provisioner "remote-exec" {
     inline = [
+      "set -o nounset",
+      "set -o errexit",
+      "set -o pipefail",
       "cd web/",
       "bash -x ./start-web.sh 2>&1 | tee ./start-web.log",
     ]

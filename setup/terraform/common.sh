@@ -506,6 +506,8 @@ function public_dns() {
   local cluster_number=$1
   if [ "$cluster_number" == "web" ]; then
     web_instance | web_attr public_dns
+  elif [ "$cluster_number" == "ipa" ]; then
+    ipa_instance | ipa_attr public_dns
   else
     cluster_instances $cluster_number | cluster_attr public_dns
   fi
@@ -815,10 +817,17 @@ function ensure_tf_json_file() {
   fi
 }
 
+function ipa_instance() {
+  ensure_tf_json_file
+  if [ -s $TF_JSON_FILE ]; then
+    cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.type == "aws_instance" and .name == "ipa") | "\(.values.tags.Name) \(.values.public_dns) \(.values.public_ip) \(.values.private_ip) \(.values.instance_type)"'
+  fi
+}
+
 function web_instance() {
   ensure_tf_json_file
   if [ -s $TF_JSON_FILE ]; then
-    cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.type == "aws_instance" and .name == "web") | "\(.values.tags.Name) \(.values.public_dns) \(.values.public_ip) \(.values.private_ip)"'
+    cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.type == "aws_instance" and .name == "web") | "\(.values.tags.Name) \(.values.public_dns) \(.values.public_ip) \(.values.private_ip) \(.values.instance_type)"'
   fi
 }
 
@@ -830,8 +839,13 @@ function web_attr() {
     "public_dns") pos=2 ;;
     "public_ip") pos=3 ;;
     "private_ip") pos=4 ;;
+    "instance_type") pos=5 ;;
   esac
   awk '{print $'$pos'}'
+}
+
+function ipa_attr() {
+  web_attr "$@"
 }
 
 function cluster_instances() {
@@ -855,6 +869,7 @@ function cluster_attr() {
     "public_dns") pos=3 ;;
     "public_ip") pos=4 ;;
     "private_ip") pos=5 ;;
+    "instance_type") pos=6 ;;
   esac
   awk '{print $'$pos'}'
 }
@@ -1046,14 +1061,14 @@ function _cleanup() {
 
 function set_traps() {
   local sig=0
-  for sig in {0..16} {18..31}; do
+  for sig in {0..16} {18..27} {29..31}; do
     trap '_cleanup '$sig' $?' $sig
   done
 }
 
 function reset_traps() {
   local sig=0
-  for sig in {0..16} {18..31}; do
+  for sig in {0..16} {18..27} {29..31}; do
     trap - $sig
   done
 }

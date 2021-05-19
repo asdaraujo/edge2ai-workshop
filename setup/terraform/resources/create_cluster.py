@@ -60,6 +60,10 @@ def _get_parser():
                               help='CM repo URL.')
         OPT_PARSER.add_option('--use-kerberos', action='store_true', dest='use_kerberos',
                               help='Enable Kerberos for the cluster.')
+        OPT_PARSER.add_option('--kerberos-type', action='store', dest='kerberos_type',
+                              help='KDC type (MIT or IPA).', default='MIT')
+        OPT_PARSER.add_option('--ipa-host', action='store', dest='ipa_host',
+                              help='IPA server hostname.', type='string', default=None)
         OPT_PARSER.add_option('--use-tls', action='store_true', dest='use_tls',
                               help='Enable TLS for the cluster.')
         OPT_PARSER.add_option('--tls-ca-cert', action='store', dest='tls_ca_cert', default=None,
@@ -196,7 +200,7 @@ class ClusterCreator:
         except ApiException as e:
             print("Exception when calling ClouderaManagerResourceApi->import_cluster_template: %s\n" % e)
 
-    def setup_cm(self, key_file, cm_repo_url, use_kerberos, use_tls):
+    def setup_cm(self, key_file, cm_repo_url, use_kerberos, use_tls, kerberos_type, ipa_host):
 
         # Accept trial licence
         try:
@@ -261,7 +265,7 @@ class ClusterCreator:
 
         # Enable kerberos
         if use_kerberos:
-            self._enable_kerberos()
+            self._enable_kerberos(kerberos_type, ipa_host)
 
         # Enable TLS
         if use_tls:
@@ -294,18 +298,27 @@ class ClusterCreator:
         cmd = self.mgmt_api.restart_command()
         cmd = self.wait(cmd)
 
-    def _enable_kerberos(self):
+    def _enable_kerberos(self, kerberos_type, ipa_host):
         # Update Kerberos configuration
-        self.cm_api.update_config(message='Updating Kerberos config',
-                                  body=cm_client.ApiConfigList([
-                                      cm_client.ApiConfig(name='KDC_ADMIN_HOST', value='edge2ai-1.dim.local'),
-                                      cm_client.ApiConfig(name='KDC_HOST', value='edge2ai-1.dim.local'),
-                                      cm_client.ApiConfig(name='KDC_TYPE', value='MIT KDC'),
-                                      cm_client.ApiConfig(name='KRB_AUTH_ENABLE', value='true'),
-                                      cm_client.ApiConfig(name='KRB_ENC_TYPES', value='aes256-cts rc4-hmac'),
-                                      cm_client.ApiConfig(name='PUBLIC_CLOUD_STATUS', value='ON_PUBLIC_CLOUD'),
-                                      cm_client.ApiConfig(name='SECURITY_REALM', value='WORKSHOP.COM'),
-                                  ]))
+        config = [
+            cm_client.ApiConfig(name='KRB_AUTH_ENABLE', value='true'),
+            cm_client.ApiConfig(name='KRB_ENC_TYPES', value='aes256-cts rc4-hmac'),
+            cm_client.ApiConfig(name='PUBLIC_CLOUD_STATUS', value='ON_PUBLIC_CLOUD'),
+            cm_client.ApiConfig(name='SECURITY_REALM', value='WORKSHOP.COM'),
+        ]
+        if kerberos_type == 'MIT':
+            config += [
+                cm_client.ApiConfig(name='KDC_ADMIN_HOST', value='edge2ai-1.dim.local'),
+                cm_client.ApiConfig(name='KDC_HOST', value='edge2ai-1.dim.local'),
+                cm_client.ApiConfig(name='KDC_TYPE', value='MIT KDC'),
+            ]
+        else:
+            config += [
+                cm_client.ApiConfig(name='KDC_ADMIN_HOST', value=ipa_host),
+                cm_client.ApiConfig(name='KDC_HOST', value=ipa_host),
+                cm_client.ApiConfig(name='KDC_TYPE', value='Red Hat IPA'),
+            ]
+        self.cm_api.update_config(message='Updating Kerberos config', body=cm_client.ApiConfigList(config))
 
         # Import Kerberos credentials
         cmd = self.cm_api.import_admin_credentials(password=the_pwd(), username=self.krb_princ)
@@ -342,8 +355,13 @@ if __name__ == '__main__':
         exit(1)
     HOST = args[0]
 
-    CLUSTER_CREATOR = ClusterCreator(HOST, tls_ca_cert=options.tls_ca_cert)
+    if options.kerberos_type == 'IPA':
+        krb_princ = 'admin@WORKSHOP.COM'
+    else:
+        krb_princ = 'scm/admin@WORKSHOP.COM'
+    CLUSTER_CREATOR = ClusterCreator(HOST, krb_princ=krb_princ, tls_ca_cert=options.tls_ca_cert)
     if (options.setup_cm):
-        CLUSTER_CREATOR.setup_cm(options.key_file, options.cm_repo_url, options.use_kerberos, options.use_tls)
+        CLUSTER_CREATOR.setup_cm(options.key_file, options.cm_repo_url, options.use_kerberos, options.use_tls,
+            options.kerberos_type, options.ipa_host)
     if (options.create_cluster):
         CLUSTER_CREATOR.create_cluster(options.template)

@@ -108,3 +108,9 @@ variable "use_elastic_ip" {
   type        = bool
   default     = false
 }
+
+variable "use_ipa" {
+  description = "Whether or not to launch an IPA server"
+  type        = bool
+  default     = false
+}

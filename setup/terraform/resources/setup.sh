@@ -17,12 +17,13 @@ SSH_USER=${2:-}
 SSH_PWD=${3:-}
 NAMESPACE=${4:-}
 DOCKER_DEVICE=${5:-}
-export NAMESPACE DOCKER_DEVICE
+IPA_HOST=${6:-}
+export NAMESPACE DOCKER_DEVICE IPA_HOST
 
 BASE_DIR=$(cd "$(dirname $0)"; pwd -L)
 # Save params
 if [[ ! -f $BASE_DIR/.setup.params ]]; then
-  echo "bash -x $0 '$CLOUD_PROVIDER' '$SSH_USER' '$SSH_PWD' '$NAMESPACE' '$DOCKER_DEVICE'" > $BASE_DIR/.setup.params
+  echo "bash -x $0 '$CLOUD_PROVIDER' '$SSH_USER' '$SSH_PWD' '$NAMESPACE' '$DOCKER_DEVICE' '$IPA_HOST'" > $BASE_DIR/.setup.params
 fi
 
 source $BASE_DIR/common.sh
@@ -340,7 +341,7 @@ fi
 
 ##### Start install
 
-#echo "-- Prewarm parcels directory"
+echo "-- Prewarm parcels directory"
 for parcel_file in $(find /opt/cloudera/parcel-repo -type f); do
   dd if="$parcel_file" of=/dev/null bs=10M &
 done
@@ -361,8 +362,13 @@ echo never > /sys/kernel/mm/transparent_hugepage/defrag
 echo "echo never > /sys/kernel/mm/transparent_hugepage/enabled" >> /etc/rc.d/rc.local
 echo "echo never > /sys/kernel/mm/transparent_hugepage/defrag" >> /etc/rc.d/rc.local
 # add tuned optimization https://www.cloudera.com/documentation/enterprise/latest/topics/cdh_admin_performance.html
-echo  "vm.swappiness = 1" >> /etc/sysctl.conf
-sysctl vm.swappiness=1
+cat >> /etc/sysctl.conf <<EOF
+vm.swappiness = 1
+net.ipv6.conf.all.disable_ipv6 = 1
+net.ipv6.conf.default.disable_ipv6 = 1
+net.ipv6.conf.lo.disable_ipv6 = 1
+EOF
+sysctl -p
 timedatectl set-timezone UTC
 
 echo "-- Disable firewalls"
@@ -421,6 +427,7 @@ export CDSW_DOMAIN=cdsw.${PUBLIC_IP}.nip.io
 
 echo "-- Set /etc/hosts - Public DNS must come first"
 sed -i.bak '/edge2ai-1.dim.local/ d' /etc/hosts
+sed -i '/^::1/d' /etc/hosts
 echo "$PRIVATE_IP $PUBLIC_DNS $PRIVATE_DNS edge2ai-1.dim.local" >> /etc/hosts
 
 echo "-- Configure networking"
@@ -433,7 +440,7 @@ echo "HOSTNAME=${CLUSTER_HOST}" >> /etc/sysconfig/network
 # Create certs is TLS is enabled
 if [[ $ENABLE_TLS == yes ]]; then
   create_ca
-  create_certs
+  create_certs "$IPA_HOST"
 fi
 
 echo "-- Generate self-signed certificate for ShellInABox with the needed SAN entries"
@@ -597,13 +604,19 @@ echo "-- Check for additional parcels"
 chmod +x ${BASE_DIR}/check-for-parcels.sh
 
 if [ "$(is_kerberos_enabled)" == "yes" ]; then
-  echo "-- Install Kerberos KDC"
-  install_kerberos
+  if [[ ${KERBEROS_TYPE} == "MIT" ]]; then
+    echo "-- Install Kerberos KDC"
+    install_kerberos
+  else
+    echo "-- Install IPA client"
+    install_ipa_client "$IPA_HOST"
+    echo "-- Ensure user homedirs are created when using IPA"
+  fi
 fi
 
 # Add users - after Kerberos installation so that principals are also created correctly, if needed
 add_user workshop users
-add_user admin admins,shadow
+add_user admin admins,shadow,supergroup
 add_user alice users
 add_user bob users
 
@@ -625,10 +638,13 @@ echo "-- Generate cluster template"
 python -u $BASE_DIR/cm_template.py --cdh-major-version $CDH_MAJOR_VERSION $CM_SERVICES > $TEMPLATE_FILE
 
 echo "-- Create cluster"
-if [ "$(is_kerberos_enabled)" == "yes" ]; then
-  KERBEROS_OPTION="--use-kerberos"
+if [[ $(is_kerberos_enabled) == "yes" ]]; then
+  KERBEROS_OPTION="--use-kerberos --kerberos-type $KERBEROS_TYPE"
 else
   KERBEROS_OPTION=""
+fi
+if [[ $KERBEROS_TYPE == "IPA" ]]; then
+  KERBEROS_OPTION="$KERBEROS_OPTION --ipa-host $IPA_HOST"
 fi
 CM_REPO_URL=$(grep baseurl $CM_REPO_FILE | sed 's/.*=//;s/ //g')
 # In case this is a re-run and TLS was already enabled, provide the TLS truststore option
@@ -738,7 +754,7 @@ systemctl start minifi
 # TODO: Fix kafka topic creation once Ranger security is setup
 if [[ ${HAS_KAFKA:-0} == 1 ]]; then
   echo "-- Create Kafka topic (iot)"
-  auth kafka
+  auth admin
   if [[ -f $KAFKA_CLIENT_PROPERTIES ]]; then
     CLIENT_CONFIG_OPTION="--command-config $KAFKA_CLIENT_PROPERTIES"
   else
@@ -750,7 +766,7 @@ if [[ ${HAS_KAFKA:-0} == 1 ]]; then
     KAFKA_PORT="9092"
   fi
   for topic in iot iot_enriched iot_enriched_avro; do
-    kafka-topics $CLIENT_CONFIG_OPTION --bootstrap-server ${CLUSTER_HOST}:${KAFKA_PORT} --create --topic $topic --partitions 10 --replication-factor 1
+    retry_if_needed 60 1 "kafka-topics $CLIENT_CONFIG_OPTION --bootstrap-server ${CLUSTER_HOST}:${KAFKA_PORT} --create --topic $topic --partitions 10 --replication-factor 1"
     kafka-topics $CLIENT_CONFIG_OPTION --bootstrap-server ${CLUSTER_HOST}:${KAFKA_PORT} --describe --topic $topic
   done
   unauth
@@ -759,10 +775,17 @@ fi
 if [[ ${HAS_ATLAS:-0} == 1 ]]; then
   RETRIES=30
   ATLAS_OK=0
+  if [[ $ENABLE_TLS == yes ]]; then
+    ATLAS_PROTO=https
+    ATLAS_PORT=31443
+  else
+    ATLAS_PROTO=http
+    ATLAS_PORT=31000
+  fi
   while [[ $RETRIES -gt 0 ]]; do
     echo "-- Wait for Atlas to be ready ($RETRIES retries left)"
     set +e
-    ret_code=$(curl -w '%{http_code}' -s -o /dev/null -k --location -u admin:${THE_PWD} "http://${CLUSTER_HOST}:31000/api/atlas/v2/types/typedefs")
+    ret_code=$(curl -w '%{http_code}' -s -o /dev/null -k --location -u admin:${THE_PWD} "${ATLAS_PROTO}://${CLUSTER_HOST}:${ATLAS_PORT}/api/atlas/v2/types/typedefs")
     set -e
     if [[ $ret_code == "200" ]]; then
       ATLAS_OK=1
@@ -777,7 +800,7 @@ if [[ ${HAS_ATLAS:-0} == 1 ]]; then
     curl \
       -k --location \
       -u admin:${THE_PWD} \
-      --request POST "http://${CLUSTER_HOST}:31000/api/atlas/v2/types/typedefs" \
+      --request POST "${ATLAS_PROTO}://${CLUSTER_HOST}:${ATLAS_PORT}/api/atlas/v2/types/typedefs" \
       --header 'Content-Type: application/json' \
       --data '{
       "enumDefs": [],
@@ -850,24 +873,29 @@ fi
 
 if [[ ${HAS_FLINK:-0} == 1 ]]; then
   echo "-- Flink: extra workaround due to CSA-116"
-  auth hdfs
-  hdfs dfs -chown flink:flink /user/flink
-  hdfs dfs -mkdir /user/${SSH_USER}
-  hdfs dfs -chown ${SSH_USER}:${SSH_USER} /user/${SSH_USER}
+  auth admin
+  retry_if_needed 60 1 "hdfs dfs -chown flink:flink /user/flink"
+  hdfs dfs -mkdir /user/admin
+  hdfs dfs -chown admin:admin /user/admin
   unauth
 
   echo "-- Runs a quick Flink WordCount to ensure everything is ok"
+  if [[ $(is_kerberos_enabled) == "yes" ]]; then
+    FLINK_KRB_OPTIONS="-yD security.kerberos.login.keytab=/keytabs/admin.keytab -yD security.kerberos.login.principal=admin"
+  else
+    FLINK_KRB_OPTIONS=""
+  fi
   nohup bash -c '
     source '$BASE_DIR'/common.sh
     echo "foo bar" > echo.txt
-    auth flink
+    auth admin
     klist
     hdfs dfs -put -f echo.txt
-    hdfs dfs -rm -f hdfs:///user/flink/output
-    flink run -sae -m yarn-cluster -p 2 /opt/cloudera/parcels/FLINK/lib/flink/examples/streaming/WordCount.jar --input hdfs:///user/flink/echo.txt --output hdfs:///user/flink/output
-    hdfs dfs -cat hdfs:///user/flink/output/*
+    hdfs dfs -rm -f -R -skipTrash hdfs:///user/admin/output
+    flink run '"$FLINK_KRB_OPTIONS"' -sae -m yarn-cluster -p 2 /opt/cloudera/parcels/FLINK/lib/flink/examples/streaming/WordCount.jar --input hdfs:///user/admin/echo.txt --output hdfs:///user/admin/output
+    hdfs dfs -cat hdfs:///user/admin/output/*
     unauth
-    ' > /tmp/flink_test.log 2>&1 &
+    ' > $BASE_DIR/flink_test.log 2>&1 &
 fi
 
 echo "-- Cleaning up"

@@ -170,7 +170,7 @@
               "value": "10 secs"
             }
 {% if CDH_VERSION is ge('7.1') and CFM_BUILD is gt('2.0.1.0-25') %}
-            ,{
+           ,{
               "name": "nifi.security.identity.mapping.pattern.kerb",
               "value": "^(.*?)(/.*?)?@(.*?)$"
             },
@@ -181,8 +181,95 @@
             {
               "name": "nifi.security.identity.mapping.value.kerb",
               "value": "$1"
+            }
+{% endif %}
+{% if USE_IPA %}
+           ,{
+              "name": "staging/authorizers.xml_role_safety_valve",
+              "value": "<property><name>xml.authorizers.userGroupProvider.composite-configurable-user-group-provider.property.User Group Provider 2</name><value>ldap-user-group-provider</value></property>"
             },
             {
+              "name": "nifi.ldap.enabled",
+              "value": "true"
+            },
+            {
+              "name": "nifi.ldap.authentication.strategy",
+              "value": "LDAPS"
+            },
+            {
+              "name": "nifi.ldap.manager.dn",
+              "value": "uid=ldap_bind_user,cn=users,cn=accounts,dc=workshop,dc=com"
+            },
+            {
+              "name": "nifi.ldap.manager.password",
+              "value": "{{THE_PWD}}"
+            },
+            {
+              "name": "nifi.ldap.tls.client.auth",
+              "value": "NONE"
+            },
+            {
+              "name": "nifi.ldap.tls.protocol",
+              "value": "TLSv1.2"
+            },
+            {
+              "name": "nifi.ldap.tls.truststore",
+              "value": "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name": "nifi.ldap.tls.truststore.password",
+              "value": "{{THE_PWD}}"
+            },
+            {
+              "name": "nifi.ldap.tls.truststore.type",
+              "value": "JKS"
+            },
+            {
+              "name": "nifi.ldap.url",
+              "value": "ldaps://{{IPA_HOST}}"
+            },
+            {
+              "name": "nifi.ldap.user.search.base",
+              "value": "cn=users,cn=accounts,dc=workshop,dc=com"
+            },
+            {
+              "name": "xml.authorizers.userGroupProvider.ldap-user-group-provider.property.Group Member Attribute",
+              "value": "member"
+            },
+            {
+              "name": "xml.authorizers.userGroupProvider.ldap-user-group-provider.property.Group Name Attribute",
+              "value": "cn"
+            },
+            {
+              "name": "xml.authorizers.userGroupProvider.ldap-user-group-provider.property.Group Object Class",
+              "value": "posixgroup"
+            },
+            {
+              "name": "xml.authorizers.userGroupProvider.ldap-user-group-provider.property.Group Search Base",
+              "value": "cn=groups,cn=accounts,dc=workshop,dc=com"
+            },
+            {
+              "name": "xml.authorizers.userGroupProvider.ldap-user-group-provider.property.Sync Interval",
+              "value": "1 min"
+            },
+            {
+              "name": "xml.authorizers.userGroupProvider.ldap-user-group-provider.property.User Group Name Attribute",
+              "value": "memberOf"
+            },
+            {
+              "name": "xml.authorizers.userGroupProvider.ldap-user-group-provider.property.User Identity Attribute",
+              "value": "uid"
+            },
+            {
+              "name": "xml.loginIdentityProviders.provider.ldap-provider.property.Identity Strategy",
+              "value": "USE_USERNAME"
+            },
+            {
+              "name": "xml.loginIdentityProviders.provider.ldap-provider.property.User Search Filter",
+              "value": "uid={0}"
+            }
+{% else %}
+           ,{
               "name" : "staging/authorizers.xml_role_safety_valve",
               "value" : "<property><name>xml.authorizers.userGroupProvider.composite-configurable-user-group-provider.property.User Group Provider 2</name><value>shell-user-group-provider</value></property>"
             },

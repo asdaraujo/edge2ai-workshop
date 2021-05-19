@@ -79,6 +79,55 @@
               "value": "{{THE_PWD}}"
             }
 {% endif %}
+{% if ENABLE_TLS == 'yes' and USE_IPA and ENABLE_TLS == 'never' %}
+            ,
+{% endif %}
+{% if USE_IPA and ENABLE_TLS == 'never' %}
+            {
+              "name" : "ranger.usersync.group.memberattributename",
+              "value" : "member"
+            },
+            {
+              "name" : "ranger.usersync.group.nameattribute",
+              "value" : "cn"
+            },
+            {
+              "name" : "ranger.usersync.group.objectclass",
+              "value" : "ipausergroup"
+            },
+            {
+              "name" : "ranger.usersync.group.searchbase",
+              "value" : "cn=groups,cn=accounts,dc=workshop,dc=com"
+            },
+            {
+              "name" : "ranger.usersync.ldap.binddn",
+              "value" : "uid=ldap_bind_user,cn=users,cn=accounts,dc=workshop,dc=com"
+            },
+            {
+              "name" : "ranger.usersync.ldap.url",
+              "value" : "ldaps://{{IPA_HOST}}"
+            },
+            {
+              "name" : "ranger.usersync.ldap.user.nameattribute",
+              "value" : "uid"
+            },
+            {
+              "name" : "ranger.usersync.ldap.user.objectclass",
+              "value" : "person"
+            },
+            {
+              "name" : "ranger.usersync.ldap.user.searchbase",
+              "value" : "cn=users,cn=accounts,dc=workshop,dc=com"
+            },
+            {
+              "name" : "ranger.usersync.source.impl.class",
+              "value" : "org.apache.ranger.ldapusersync.process.LdapUserGroupBuilder"
+            },
+            {
+              "name" : "ranger_usersync_ldap_ldapbindpassword",
+              "value" : "{{THE_PWD}}"
+            }
+{% endif %}
           ]
         },
         {
