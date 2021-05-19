@@ -97,8 +97,12 @@
           "roleType": "HBASETHRIFTSERVER",
           "base": true,
           "configs": [
-{% if ENABLE_TLS == 'yes' %}
             {
+              "name" : "hbase_thriftserver_port",
+              "value" : "9091"
+            }
+{% if ENABLE_TLS == 'yes' %}
+           ,{
               "name": "hbase_thriftserver_http_keystore_file",
               "value": "/opt/cloudera/security/jks/keystore.jks"
             },

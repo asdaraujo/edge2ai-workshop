@@ -1,0 +1,261 @@
+{
+{% if CDH_VERSION is ge('7.1.7') %}
+  "hostTemplates" : [
+    {
+      "refName": "HostTemplate-0-from-{{CLUSTER_HOST}}",
+      "roleConfigGroupsRefNames" : [
+        "ozone-GATEWAY-BASE",
+        "ozone-OZONE_DATANODE-BASE",
+        "ozone-OZONE_MANAGER-BASE",
+        "ozone-OZONE_PROMETHEUS-BASE",
+        "ozone-OZONE_RECON-BASE",
+        "ozone-S3_GATEWAY-BASE",
+        "ozone-STORAGE_CONTAINER_MANAGER-BASE"
+      ]
+    }
+  ],
+  "services" : [
+    {
+      "refName" : "ozone",
+      "serviceType" : "OZONE",
+      "displayName": "Ozone",
+      "serviceConfigs" : [
+        {
+          "name" : "ozone.service.id",
+          "value" : "ozone"
+        },
+        {
+          "name" : "ozone.replication",
+          "value" : "1"
+        }
+{% if ENABLE_KERBEROS == 'yes' %}
+       ,{
+          "name" : "ozone.security.enabled",
+          "value" : "true"
+        }
+{% endif %}
+      ],
+      "roleConfigGroups" : [
+        {
+          "refName" : "ozone-GATEWAY-BASE",
+          "roleType" : "GATEWAY",
+          "base" : true,
+          "configs" : [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name" : "ssl_client_truststore_location",
+              "value" : "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name" : "ssl_client_truststore_password",
+              "value" : "{{THE_PWD}}"
+            }
+{% endif %}
+          ]
+        },
+        {
+          "refName" : "ozone-OZONE_RECON-BASE",
+          "roleType" : "OZONE_RECON",
+          "base" : true,
+          "configs" : [
+            {
+              "name" : "ozone_recon_max_heap_size",
+              "value" : "256"
+            }
+{% if ENABLE_TLS == 'yes' %}
+           ,{
+              "name" : "ssl_client_truststore_location",
+              "value" : "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name" : "ssl_server_keystore_location",
+              "value" : "/opt/cloudera/security/jks/keystore.jks"
+            },
+            {
+              "name" : "ssl_client_truststore_password",
+              "value" : "{{THE_PWD}}"
+            },
+            {
+              "name" : "ssl_enabled",
+              "value" : "true"
+            },
+            {
+              "name" : "ssl_server_keystore_keypassword",
+              "value" : "{{THE_PWD}}"
+            },
+            {
+              "name" : "ssl_server_keystore_password",
+              "value" : "{{THE_PWD}}"
+            }
+{% endif %}
+          ]
+        },
+        {
+          "refName" : "ozone-STORAGE_CONTAINER_MANAGER-BASE",
+          "roleType" : "STORAGE_CONTAINER_MANAGER",
+          "base" : true,
+          "configs" : [
+            {
+              "name" : "scm_max_heap_size",
+              "value" : "256"
+            }
+{% if ENABLE_TLS == 'yes' %}
+           ,{
+              "name" : "ssl_client_truststore_location",
+              "value" : "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name" : "ssl_server_keystore_location",
+              "value" : "/opt/cloudera/security/jks/keystore.jks"
+            },
+            {
+              "name" : "ssl_client_truststore_password",
+              "value" : "{{THE_PWD}}"
+            },
+            {
+              "name" : "ssl_enabled",
+              "value" : "true"
+            },
+            {
+              "name" : "ssl_server_keystore_keypassword",
+              "value" : "{{THE_PWD}}"
+            },
+            {
+              "name" : "ssl_server_keystore_password",
+              "value" : "{{THE_PWD}}"
+            }
+{% endif %}
+          ]
+        },
+        {
+          "refName" : "ozone-OZONE_DATANODE-BASE",
+          "roleType" : "OZONE_DATANODE",
+          "base" : true,
+          "configs" : [
+            {
+              "name" : "hdds.datanode.dir",
+              "value" : "/hadoop-ozone/datanode/data"
+            }, {
+              "name" : "ozone_datanode_heap_size",
+              "value" : "512"
+            }
+{% if ENABLE_TLS == 'yes' %}
+           ,{
+              "name" : "ssl_server_keystore_location",
+              "value" : "/opt/cloudera/security/jks/keystore.jks"
+            },
+            {
+              "name" : "ssl_client_truststore_password",
+              "value" : "{{THE_PWD}}"
+            },
+            {
+              "name" : "ssl_server_keystore_password",
+              "value" : "{{THE_PWD}}"
+            },
+            {
+              "name" : "ssl_client_truststore_location",
+              "value" : "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name" : "ssl_enabled",
+              "value" : "true"
+            },
+            {
+              "name" : "ssl_server_keystore_keypassword",
+              "value" : "{{THE_PWD}}"
+            }
+{% endif %}
+          ]
+        },
+        {
+          "refName" : "ozone-S3_GATEWAY-BASE",
+          "roleType" : "S3_GATEWAY",
+          "base" : true,
+          "configs" : [
+            {
+              "name" : "ozone_S3_gateway_max_heap_size",
+              "value" : "256"
+            }
+{% if ENABLE_TLS == 'yes' %}
+           ,{
+              "name" : "ssl_client_truststore_location",
+              "value" : "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name" : "ssl_server_keystore_location",
+              "value" : "/opt/cloudera/security/jks/keystore.jks"
+            },
+            {
+              "name" : "ssl_client_truststore_password",
+              "value" : "{{THE_PWD}}"
+            },
+            {
+              "name" : "ssl_enabled",
+              "value" : "true"
+            },
+            {
+              "name" : "ssl_server_keystore_keypassword",
+              "value" : "{{THE_PWD}}"
+            },
+            {
+              "name" : "ssl_server_keystore_password",
+              "value" : "{{THE_PWD}}"
+            }
+{% endif %}
+          ]
+        },
+        {
+          "refName" : "ozone-OZONE_MANAGER-BASE",
+          "roleType" : "OZONE_MANAGER",
+          "base" : true,
+          "configs" : [
+            {
+              "name" : "om_max_heap_size",
+              "value" : "256"
+            }
+{% if ENABLE_TLS == 'yes' %}
+           ,{
+              "name" : "ssl_client_truststore_location",
+              "value" : "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name" : "ssl_server_keystore_location",
+              "value" : "/opt/cloudera/security/jks/keystore.jks"
+            },
+            {
+              "name" : "ssl_client_truststore_password",
+              "value" : "{{THE_PWD}}"
+            },
+            {
+              "name" : "ssl_enabled",
+              "value" : "true"
+            },
+            {
+              "name" : "ssl_server_keystore_keypassword",
+              "value" : "{{THE_PWD}}"
+            },
+            {
+              "name" : "ssl_server_keystore_password",
+              "value" : "{{THE_PWD}}"
+            }
+{% endif %}
+          ]
+        },
+        {
+          "refName" : "ozone-OZONE_PROMETHEUS-BASE",
+          "roleType" : "OZONE_PROMETHEUS",
+          "base" : true,
+          "configs" : [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name" : "ozone.prometheus.ca.file",
+              "value" : "/opt/cloudera/security/x509/truststore.pem"
+            }
+{% endif %}
+          ]
+        }
+      ]
+    }
+  ]
+{% endif %}
+}
