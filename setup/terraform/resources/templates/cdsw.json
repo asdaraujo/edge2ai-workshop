@@ -30,22 +30,6 @@
       "displayName": "Cloudera Data Science Workbench",
       "serviceConfigs": [
         {
-          "name": "yarn_service",
-          "ref": "yarn"
-        },
-        {
-          "name": "hdfs_service",
-          "ref": "hdfs"
-        },
-        {
-          "name": "hive_service",
-          "ref": "hive"
-        },
-        {
-          "name": "spark_on_yarn_service",
-          "ref": "spark_on_yarn"
-        },
-        {
           "name": "cdsw.domain.config",
           "value": "{{CDSW_DOMAIN}}"
         },
@@ -64,7 +48,27 @@
         {
           "refName": "cdsw-CDSW_APPLICATION-BASE",
           "roleType": "CDSW_APPLICATION",
-          "base": true
+          "base": true,
+          "configs": [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name" : "cdsw.enable.tls.config",
+              "value" : "true"
+            },
+            {
+              "name" : "cdsw.tls.cert.config",
+              "value" : "/opt/cloudera/security/x509/cert.pem"
+            },
+            {
+              "name" : "cdsw.tls.key.config",
+              "value" : "/opt/cloudera/security/x509/unencrypted-key.pem"
+            },
+            {
+              "name" : "cdsw.tls.rootca",
+              "value" : "/opt/cloudera/security/x509/truststore.pem"
+            }
+{% endif %}
+          ]
         },
         {
           "refName": "cdsw-CDSW_MASTER-BASE",

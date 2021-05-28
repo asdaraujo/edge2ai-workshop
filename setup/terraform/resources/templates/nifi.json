@@ -97,6 +97,110 @@
               "value": "{{THE_PWD}}"
             }
 {% endif %}
+{% if CDH_VERSION is ge('7.1') and CFM_BUILD is gt('2.0.1.0-25') %}
+           ,{
+              "name": "nifi.registry.security.identity.mapping.pattern.kerb",
+              "value": "^(.*?)(/.*?)?@(.*?)$"
+            },
+            {
+              "name": "nifi.registry.security.identity.mapping.transform.kerb",
+              "value": "LOWER"
+            },
+            {
+              "name": "nifi.registry.security.identity.mapping.transform.dn",
+              "value": "LOWER"
+            },
+            {
+              "name": "nifi.registry.security.identity.mapping.value.kerb",
+              "value": "$1"
+            }
+{% endif %}
+{% if USE_IPA %}
+           ,{
+              "name": "nifi.registry.ldap.enabled",
+              "value": "true"
+            },
+            {
+              "name": "nifi.registry.ldap.authentication.strategy",
+              "value": "LDAPS"
+            },
+            {
+              "name": "nifi.registry.ldap.manager.dn",
+              "value": "uid=ldap_bind_user,cn=users,cn=accounts,dc=workshop,dc=com"
+            },
+            {
+              "name": "nifi.registry.ldap.manager.password",
+              "value": "{{THE_PWD}}"
+            },
+            {
+              "name": "nifi.registry.ldap.tls.client.auth",
+              "value": "NONE"
+            },
+            {
+              "name": "nifi.registry.ldap.tls.protocol",
+              "value": "TLSv1.2"
+            },
+            {
+              "name": "nifi.registry.ldap.tls.truststore",
+              "value": "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name": "nifi.registry.ldap.tls.truststore.password",
+              "value": "{{THE_PWD}}"
+            },
+            {
+              "name": "nifi.registry.ldap.tls.truststore.type",
+              "value": "JKS"
+            },
+            {
+              "name": "nifi.registry.ldap.url",
+              "value": "ldaps://{{IPA_HOST}}"
+            },
+            {
+              "name": "nifi.registry.ldap.user.search.base",
+              "value": "cn=users,cn=accounts,dc=workshop,dc=com"
+            },
+            {
+              "name": "staging/authorizers.xml_role_safety_valve",
+              "value": "<property><name>xml.authorizers.userGroupProvider.composite-configurable-user-group-provider.property.User Group Provider 2</name><value>ldap-user-group-provider</value></property>"
+            },
+            {
+              "name": "xml.authorizers.userGroupProvider.ldap-user-group-provider.property.Group Member Attribute",
+              "value": "member"
+            },
+            {
+              "name": "xml.authorizers.userGroupProvider.ldap-user-group-provider.property.Group Name Attribute",
+              "value": "cn"
+            },
+            {
+              "name": "xml.authorizers.userGroupProvider.ldap-user-group-provider.property.Group Object Class",
+              "value": "posixgroup"
+            },
+            {
+              "name": "xml.authorizers.userGroupProvider.ldap-user-group-provider.property.Group Search Base",
+              "value": "cn=groups,cn=accounts,dc=workshop,dc=com"
+            },
+            {
+              "name": "xml.authorizers.userGroupProvider.ldap-user-group-provider.property.Sync Interval",
+              "value": "1 min"
+            },
+            {
+              "name": "xml.authorizers.userGroupProvider.ldap-user-group-provider.property.User Group Name Attribute",
+              "value": "memberOf"
+            },
+            {
+              "name": "xml.authorizers.userGroupProvider.ldap-user-group-provider.property.User Identity Attribute",
+              "value": "uid"
+            },
+            {
+              "name": "xml.identityProviders.provider.ldap-provider.property.Identity Strategy",
+              "value": "USE_USERNAME"
+            },
+            {
+              "name": "xml.identityProviders.provider.ldap-provider.property.User Search Filter",
+              "value": "uid={0}"
+            }
+{% endif %}
           ]
         }
       ]
