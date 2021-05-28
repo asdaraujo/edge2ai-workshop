@@ -7,11 +7,6 @@ set -u
 set -e
 
 TARGET_LAB=${1:-99}
-CA_CERT=/opt/cloudera/security/x509/truststore.pem
-if [[ -f $CA_CERT ]]; then
-  export NIFI_CA_CERT=$CA_CERT
-  export REQUESTS_CA_BUNDLE=$CA_CERT
-fi
 
 export THE_PWD=$(cat $BASE_DIR/the_pwd.txt)
 if [[ $THE_PWD == "" ]]; then

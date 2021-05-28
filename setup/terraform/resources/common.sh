@@ -553,6 +553,7 @@ function create_certs() {
   local ipa_host=$1
 
   export KEY_PEM=/opt/cloudera/security/x509/key.pem
+  export UNENCRYTED_KEY_PEM=/opt/cloudera/security/x509/unencrypted-key.pem
   export CSR_PEM=/opt/cloudera/security/x509/host.csr
   export HOST_PEM=/opt/cloudera/security/x509/host.pem
   export KEY_PWD=${THE_PWD}
@@ -572,8 +573,8 @@ function create_certs() {
   openssl genrsa -des3 -out ${KEY_PEM} -passout pass:${KEY_PWD} 2048
 
   # Create CSR
-  local public_ip=$(curl https://ifconfig.me 2>/dev/null || curl https://api.ipify.org/ 2> /dev/null)
-  export ALT_NAMES=DNS:edge2ai-1.dim.local,DNS:$(hostname -f),IP:$(hostname -I),IP:${public_ip}
+  local public_ip=$(curl -s http://ifconfig.me || curl -s http://api.ipify.org/)
+  export ALT_NAMES="DNS:edge2ai-1.dim.local,DNS:$(hostname -f),IP:$(hostname -I),IP:${public_ip},DNS:*.${public_ip}.nip.io"
   openssl req\
     -new\
     -key ${KEY_PEM} \
@@ -605,6 +606,9 @@ extendedKeyUsage = serverAuth, clientAuth
 subjectAltName = $ALT_NAMES
 EOF
   )
+
+  # Create an unencrypted version of the key (required for CDSW internal termination)
+  openssl rsa -in "$KEY_PEM" -passin pass:"$KEY_PWD" > "$UNENCRYTED_KEY_PEM"
 
   # Sign cert
   openssl ca \
@@ -704,7 +708,7 @@ EOF
 
   # Set permissions
   chown cloudera-scm:cloudera-scm $KEY_PEM $KEYSTORE_JKS $CERT_PEM $TRUSTSTORE_PEM $TRUSTSTORE_JKS
-  chmod 444 $KEY_PEM $KEYSTORE_JKS
+  chmod 444 $KEY_PEM $UNENCRYTED_KEY_PEM $KEYSTORE_JKS
   chmod 444 $CERT_PEM $TRUSTSTORE_PEM $TRUSTSTORE_JKS
 
 }

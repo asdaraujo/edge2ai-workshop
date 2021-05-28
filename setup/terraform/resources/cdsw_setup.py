@@ -13,8 +13,12 @@ if len(sys.argv) > 3:
 else:
     PASSWORD = os.environ['THE_PWD']
 
-CDSW_API = 'http://cdsw.%s.nip.io/api/v1' % (PUBLIC_IP,)
-CDSW_ALTUS_API = 'http://cdsw.%s.nip.io/api/altus-ds-1' % (PUBLIC_IP,)
+TRUSTSTORE = '/opt/cloudera/security/x509/truststore.pem'
+IS_SECURE = os.path.exists(TRUSTSTORE)
+URL_SCHEME = 'https' if IS_SECURE else 'http'
+
+CDSW_API = URL_SCHEME + '://cdsw.%s.nip.io/api/v1' % (PUBLIC_IP,)
+CDSW_ALTUS_API = URL_SCHEME + '://cdsw.%s.nip.io/api/altus-ds-1' % (PUBLIC_IP,)
 
 USERNAME = 'admin'
 FULL_NAME = 'Workshop Admin'
@@ -24,17 +28,22 @@ print('# Prepare CDSW for workshop')
 r = None
 try:
     s = requests.Session()
+    if IS_SECURE:
+        s.verify = TRUSTSTORE
     
     print('# Create user')
     while True:
         try:
-            r = s.post(CDSW_API + '/users', json={
-                    'email': EMAIL,
-                    'name': FULL_NAME,
-                    'username': USERNAME,
-                    'password': PASSWORD,
-                    'type': 'user'
-                }, timeout=10)
+            print(CDSW_API)
+            r = s.post(CDSW_API + '/users',
+                    json={
+                        'email': EMAIL,
+                        'name': FULL_NAME,
+                        'username': USERNAME,
+                        'password': PASSWORD,
+                        'type': 'user'
+                    },
+                    timeout=10)
             if r.status_code == 201:
                 break
             elif r.status_code == 422:

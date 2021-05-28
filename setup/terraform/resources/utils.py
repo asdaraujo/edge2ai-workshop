@@ -10,14 +10,21 @@ import re
 import requests
 import time
 import os
+import socket
 import sys
+import uuid
 from inspect import getmembers
 from contextlib import contextmanager
 from datetime import datetime
 from impala.dbapi import connect
-from nipyapi import config, canvas, versioning, nifi
+from nipyapi import config, canvas, versioning, nifi, security
 from nipyapi.nifi.rest import ApiException
+from nipyapi.registry.apis.bucket_flows_api import BucketFlowsApi
+from requests_gssapi import HTTPSPNEGOAuth
 
+# Avoid unverified TLS warnings
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 LOG = logging.getLogger(__name__)
 LOG.setLevel(logging.INFO)
@@ -25,19 +32,13 @@ LOG.setLevel(logging.INFO)
 CONSUMER_GROUP_ID = 'iot-sensor-consumer'
 PRODUCER_CLIENT_ID = 'nifi-sensor-data'
 
-_EFM_API_URL = 'http://edge2ai-1.dim.local:10080/efm/api'
-_NIFI_URL = 'http://edge2ai-1.dim.local:8080/nifi'
-_NIFI_API_URL = 'http://edge2ai-1.dim.local:8080/nifi-api'
-_NIFIREG_URL = 'http://edge2ai-1.dim.local:18080'
-_NIFIREG_API_URL = 'http://edge2ai-1.dim.local:18080/nifi-registry-api'
-_SCHREG_API_URL = 'http://edge2ai-1.dim.local:7788/api/v1'
-_SMM_API_URL = 'http://edge2ai-1.dim.local:8585'
+_HOSTNAME = socket.gethostname()
 
-_SCHEMA_URI = 'https://raw.githubusercontent.com/cloudera-labs/edge2ai-workshop/master/sensor.avsc'
+_SCHEMA_URI = 'http://raw.githubusercontent.com/cloudera-labs/edge2ai-workshop/master/sensor.avsc'
 
+_THE_PWD = os.environ['THE_PWD'] if 'THE_PWD' in os.environ else open(os.path.join(os.path.dirname(__file__), 'the_pwd.txt')).read()
 _CDSW_MODEL_NAME = 'IoT Prediction Model'
 _CDSW_USERNAME = 'admin'
-_CDSW_PASSWORD = os.environ['THE_PWD'] if 'THE_PWD' in os.environ else open(os.path.join(os.path.dirname(__file__), 'the_pwd.txt')).read()
 _CDSW_FULL_NAME = 'Workshop Admin'
 _CDSW_EMAIL = 'admin@cloudera.com'
 
@@ -74,15 +75,85 @@ TBLPROPERTIES ('kudu.num_tablet_replicas' = '1');
 
 _DROP_KUDU_TABLE = "DROP TABLE IF EXISTS sensors;"
 
-# General helper functions
+_TRUSTSTORE = '/opt/cloudera/security/x509/truststore.pem'
+_IS_SECURE = os.path.exists(_TRUSTSTORE)
 
+# General helper functions
 
 def enable_debug():
     LOG.setLevel(logging.DEBUG)
 
-
 def disable_debug():
     LOG.setLevel(logging.INFO)
+
+def _get_url_scheme():
+    return 'https' if _IS_SECURE else 'http'
+
+def _get_nifi_port():
+    return '8443' if _IS_SECURE else '8080'
+
+def _get_nifireg_port():
+    return '18433' if _IS_SECURE else '18080'
+
+def _get_schreg_port():
+    return '7790' if _IS_SECURE else '7788'
+
+def _get_kafka_port():
+    return '9093' if _IS_SECURE else '9092'
+
+def _get_smm_port():
+    return '8587' if _IS_SECURE else '8585'
+
+def _get_kafka_bootstrap_servers():
+    return _HOSTNAME + ':' + _get_kafka_port()
+
+def _get_common_kafka_client_properties(env, client_type):
+    props = {
+        'bootstrap.servers': _get_kafka_bootstrap_servers(),
+    }
+    if client_type == 'producer':
+        props.update({
+            'use-transactions': 'false',
+            'attribute-name-regex': 'schema.*',
+            'client.id': PRODUCER_CLIENT_ID,
+        })
+    else: # consumer
+        props.update({
+            'honor-transactions': 'false',
+            'group.id': CONSUMER_GROUP_ID,
+            'auto.offset.reset': 'latest',
+            'header-name-regex': 'schema.*',
+        })
+    if _IS_SECURE:
+        props.update({
+            'kerberos-credentials-service': env.keytab_svc.id,
+            'sasl.kerberos.service.name': 'kafka',
+            'sasl.mechanism': 'GSSAPI',
+            'security.protocol': 'SASL_SSL',
+            'ssl.context.service': env.ssl_svc.id,
+        })
+    return props
+
+def _get_efm_api_url():
+    return '%s://%s:10080/efm/api' % ('http', _HOSTNAME,)
+
+def _get_nifi_url():
+    return '%s://%s:%s/nifi' % (_get_url_scheme(), _HOSTNAME, _get_nifi_port())
+
+def _get_nifi_api_url():
+    return '%s://%s:%s/nifi-api' % (_get_url_scheme(), _HOSTNAME, _get_nifi_port())
+
+def _get_nifireg_url():
+    return '%s://%s:%s' % (_get_url_scheme(), _HOSTNAME, _get_nifireg_port())
+
+def _get_nifireg_api_url():
+    return '%s://%s:%s/nifi-registry-api' % (_get_url_scheme(), _HOSTNAME, _get_nifireg_port())
+
+def _get_schreg_api_url():
+    return '%s://%s:%s/api/v1' % (_get_url_scheme(), _HOSTNAME, _get_schreg_port())
+
+def _get_smm_api_url():
+    return '%s://%s:%s' % (_get_url_scheme(), _HOSTNAME, _get_smm_port())
 
 
 def get_public_ip():
@@ -96,8 +167,10 @@ def get_public_ip():
     raise RuntimeError('Failed to get the public IP address.')
 
 
-def api_request(method, url, expected_code=requests.codes.ok, **kwargs):
-    resp = requests.request(method, url, **kwargs)
+def api_request(method, url, expected_code=requests.codes.ok, auth=None, **kwargs):
+    LOG.debug("Request: method: %s, url: %s, auth: %s, verify: %s, kwargs: %s",
+        method, url, 'yes' if auth else 'no', _TRUSTSTORE if _IS_SECURE else None, kwargs)
+    resp = requests.request(method, url, auth=auth, verify=(_TRUSTSTORE if _IS_SECURE else None), **kwargs)
     if resp.status_code != expected_code:
         raise RuntimeError('Request to URL %s returned code %s (expected was %s), Response: %s' % (resp.url, resp.status_code, expected_code, resp.text))
     return resp
@@ -134,22 +207,24 @@ def retry_test(max_retries=0, wait_time_secs=0):
 
 
 def get_cdsw_api():
-    return 'http://cdsw.%s.nip.io/api/v1' % (get_public_ip(),)
+    return _get_url_scheme() + '://cdsw.%s.nip.io/api/v1' % (get_public_ip(),)
 
 
 def get_cdsw_altus_api():
-    return 'http://cdsw.%s.nip.io/api/altus-ds-1' % (get_public_ip(),)
+    return _get_url_scheme() + '://cdsw.%s.nip.io/api/altus-ds-1' % (get_public_ip(),)
 
 
 def get_model_endpoint():
-    return 'http://modelservice.cdsw.%s.nip.io/model' % (get_public_ip(),)
+    return _get_url_scheme() + '://modelservice.cdsw.%s.nip.io/model' % (get_public_ip(),)
 
 
 def cdsw_session():
     global _CDSW_SESSION
     if not _CDSW_SESSION:
         _CDSW_SESSION = requests.Session()
-        r = _CDSW_SESSION.post(get_cdsw_api() + '/authenticate', json={'login': _CDSW_USERNAME, 'password': _CDSW_PASSWORD})
+        if _IS_SECURE:
+            _CDSW_SESSION.verify = _TRUSTSTORE
+        r = _CDSW_SESSION.post(get_cdsw_api() + '/authenticate', json={'login': _CDSW_USERNAME, 'password': _THE_PWD}, )
         _CDSW_SESSION.headers.update({'Authorization': 'Bearer ' + r.json()['auth_token']})
     return _CDSW_SESSION
 
@@ -188,9 +263,21 @@ def get_cdsw_model_access_key():
 
 # Kudu helper functions
 
+def connect_to_impala():
+    if _IS_SECURE:
+        params = {
+            'auth_mechanism': 'GSSAPI',
+            'kerberos_service_name': 'impala',
+            'use_ssl': True,
+            'ca_cert': _TRUSTSTORE,
+        }
+    else:
+        params = {}
+    return connect(host=_HOSTNAME, port=21050, **params)
+
 
 def create_kudu_table():
-    conn = connect(host='localhost', port=21050)
+    conn = connect_to_impala()
     cursor = conn.cursor()
     cursor.execute(_CREATE_KUDU_TABLE)
     result = cursor.fetchall()
@@ -199,7 +286,7 @@ def create_kudu_table():
 
 
 def drop_kudu_table():
-    conn = connect(host='localhost', port=21050)
+    conn = connect_to_impala()
     cursor = conn.cursor()
     cursor.execute(_DROP_KUDU_TABLE)
     result = cursor.fetchall()
@@ -290,7 +377,7 @@ def nifi_delete_all(pg):
 
 
 def efm_api_request(method, endpoint, expected_code=requests.codes.ok, **kwargs):
-    url = _EFM_API_URL + endpoint
+    url = _get_efm_api_url() + endpoint
     return api_request(method, url, expected_code, **kwargs)
 
 
@@ -399,7 +486,7 @@ def efm_get_all_by_type(flow_id, obj_type):
 def efm_delete_by_type(flow_id, obj, obj_type):
     obj_id = obj['componentConfiguration']['identifier']
     version = obj['revision']['version']
-    client_id = obj['revision']['clientId']
+    client_id = efm_get_client_id()
     obj_type_alt = re.sub(r'[A-Z]', lambda x: '-' + x.group(0).lower(), obj_type)
     endpoint = '/designer/flows/{flowId}/{objType}/{objId}?version={version}&clientId={clientId}'.format(flowId=flow_id, objType=obj_type_alt, objId=obj_id, version=version, clientId=client_id)
     resp = efm_api_delete(endpoint, headers={'Content-Type': 'application/json'})
@@ -496,8 +583,9 @@ def save_flow_ver(process_group, registry_client, bucket, flow_name=None,
 
 
 def nifireg_api_request(method, endpoint, expected_code=requests.codes.ok, **kwargs):
-    url = _NIFIREG_API_URL + endpoint
-    return api_request(method, url, expected_code, **kwargs)
+    url = _get_nifireg_api_url() + endpoint
+    auth = None
+    return api_request(method, url, expected_code, auth=auth, **kwargs)
 
 
 def nifireg_api_delete(endpoint, expected_code=requests.codes.ok, **kwargs):
@@ -508,15 +596,18 @@ def nifireg_delete_flows(identifier, identifier_type='name'):
     bucket = versioning.get_registry_bucket(identifier, identifier_type)
     if bucket:
         for flow in versioning.list_flows_in_bucket(bucket.identifier):
-            endpoint = '/buckets/{bucketId}/flows/{flowId}'.format(bucketId=flow.bucket_identifier, flowId=flow.identifier)
-            resp = nifireg_api_delete(endpoint, headers={'Content-Type': 'application/json'})
+            BucketFlowsApi().delete_flow(flow.bucket_identifier, flow.identifier)
 
 # Schema Registry helper functions
 
 
 def schreg_api_request(method, endpoint, expected_code=requests.codes.ok, **kwargs):
-    url = _SCHREG_API_URL + endpoint
-    return api_request(method, url, expected_code, **kwargs)
+    url = _get_schreg_api_url() + endpoint
+    if _IS_SECURE:
+        auth = HTTPSPNEGOAuth()
+    else:
+        auth = None
+    return api_request(method, url, expected_code, auth=auth, **kwargs)
 
 
 def schreg_api_get(endpoint, expected_code=requests.codes.ok, **kwargs):
@@ -592,12 +683,34 @@ def read_in_schema(uri=_SCHEMA_URI):
 
 
 def smm_api_request(method, endpoint, expected_code=requests.codes.ok, **kwargs):
-    url = _SMM_API_URL + endpoint
-    return api_request(method, url, expected_code, **kwargs)
+    url = _get_smm_api_url() + endpoint
+    if _IS_SECURE:
+        auth = HTTPSPNEGOAuth()
+    else:
+        auth = None
+    return api_request(method, url, expected_code, auth=auth, **kwargs)
 
 
 def smm_api_get(endpoint, expected_code=requests.codes.ok, **kwargs):
     return smm_api_request('GET', endpoint, expected_code, **kwargs)
+
+
+def get_kudu_version():
+    version = None
+    if _IS_SECURE:
+        resp = requests.get('https://' + _HOSTNAME + ':8051/', verify=False, auth=HTTPSPNEGOAuth())
+    else:
+        resp = requests.get('http://' + _HOSTNAME + ':8051/')
+
+    if resp:
+        m = re.search('<h2>Version Info</h2>\n<pre>kudu ([0-9.]+)', resp.text)
+        if m:
+            version, = m.groups()
+            version = tuple(map(lambda v: int(v), version.split('.')))
+            return version
+
+    return (999, 999, 999)
+
 
 # MAIN
 
@@ -607,8 +720,13 @@ def set_environment(run_id):
         run_id = str(int(time.time()))
 
     # Initialize NiFi API
-    config.nifi_config.host = _NIFI_API_URL
-    config.registry_config.host = _NIFIREG_API_URL
+    config.nifi_config.host = _get_nifi_api_url()
+    config.registry_config.host = _get_nifireg_api_url()
+    if _IS_SECURE:
+        security.set_service_ssl_context(service='nifi', ca_file=_TRUSTSTORE)
+        security.set_service_ssl_context(service='registry', ca_file=_TRUSTSTORE)
+        security.service_login(service='nifi', username='admin', password='supersecret1')
+        security.service_login(service='registry', username='admin@WORKSHOP.COM', password='supersecret1')
 
     # Get NiFi root PG
     root_pg = canvas.get_process_group(canvas.get_root_pg_id(), 'id')
@@ -714,7 +832,7 @@ def lab2_edge_flow(env):
             'Topic Filter': 'iot/#',
             'Max Queue Size': '60',
         })
-    env.nifi_rpg = efm_create_remote_processor_group(env.flow_id, env.efm_pg_id, 'Remote PG', _NIFI_URL, 'HTTP', (100, 400))
+    env.nifi_rpg = efm_create_remote_processor_group(env.flow_id, env.efm_pg_id, 'Remote PG', _get_nifi_url(), 'HTTP', (100, 400))
     env.consume_conn = efm_create_connection(env.flow_id, env.efm_pg_id, env.consume_mqtt, 'PROCESSOR', env.nifi_rpg, 'REMOTE_INPUT_PORT', ['Message'], destination_port=env.from_gw.id, name='Sensor data', flow_file_expiration='60 seconds')
 
     # Create a bucket in NiFi Registry to save the edge flow versions
@@ -739,13 +857,57 @@ def lab4_nifi_flow(env):
         env.sensor_bucket = versioning.create_registry_bucket('SensorFlows')
 
     # Create NiFi Process Group
-    env.reg_client = versioning.create_registry_client('NiFi Registry', _NIFIREG_URL, 'The registry...')
+    env.reg_client = versioning.create_registry_client('NiFi Registry', _get_nifireg_url(), 'The registry...')
     env.sensor_pg = canvas.create_process_group(env.root_pg, PG_NAME, (330, 350))
     #env.sensor_flow = versioning.save_flow_ver(env.sensor_pg, env.reg_client, env.sensor_bucket, flow_name='SensorProcessGroup', comment='Enabled version control - ' + env.run_id)
     env.sensor_flow = save_flow_ver(env.sensor_pg, env.reg_client, env.sensor_bucket, flow_name='SensorProcessGroup', comment='Enabled version control - ' + str(env.run_id))
 
+    # Update default SSL context controller service
+    ssl_svc_name = 'Default NiFi SSL Context Service'
+    if _IS_SECURE:
+        props = {
+            'SSL Protocol': 'TLS',
+            'Truststore Type': 'JKS',
+            'Truststore Filename': '/opt/cloudera/security/jks/truststore.jks',
+            'Truststore Password': _THE_PWD,
+            'Keystore Type': 'JKS',
+            'Keystore Filename': '/opt/cloudera/security/jks/keystore.jks',
+            'Keystore Password': _THE_PWD,
+            'key-password': _THE_PWD,
+        }
+        env.ssl_svc = canvas.get_controller(ssl_svc_name, 'name')
+        if env.ssl_svc:
+            canvas.schedule_controller(env.ssl_svc, False)
+            env.ssl_svc = canvas.get_controller(ssl_svc_name, 'name')
+            canvas.update_controller(env.ssl_svc, nifi.ControllerServiceDTO(properties=props))
+            env.ssl_svc = canvas.get_controller(ssl_svc_name, 'name')
+            canvas.schedule_controller(env.ssl_svc, True)
+        else:
+            env.keytab_svc = create_controller(env.root_pg, 'org.apache.nifi.ssl.StandardRestrictedSSLContextService', props, True,
+                                               name=ssl_svc_name)
+
+
     # Create controller services
-    env.sr_svc = create_controller(env.sensor_pg, 'org.apache.nifi.schemaregistry.hortonworks.HortonworksSchemaRegistry', {'url': _SCHREG_API_URL}, True)
+    if _IS_SECURE:
+        env.ssl_svc = canvas.get_controller(ssl_svc_name, 'name')
+        props = {
+            'Kerberos Keytab': '/keytabs/admin.keytab',
+            'Kerberos Principal': 'admin',
+        }
+        env.keytab_svc = create_controller(env.sensor_pg, 'org.apache.nifi.kerberos.KeytabCredentialsService', props, True)
+    else:
+        env.ssl_svc = None
+        env.keytab_svc = None
+
+    props = {
+        'url': _get_schreg_api_url(),
+    }
+    if _IS_SECURE:
+        props.update({
+            'kerberos-credentials-service': env.keytab_svc.id,
+            'ssl-context-service': env.ssl_svc.id,
+        })
+    env.sr_svc = create_controller(env.sensor_pg, 'org.apache.nifi.schemaregistry.hortonworks.HortonworksSchemaRegistry', props, True)
     env.json_reader_svc = create_controller(env.sensor_pg, 'org.apache.nifi.json.JsonTreeReader', {'schema-access-strategy': 'schema-name', 'schema-registry': env.sr_svc.id}, True)
     env.json_writer_svc = create_controller(env.sensor_pg, 'org.apache.nifi.json.JsonRecordSetWriter', {'schema-access-strategy': 'schema-name', 'schema-registry': env.sr_svc.id, 'Schema Write Strategy': 'hwx-schema-ref-attributes'}, True)
     env.avro_writer_svc = create_controller(env.sensor_pg, 'org.apache.nifi.avro.AvroRecordSetWriter', {'schema-access-strategy': 'schema-name', 'schema-registry': env.sr_svc.id, 'Schema Write Strategy': 'hwx-content-encoded-schema'}, True)
@@ -762,17 +924,15 @@ def lab4_nifi_flow(env):
     )
     canvas.create_connection(sensor_port, upd_attr)
 
+    props = {
+        'topic': 'iot',
+        'record-reader': env.json_reader_svc.id,
+        'record-writer': env.json_writer_svc.id,
+    }
+    props.update(_get_common_kafka_client_properties(env, 'producer'))
     pub_kafka = create_processor(env.sensor_pg, 'Publish to Kafka topic: iot', 'org.apache.nifi.processors.kafka.pubsub.PublishKafkaRecord_2_0', (0, 300),
         {
-            'properties': {
-                'bootstrap.servers': 'edge2ai-1.dim.local:9092',
-                'topic': 'iot',
-                'record-reader': env.json_reader_svc.id,
-                'record-writer': env.json_writer_svc.id,
-                'use-transactions': 'false',
-                'attribute-name-regex': 'schema.*',
-                'client.id': PRODUCER_CLIENT_ID,
-            },
+            'properties': props,
             'autoTerminatedRelationships': ['success'],
         }
     )
@@ -833,29 +993,31 @@ def lab7_rest_and_kudu(env):
                                                         {'schema-access-strategy': 'hwx-schema-ref-attributes', 'schema-registry': env.sr_svc.id},
                                                         True,
                                                         name='JsonTreeReader - With schema identifier')
+    props = {
+        'rest-lookup-url': get_cdsw_altus_api() + '/models/call-model',
+        'rest-lookup-record-reader': env.json_reader_svc.id,
+        'rest-lookup-record-path': '/response'
+    }
+    if _IS_SECURE:
+        props.update({
+            'rest-lookup-ssl-context-service': env.ssl_svc.id,
+        })
     rest_lookup_svc = create_controller(env.sensor_pg,
                                         'org.apache.nifi.lookup.RestLookupService',
-                                        {'rest-lookup-url': get_cdsw_altus_api() + '/models/call-model', 'rest-lookup-record-reader': env.json_reader_svc.id, 'rest-lookup-record-path': '/response'},
+                                        props,
                                         True)
 
     # Build flow
     fail_funnel = create_funnel(env.sensor_pg.id, (1400, 340))
 
-    consume_kafka = create_processor(env.sensor_pg, 'Consume Kafka iot messages', 'org.apache.nifi.processors.kafka.pubsub.ConsumeKafkaRecord_2_0', (700, 0),
-        {
-            'properties': {
-                'bootstrap.servers': 'edge2ai-1.dim.local:9092',
-                'topic': 'iot',
-                'topic_type': 'names',
-                'record-reader': env.json_reader_with_schema_svc.id,
-                'record-writer': env.json_writer_svc.id,
-                'honor-transactions': 'false',
-                'group.id': CONSUMER_GROUP_ID,
-                'auto.offset.reset': 'latest',
-                'header-name-regex': 'schema.*',
-            },
-        }
-    )
+    props = {
+        'topic': 'iot',
+        'topic_type': 'names',
+        'record-reader': env.json_reader_with_schema_svc.id,
+        'record-writer': env.json_writer_svc.id,
+    }
+    props.update(_get_common_kafka_client_properties(env, 'consumer'))
+    consume_kafka = create_processor(env.sensor_pg, 'Consume Kafka iot messages', 'org.apache.nifi.processors.kafka.pubsub.ConsumeKafkaRecord_2_0', (700, 0), {'properties': props})
     canvas.create_connection(consume_kafka, fail_funnel, ['parse.failure'])
 
     predict = create_processor(env.sensor_pg, 'Predict machine health', 'org.apache.nifi.processors.standard.LookupRecord', (700, 200),
@@ -889,45 +1051,46 @@ def lab7_rest_and_kudu(env):
     canvas.create_connection(update_health, fail_funnel, ['failure'])
     canvas.create_connection(predict, update_health, ['success'])
 
+    if get_kudu_version() >= (1, 14):
+        kudu_table_name = 'default.sensors'
+    else:
+        kudu_table_name = 'impala::default.sensors'
     write_kudu = create_processor(env.sensor_pg, 'Write to Kudu', 'org.apache.nifi.processors.kudu.PutKudu', (700, 600),
         {
             'properties': {
-                'Kudu Masters': 'edge2ai-1.dim.local:7051',
-                'Table Name': 'impala::default.sensors',
+                'Kudu Masters': _HOSTNAME + ':7051',
+                'Table Name': kudu_table_name,
                 'record-reader': env.json_reader_with_schema_svc.id,
+                'kerberos-credentials-service': env.keytab_svc.id if _IS_SECURE else None,
             },
         }
     )
     canvas.create_connection(write_kudu, fail_funnel, ['failure'])
     canvas.create_connection(update_health, write_kudu, ['success'])
 
+    props = {
+        'topic': 'iot_enriched',
+        'record-reader': env.json_reader_with_schema_svc.id,
+        'record-writer': env.json_writer_svc.id,
+    }
+    props.update(_get_common_kafka_client_properties(env, 'producer'))
     pub_kafka_enriched = create_processor(env.sensor_pg, 'Publish to Kafka topic: iot_enriched', 'org.apache.nifi.processors.kafka.pubsub.PublishKafkaRecord_2_0', (300, 600),
                                  {
-                                     'properties': {
-                                         'bootstrap.servers': 'edge2ai-1.dim.local:9092',
-                                         'topic': 'iot_enriched',
-                                         'record-reader': env.json_reader_with_schema_svc.id,
-                                         'record-writer': env.json_writer_svc.id,
-                                         'use-transactions': 'false',
-                                         'attribute-name-regex': 'schema.*',
-                                         'client.id': PRODUCER_CLIENT_ID,
-                                     },
+                                     'properties': props,
                                      'autoTerminatedRelationships': ['success', 'failure'],
                                  }
                                  )
     canvas.create_connection(update_health, pub_kafka_enriched, ['success'])
 
+    props = {
+        'topic': 'iot_enriched_avro',
+        'record-reader': env.json_reader_with_schema_svc.id,
+        'record-writer': env.avro_writer_svc.id,
+    }
+    props.update(_get_common_kafka_client_properties(env, 'producer'))
     pub_kafka_enriched_avro = create_processor(env.sensor_pg, 'Publish to Kafka topic: iot_enriched_avro', 'org.apache.nifi.processors.kafka.pubsub.PublishKafkaRecord_2_0', (-100, 600),
                                  {
-                                     'properties': {
-                                         'bootstrap.servers': 'edge2ai-1.dim.local:9092',
-                                         'topic': 'iot_enriched_avro',
-                                         'record-reader': env.json_reader_with_schema_svc.id,
-                                         'record-writer': env.avro_writer_svc.id,
-                                         'use-transactions': 'false',
-                                         'attribute-name-regex': 'schema.*',
-                                         'client.id': PRODUCER_CLIENT_ID,
-                                     },
+                                     'properties': props,
                                      'autoTerminatedRelationships': ['success', 'failure'],
                                  }
                                  )

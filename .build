@@ -1,2 +1,2 @@
-20210528154240
-Previous commit: eb89504 Adjust security groups to allow ports for secure clusters
+20210528154637
+Previous commit: b885d5c Fix templates for NiFi Registry and CDSW with security properties that were missing

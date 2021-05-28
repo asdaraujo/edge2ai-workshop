@@ -34,7 +34,7 @@ load_stack $NAMESPACE
 
 CM_REPO_FILE=/etc/yum.repos.d/cloudera-manager.repo
 
-export PUBLIC_IP=$(curl https://ifconfig.me 2>/dev/null || curl https://api.ipify.org/ 2> /dev/null)
+export PUBLIC_IP=$(curl -s http://ifconfig.me || curl -s http://api.ipify.org/)
 if [[ ! $PUBLIC_IP =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
   echo "ERROR: Could not retrieve public IP for this instance. Probably a transient error. Please try again."
   exit 1
@@ -75,6 +75,8 @@ if [[ ! -f $CM_REPO_FILE ]]; then
   yum clean all
   rm -rf /var/cache/yum/
   set +e
+  # Load and accept GPG keys
+  yum makecache -y || true
   yum repolist
   RET=$?
   set -e
@@ -87,6 +89,8 @@ if [[ ! -f $CM_REPO_FILE ]]; then
   echo "-- Installing base dependencies"
   yum_install ${JAVA_PACKAGE_NAME} vim wget curl git bind-utils centos-release-scl figlet cowsay
   yum_install npm gcc-c++ make shellinabox mosquitto jq transmission-cli rng-tools rh-python36 httpd
+  # Below is needed for secure clusters (required by Impyla)
+  yum_install cyrus-sasl-md5 cyrus-sasl-plain cyrus-sasl-gssapi cyrus-sasl-devel
 
   echo "-- Installing redis (for SSB)"
   yum_install redis
@@ -129,13 +133,13 @@ EOF
   echo "-- Install Postgresql repo"
   if [[ $(rpm -qa | grep pgdg-redhat-repo- | wc -l) -eq 0 ]]; then
     yum_install https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
-    # Need to run makecache to load/accept PG GPG keys
-    yum makecache -y || true
   fi
 
   echo "-- Clean repos"
   yum clean all
   rm -rf /var/cache/yum/
+  # Force makecache to ensure GPG keys are loaded and accepted
+  yum makecache -y || true
   yum repolist
 
   echo "-- Install and disable Cloudera Manager"
@@ -168,7 +172,7 @@ EOF
   retry_if_needed 5 5 "npm install --quiet forever -g"
   enable_py3
   pip install --quiet --upgrade pip
-  pip install --progress-bar off cm_client paho-mqtt pytest nipyapi psycopg2-binary pyyaml jinja2 impyla
+  pip install --progress-bar off cm_client paho-mqtt pytest nipyapi psycopg2-binary pyyaml jinja2 impyla requests-gssapi thrift_sasl kerberos
   rm -f /usr/bin/python3 /usr/bin/pip3
   ln -s /opt/rh/rh-python36/root/bin/python3 /usr/bin/python3
   ln -s /opt/rh/rh-python36/root/bin/pip3 /usr/bin/pip3
@@ -223,6 +227,19 @@ EOF
 's#^efm.db.url=.*#efm.db.url=jdbc:postgresql://edge2ai-1.dim.local:5432/efm#;'\
 's#^efm.db.driverClass=.*#efm.db.driverClass=org.postgresql.Driver#;'\
 's#^efm.db.password=.*#efm.db.password='"${THE_PWD}"'#' /opt/cloudera/cem/efm/conf/efm.properties
+  if [[ $ENABLE_TLS == yes ]]; then
+    sed -i.bak \
+'s#^efm.server.ssl.enabled=.*#efm.server.ssl.enabled=false#;'\
+'s#^efm.server.ssl.keyStore=.*#efm.server.ssl.keyStore=/opt/cloudera/security/jks/keystore.jks#;'\
+'s#^efm.server.ssl.keyStoreType=.*#efm.server.ssl.keyStoreType=jks#;'\
+'s#^efm.server.ssl.keyStorePassword=.*#efm.server.ssl.keyStorePassword='"$THE_PWD"'#;'\
+'s#^efm.server.ssl.keyPassword=.*#efm.server.ssl.keyPassword='"$THE_PWD"'#;'\
+'s#^efm.server.ssl.trustStore=.*#efm.server.ssl.trustStore=/opt/cloudera/security/jks/truststore.jks#;'\
+'s#^efm.server.ssl.trustStoreType=.*#efm.server.ssl.trustStoreType=jks#;'\
+'s#^efm.server.ssl.trustStorePassword=.*#efm.server.ssl.trustStorePassword='"$THE_PWD"'#;'\
+'s#^efm.security.user.certificate.enabled=.*#efm.security.user.certificate.enabled=true#;'\
+'s#^efm.nifi.registry.url=.*#efm.nifi.registry.url=https://edge2ai-1.dim.local:18433#' /opt/cloudera/cem/efm/conf/efm.properties
+  fi
   echo -e "\nefm.encryption.password=${THE_PWD}${THE_PWD}" >> /opt/cloudera/cem/efm/conf/efm.properties
 
   echo "-- Install and configure MiNiFi"
@@ -237,7 +254,11 @@ EOF
   chown -R root:root /opt/cloudera/cem/${MINIFI_BASE_NAME}
   chown -R root:root /opt/cloudera/cem/${MINIFITK_BASE_NAME}
   rm -f /opt/cloudera/cem/minifi/conf/bootstrap.conf
-  cp $BASE_DIR/bootstrap.conf /opt/cloudera/cem/minifi/conf
+  if [[ $ENABLE_TLS == yes ]]; then
+    sed "s/THE_PWD/$THE_PWD/" $BASE_DIR/bootstrap.conf.tls > /opt/cloudera/cem/minifi/conf/bootstrap.conf
+  else
+    cp $BASE_DIR/bootstrap.conf /opt/cloudera/cem/minifi/conf/bootstrap.conf
+  fi
   /opt/cloudera/cem/minifi/bin/minifi.sh install
 
   echo "-- Disable services here for packer images - will reenable later"
