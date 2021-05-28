@@ -1,6 +1,6 @@
 resource "null_resource" "deploy_cdp" {
   count = var.cluster_count
-  depends_on = [aws_security_group_rule.workshop_cdsw_sg_rule]
+  depends_on = [aws_security_group_rule.workshop_public_ips_sg_rule]
 
   connection {
     host        = element((var.use_elastic_ip ? aws_eip.eip_cluster.*.public_ip : aws_instance.cluster.*.public_ip), count.index)
