@@ -118,6 +118,10 @@ add_user workshop users
 add_user alice users
 add_user bob users
 
+# Add this role to avoid racing conditions between multiple CMs coming up at the same time
+ipa role-add cmadminrole
+ipa role-add-privilege cmadminrole --privileges="Service Administrators"
+
 systemctl restart krb5kdc
 systemctl enable ipa
 

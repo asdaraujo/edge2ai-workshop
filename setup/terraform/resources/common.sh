@@ -347,7 +347,8 @@ function install_ipa_client() {
     --all-ip-addresses \
     --ssh-trust-dns \
     --unattended \
-    --mkhomedir
+    --mkhomedir \
+    --force-join
 
   # Adjust krb5.conf
   sed -i 's/udp_preference_limit.*/udp_preference_limit = 1/;/KEYRING/d' /etc/krb5.conf
