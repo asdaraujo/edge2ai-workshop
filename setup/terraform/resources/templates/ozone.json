@@ -25,6 +25,14 @@
           "value" : "ozone"
         },
         {
+          "name" : "ozone.scm.service.id",
+          "value" : "ozone"
+        },
+        {
+          "name" : "ozone.scm.primordial.node.id",
+          "value" : "{{CLUSTER_HOST}}"
+        },
+        {
           "name" : "ozone.replication",
           "value" : "1"
         }
