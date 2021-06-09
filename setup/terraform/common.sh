@@ -175,9 +175,9 @@ function use_ips_file() {
 }
 
 function is_docker_image_stale() {
-  local image_id=$(docker inspect $DEFAULT_DOCKER_IMAGE | jq -r '.[].Id')
-  local token=$(curl -s "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${DOCKER_REPO}:pull" | jq -r .token)
-  local latest_image_id=$(curl -s -H "Authorization: Bearer $token" -H "Accept: application/vnd.docker.distribution.manifest.v2+json" "https://index.docker.io/v2/${DOCKER_REPO}/manifests/latest" | jq -r '.config.digest')
+  local image_id=$(docker inspect $DEFAULT_DOCKER_IMAGE | grep '"Id":' | awk -F\" '{print $4}')
+  local token=$(curl -s "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${DOCKER_REPO}:pull" | grep '"token":' | awk -F\" '{print $4}')
+  local latest_image_id=$(curl -s -H "Authorization: Bearer $token" -H "Accept: application/vnd.docker.distribution.manifest.v2+json" "https://index.docker.io/v2/${DOCKER_REPO}/manifests/latest" | grep -A4 '"config":' | grep '"digest":' | awk -F\" '{print $4}')
   if [[ $image_id != $latest_image_id ]]; then
     echo "yes"
   else
