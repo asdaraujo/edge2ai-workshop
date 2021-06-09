@@ -60,7 +60,7 @@ image::images/NiFiDataProvenance.png[width=800]
 
 Cloudera Edge Flow Management (EFM) gives you a visual overview of all MiNiFi agents in your environment, and allows you to update the flow configuration for each one, with versioning control thanks to the **NiFi Registry** integration. In this lab, you will create the MiNiFi flow and publish it for the MiNiFi agent to pick it up.
 
-. Open the EFM Web UI at http://<public_dns>:10080/efm/ui/ and select the Dashboard tab (image:images/dashboard_icon.png[width=30])
+. Open the EFM Web UI at http://<public_dns>:10088/efm/ui/ and select the Dashboard tab (image:images/dashboard_icon.png[width=30])
 
 . Click on the *EVENTS* header and verify that your EFM server is receiving heartbeats from the MiNiFi agent. Click on the info icon on a heartbeat record to see the details of the heartbeat.
 +

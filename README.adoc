@@ -39,7 +39,7 @@ You instructor will give access to a registration link where you can request a c
 |===
 |Service|URL|Credentials
 |Cloudera Manager|http://<public_dns>:7180/|`admin/supersecret1`
-|Edge Flow Manager|http://<public_dns>:10080/efm/ui/|
+|Edge Flow Manager|http://<public_dns>:10088/efm/ui/|
 |NiFi|http://<public_dns>:8080/nifi/|
 |NiFi Registry|http://<public_dns>:18080/nifi-registry/|
 |Schema Registry|http://<public_dns>:7788/|
@@ -128,7 +128,7 @@ Connect with *PuTTY*:
 +
 [source]
 ----
-http://hostname:10080/efm/api/agent-classes
+http://hostname:10088/efm/api/agent-classes
 [{"name":"iot1","agentManifests":["agent-manifest-id"]},{"name":"iot4","agentManifests":["agent-manifest-id"]}]
 ----
 
@@ -136,7 +136,7 @@ http://hostname:10080/efm/api/agent-classes
 +
 [source]
 ----
-http://hostname:10080/efm/api/agent-manifests?class=iot4
+http://hostname:10088/efm/api/agent-manifests?class=iot4
 [{"identifier":"agent-manifest-id","agentType":"minifi-java","version":"1","buildInfo":{"timestamp":1556628651811,"compiler":"JDK 8"},"bundles":[{"group":"default","artifact":"system","version":"unversioned","componentManifest":{"controllerServices":[],"processors":
 ----
 
@@ -144,7 +144,7 @@ http://hostname:10080/efm/api/agent-manifests?class=iot4
 +
 [source]
 ----
-http://hostname:10080/efm/swagger/
+http://hostname:10088/efm/swagger/
 ----
 
 . Hit the `DELETE - Delete the agent manifest specified by id` button, and in the id field, enter `agent-manifest-id

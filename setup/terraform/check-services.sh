@@ -27,7 +27,7 @@ if [ -s $TF_JSON_FILE ]; then
     CDSW_ALTUS_API="http://cdsw.$ip.nip.io/api/altus-ds-1"
     ("${CURL[@]}" http://$host/api/ping 2>/dev/null | grep 'Pong!' > /dev/null 2>&1 && echo Ok) > .curl.web.$$ &
     ("${CURL[@]}" http://$host:7180/cmf/login 2>/dev/null | grep "<title>Cloudera Manager</title>" > /dev/null 2>&1 && echo Ok) > .curl.cm.$$ &
-    (("${CURL[@]}" http://$host:10080/efm/ui/        || "${CURL[@]}" https://$host:10080/efm/ui/)        2>/dev/null | grep "<title>CEM</title>" > /dev/null 2>&1 && echo Ok) > .curl.cem.$$ &
+    (("${CURL[@]}" http://$host:10088/efm/ui/        || "${CURL[@]}" https://$host:10088/efm/ui/)        2>/dev/null | grep "<title>CEM</title>" > /dev/null 2>&1 && echo Ok) > .curl.cem.$$ &
     (("${CURL[@]}" http://$host:8080/nifi/           || "${CURL[@]}" https://$host:8443/nifi/)           2>/dev/null | grep "<title>NiFi</title>" > /dev/null 2>&1 && echo Ok) > .curl.nifi.$$ &
     (("${CURL[@]}" http://$host:18080/nifi-registry/ || "${CURL[@]}" https://$host:18433/nifi-registry/) 2>/dev/null | grep "<title>NiFi Registry</title>" > /dev/null 2>&1 && echo Ok) > .curl.nifireg.$$ &
     (("${CURL[@]}" http://$host:7788/                || "${CURL[@]}" https://$host:7790/)                2>/dev/null | egrep "<title>Schema Registry</title>|Error 401 Authentication required" > /dev/null 2>&1 && echo Ok) > .curl.schreg.$$ &

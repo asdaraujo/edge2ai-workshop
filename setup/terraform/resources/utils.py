@@ -135,7 +135,7 @@ def _get_common_kafka_client_properties(env, client_type):
     return props
 
 def _get_efm_api_url():
-    return '%s://%s:10080/efm/api' % ('http', _HOSTNAME,)
+    return '%s://%s:10088/efm/api' % ('http', _HOSTNAME,)
 
 def _get_nifi_url():
     return '%s://%s:%s/nifi' % (_get_url_scheme(), _HOSTNAME, _get_nifi_port())

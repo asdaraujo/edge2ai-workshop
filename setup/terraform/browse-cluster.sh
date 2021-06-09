@@ -40,7 +40,7 @@ touch "${BROWSER_DIR}/First Run"
   --auth-negotiate-delegatewhitelist="$PUBLIC_DNS" \
   $PROXY_PORT \
   http://$PUBLIC_DNS:7180 \
-  http://$PUBLIC_DNS:10080/efm/ui \
+  http://$PUBLIC_DNS:10088/efm/ui \
   http://$PUBLIC_DNS:8080/nifi/ \
   http://$PUBLIC_DNS:18080/nifi-registry \
   http://$PUBLIC_DNS:7788 \

@@ -839,7 +839,7 @@ function get_service_urls() {
   (
     echo "Cloudera Manager=${protocol}://{host}:${cm_port}/"
     (
-      echo "Edge Flow Manager=http://{host}:10080/efm/ui/"
+      echo "Edge Flow Manager=http://{host}:10088/efm/ui/"
       if [[ ${HAS_FLINK:-0} == 1 ]]; then
         local flink_port=$(service_port $tmp_template_file FLINK FLINK_HISTORY_SERVER historyserver_web_port)
         echo "Flink Dashboard=${protocol}://{host}:${flink_port}/"

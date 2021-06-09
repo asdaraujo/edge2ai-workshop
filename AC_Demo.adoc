@@ -51,7 +51,7 @@ ssh -i $WPEM centos@$WDNS
 |===
 |Service|URL|Credentials
 |Cloudera Manager|http://<public_dns>:7180/|`admin/admin`
-|Edge Flow Manager|http://<public_dns>:10080/efm/ui/|
+|Edge Flow Manager|http://<public_dns>:10088/efm/ui/|
 |NiFi|http://<public_dns>:8080/nifi/|
 |NiFi Registry|http://<public_dns>:18080/nifi-registry/|
 |Schema Registry|http://<public_dns>:7788/|
@@ -105,7 +105,7 @@ Open NiFi UI on your CDF cluster and create a new input source named `AWS_MiNiFi
 
 Cloudera Edge Flow Management gives you a visual overview of all MiNiFi agents in your environment, and allows you to update the flow configuration for each one, with versioning control thanks to the **NiFi Registry** integration. In this lab, you will create the MiNiFi flow and publish it for the MiNiFi agent to pick it up.
 
-. Open the EFM Web UI at http://<public_dns>:10080/efm/ui/. Ensure you see your minifi agent's heartbeat messages in the **Events Monitor**.
+. Open the EFM Web UI at http://<public_dns>:10088/efm/ui/. Ensure you see your minifi agent's heartbeat messages in the **Events Monitor**.
 +
 image::images/cem_heartbeats.png[width=800]
 
@@ -1106,7 +1106,7 @@ image::images/test_model.png[width=800]
 +
 [source]
 ----
-http://hostname:10080/efm/api/agent-classes
+http://hostname:10088/efm/api/agent-classes
 [{"name":"iot1","agentManifests":["agent-manifest-id"]},{"name":"iot4","agentManifests":["agent-manifest-id"]}]
 ----
 
@@ -1114,7 +1114,7 @@ http://hostname:10080/efm/api/agent-classes
 +
 [source]
 ----
-http://hostname:10080/efm/api/agent-manifests?class=iot4
+http://hostname:10088/efm/api/agent-manifests?class=iot4
 [{"identifier":"agent-manifest-id","agentType":"minifi-java","version":"1","buildInfo":{"timestamp":1556628651811,"compiler":"JDK 8"},"bundles":[{"group":"default","artifact":"system","version":"unversioned","componentManifest":{"controllerServices":[],"processors":
 ----
 
@@ -1122,7 +1122,7 @@ http://hostname:10080/efm/api/agent-manifests?class=iot4
 +
 [source]
 ----
-http://hostname:10080/efm/swagger/
+http://hostname:10088/efm/swagger/
 ----
 
 . Hit the `DELETE - Delete the agent manifest specified by id` button, and in the id field, enter `agent-manifest-id`
