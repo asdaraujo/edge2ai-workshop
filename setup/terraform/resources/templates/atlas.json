@@ -28,8 +28,24 @@
           "roleType": "ATLAS_SERVER",
           "base": true,
           "configs": [
-{% if ENABLE_TLS == 'yes' %}
             {
+              "name": "atlas_admin_password",
+              "value": "{{THE_PWD}}"
+            },
+            {
+              "name" : "atlas_authentication_method_file",
+              "value" : "true"
+            },
+            {
+              "name": "atlas_server_http_port",
+              "value": "31000"
+            },
+            {
+              "name": "atlas_server_https_port",
+              "value": "31443"
+            }
+{% if ENABLE_TLS == 'yes' %}
+            ,{
               "name": "ssl_client_truststore_location",
               "value": "/opt/cloudera/security/jks/truststore.jks"
             },
@@ -52,28 +68,27 @@
             {
               "name": "ssl_server_keystore_password",
               "value": "{{THE_PWD}}"
+            }
+{% if CDH_VERSION is le('7.1.4') %}
+            ,{
+              "name": "conf/atlas-application.properties_role_safety_valve",
+              "value": "atlas.audit.hbase.zookeeper.quorum={{CLUSTER_HOST}}:2181\natlas.graph.storage.hostname={{CLUSTER_HOST}}\nkeystore.type=jks\ntruststore.type=jks\natlas.kafka.ssl.keystore.type=jks\natlas.kafka.ssl.truststore.type=jks"
             },
-{% endif %}
             {
+              "name": "conf/ranger-atlas-policymgr-ssl.xml_role_safety_valve",
+              "value": "<property><name>xasecure.policymgr.clientssl.keystore.type</name><value>jks</value></property><property><name>xasecure.policymgr.clientssl.truststore.type</name><value>jks</value></property>"
+            },
+            {
+              "name": "atlas_ssl_exclude_protocols",
+              "value": "TLSv1,TLSv1.1"
+            }
+{% else %}
+            ,{
               "name": "conf/atlas-application.properties_role_safety_valve",
               "value": "atlas.audit.hbase.zookeeper.quorum={{CLUSTER_HOST}}:2181\natlas.graph.storage.hostname={{CLUSTER_HOST}}"
-            },
-            {
-              "name": "atlas_admin_password",
-              "value": "{{THE_PWD}}"
-            },
-            {
-              "name" : "atlas_authentication_method_file",
-              "value" : "true"
-            },
-            {
-              "name": "atlas_server_http_port",
-              "value": "31000"
-            },
-            {
-              "name": "atlas_server_https_port",
-              "value": "31443"
             }
+{% endif %}
+{% endif %}
           ]
         },
         {
