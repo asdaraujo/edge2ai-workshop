@@ -14,6 +14,10 @@ if [[ $THE_PWD == "" ]]; then
   exit 1
 fi
 
+if [[ -f /keytabs/admin.keytab ]]; then
+  kinit -kt /keytabs/admin.keytab admin
+fi
+
 cd $BASE_DIR
 echo "Executing global teardown"
 python3 -c "import utils; utils.global_teardown()"
