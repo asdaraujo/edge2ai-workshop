@@ -5,6 +5,7 @@
       "roleConfigGroupsRefNames": [
          "streams_replication_manager-STREAMS_REPLICATION_MANAGER_DRIVER-BASE"
         ,"streams_replication_manager-STREAMS_REPLICATION_MANAGER_SERVICE-BASE"
+        ,"streams_replication_manager-GATEWAY-BASE"
       ]
     }
   ],
@@ -27,24 +28,44 @@
       "serviceConfigs": [
         {
           "name" : "clusters",
+{% if CDH_VERSION is lt('7.1.7') %}
           "value" : "local, remote"
-        }, {
-          "name" : "streams.replication.manager.config",
-{% if CM_VERSION is lt('7.1.1') %}
-          "value" : "local.bootstrap.servers={{CLUSTER_HOST}}:{% if ENABLE_TLS == 'yes' %}9093{% else %}9092{% endif %};remote.bootstrap.servers={{CLUSTER_HOST}}:9092;remote->local.enabled=false;replication.factor=1;heartbeats.topic.replication.factor=1;checkpoints.topic.replication.factor=1;offset-syncs.topic.replication.factor=1;offset.storage.replication.factor=1;config.storage.replication.factor=1;status.storage.replication.factor=1"
 {% else %}
-          "value" : "local.bootstrap.servers={{CLUSTER_HOST}}:{% if ENABLE_TLS == 'yes' %}9093{% else %}9092{% endif %}|remote.bootstrap.servers={{CLUSTER_HOST}}:9092|remote->local.enabled=false|replication.factor=1|heartbeats.topic.replication.factor=1|checkpoints.topic.replication.factor=1|offset-syncs.topic.replication.factor=1|offset.storage.replication.factor=1|config.storage.replication.factor=1|status.storage.replication.factor=1"
+          "value" : "cluster_{{CLUSTER_ID}}, cluster_{{PEER_CLUSTER_ID}}"
 {% endif %}
-        }, {
+        },
+        {
+          "name" : "streams.replication.manager.config",
+{% if CDH_VERSION is lt('7.1.1') %}
+          "value" : "local.bootstrap.servers={{CLUSTER_HOST}}:{% if ENABLE_TLS == 'yes' %}9093{% else %}9092{% endif %};remote.bootstrap.servers={{CLUSTER_HOST}}:9092;remote->local.enabled=false;replication.factor=1;heartbeats.topic.replication.factor=1;checkpoints.topic.replication.factor=1;offset-syncs.topic.replication.factor=1;offset.storage.replication.factor=1;config.storage.replication.factor=1;status.storage.replication.factor=1"
+{% elif CDH_VERSION is lt('7.1.7') %}
+          "value" : "local.bootstrap.servers={{CLUSTER_HOST}}:{% if ENABLE_TLS == 'yes' %}9093{% else %}9092{% endif %}|remote.bootstrap.servers={{CLUSTER_HOST}}:9092|remote->local.enabled=false|replication.factor=1|heartbeats.topic.replication.factor=1|checkpoints.topic.replication.factor=1|offset-syncs.topic.replication.factor=1|offset.storage.replication.factor=1|config.storage.replication.factor=1|status.storage.replication.factor=1"
+{% else %}
+          "value" : "cluster_{{PEER_CLUSTER_ID}}->cluster_{{CLUSTER_ID}}.enabled=false|replication.factor=1|heartbeats.topic.replication.factor=1|checkpoints.topic.replication.factor=1|offset-syncs.topic.replication.factor=1|offset.storage.replication.factor=1|config.storage.replication.factor=1|status.storage.replication.factor=1"
+{% endif %}
+        },
+        {
           "name" : "refresh.groups.interval.seconds",
           "value" : "30"
-        }, {
+        },
+        {
           "name" : "refresh.topics.interval.seconds",
           "value" : "30"
-        }, {
+        },
+        {
           "name" : "metrics.topic.replication.factor",
           "value" : "1"
         }
+{% if CDH_VERSION is ge('7.1.7') %}
+        ,{
+          "name" : "colocated.cluster.alias",
+          "value" : "cluster_{{CLUSTER_ID}}"
+        },
+        {
+          "name" : "external_kafka_accounts",
+          "value" : "cluster_{{PEER_CLUSTER_ID}}"
+        }
+{% endif %}
 {% if ENABLE_KERBEROS == 'yes' %}
         ,{
           "name" : "kerberos.auth.enable",
@@ -60,7 +81,11 @@
           "configs": [
             {
               "name" : "streams.replication.manager.driver.target.cluster",
+{% if CDH_VERSION is lt('7.1.7') %}
               "value" : "local"
+{% else %}
+              "value" : "cluster_{{CLUSTER_ID}}"
+{% endif %}
             }
 {% if ENABLE_TLS == 'yes' %}
             ,{
@@ -97,7 +122,11 @@
           "configs" : [
             {
               "name" : "streams.replication.manager.service.target.cluster",
+{% if CDH_VERSION is lt('7.1.7') %}
               "value" : "local"
+{% else %}
+              "value" : "cluster_{{CLUSTER_ID}}"
+{% endif %}
             }
 {% if ENABLE_TLS == 'yes' %}
             ,{
@@ -124,6 +153,37 @@
               "name": "ssl_server_keystore_password",
               "value": "{{THE_PWD}}"
             }
+{% endif %}
+          ]
+        },
+        {
+          "refName": "streams_replication_manager-GATEWAY-BASE",
+          "roleType": "GATEWAY",
+          "base": true,
+          "configs" : [
+{% if CDH_VERSION is ge('7.1.7') %}
+            {
+              "name" : "securestorage.password",
+              "value" : "{{THE_PWD}}"
+            },
+            {
+              "name" : "ssl_client_truststore_location",
+              "value" : "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name" : "ssl_client_truststore_password",
+              "value" : "{{THE_PWD}}"
+            }
+{% if ENABLE_KERBEROS == 'yes' %}
+            ,{
+              "name" : "kerberos.keytab.location",
+              "value" : "/keytabs/admin.keytab"
+            },
+            {
+              "name" : "kerberos.principal.name",
+              "value" : "admin"
+            }
+{% endif %}
 {% endif %}
           ]
         }

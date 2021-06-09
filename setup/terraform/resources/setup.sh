@@ -446,6 +446,13 @@ fi
 export CLUSTER_HOST=$PUBLIC_DNS
 export CDSW_DOMAIN=cdsw.${PUBLIC_IP}.nip.io
 
+echo "-- Load cluster metadata"
+source $BASE_DIR/clusters_metadata.sh
+PEER_CLUSTER_ID=$(( (CLUSTER_ID/2)*2 + (CLUSTER_ID+1)%2 ))
+PEER_PUBLIC_DNS=$(echo "$CLUSTERS_PUBLIC_DNS" | awk -F, -v pos=$(( PEER_CLUSTER_ID + 1 )) '{print $pos}')
+PEER_PUBLIC_DNS=${PEER_PUBLIC_DNS:-$PUBLIC_DNS}
+export CLUSTER_ID PEER_CLUSTER_ID PEER_PUBLIC_DNS
+
 echo "-- Set /etc/hosts - Public DNS must come first"
 sed -i.bak '/edge2ai-1.dim.local/ d' /etc/hosts
 sed -i '/^::1/d' /etc/hosts
@@ -667,64 +674,70 @@ fi
 if [[ $KERBEROS_TYPE == "IPA" ]]; then
   KERBEROS_OPTION="$KERBEROS_OPTION --ipa-host $IPA_HOST"
 fi
-CM_REPO_URL=$(grep baseurl $CM_REPO_FILE | sed 's/.*=//;s/ //g')
-# In case this is a re-run and TLS was already enabled, provide the TLS truststore option
-TRUSTSTORE_OPTION=$([[ $(netstat -anp | grep ':7183 .*LISTEN ' | wc -l) > 0 ]] && echo "--tls-ca-cert /opt/cloudera/security/x509/truststore.pem" || echo "")
-if [ "$(is_tls_enabled)" != "yes" ]; then
-  python -u $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
-    $TRUSTSTORE_OPTION \
-    --setup-cm \
-      --key-file $KEY_FILE \
-      --cm-repo-url $CM_REPO_URL \
-      $KERBEROS_OPTION \
-    --create-cluster \
-      --template $TEMPLATE_FILE
+if [ "$(is_tls_enabled)" == "yes" ]; then
+  CM_TLS_OPTIONS="--use-tls"
+  # In case this is a re-run and TLS was already enabled, provide the TLS truststore option
 else
-  python -u $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
-    $TRUSTSTORE_OPTION \
-    --setup-cm \
-      --key-file $KEY_FILE \
-      --cm-repo-url $CM_REPO_URL \
-      --use-tls \
-      $KERBEROS_OPTION
+  CM_TLS_OPTIONS=""
+fi
+CM_REPO_URL=$(grep baseurl $CM_REPO_FILE | sed 's/.*=//;s/ //g')
 
-  # Restart CM
-  systemctl restart cloudera-scm-server
-  # Reconfigure agent
-  if [[ ! -f /etc/cloudera-scm-agent/config.ini.original ]]; then
-    cp /etc/cloudera-scm-agent/config.ini /etc/cloudera-scm-agent/config.ini.original
-  fi
+python -u $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
+  --setup-cm \
+    --key-file $KEY_FILE \
+    --cm-repo-url $CM_REPO_URL \
+    $CM_TLS_OPTIONS \
+    $KERBEROS_OPTION \
+    $(get_create_cluster_tls_option)
+
+# Restart CM
+systemctl restart cloudera-scm-server
+
+# Reconfigure agent
+if [[ ! -f /etc/cloudera-scm-agent/config.ini.original ]]; then
+  cp /etc/cloudera-scm-agent/config.ini /etc/cloudera-scm-agent/config.ini.original
+fi
+sed -i.bak \
+"s%^[# ]*server_host=.*%server_host=${CLUSTER_HOST}%"\
+   /etc/cloudera-scm-agent/config.ini
+if [ "$(is_tls_enabled)" == "yes" ]; then
   sed -i.bak \
-"s%^[# ]*server_host=.*%server_host=${CLUSTER_HOST}%;"\
 's%^[# ]*use_tls=.*%use_tls=1%;'\
 's%^[# ]*verify_cert_file=.*%verify_cert_file=/opt/cloudera/security/x509/truststore.pem%;'\
 's%^[# ]*client_key_file=.*%client_key_file=/opt/cloudera/security/x509/key.pem%;'\
 's%^[# ]*client_keypw_file=.*%client_keypw_file=/opt/cloudera/security/x509/pwfile%;'\
 's%^[# ]*client_cert_file=.*%client_cert_file=/opt/cloudera/security/x509/cert.pem%'\
      /etc/cloudera-scm-agent/config.ini
-  # Restart agent
-  systemctl restart cloudera-scm-agent
-  # Wait for CM to be ready
-  wait_for_cm
-
-  python -u $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
-    --create-cluster \
-      --template $TEMPLATE_FILE \
-      --tls-ca-cert /opt/cloudera/security/x509/truststore.pem
 fi
+
+# Restart agent
+systemctl restart cloudera-scm-agent
+
+# Wait for CM to be ready
+wait_for_cm
+
+# Create external accounts
+if [[ ${HAS_SRM:-0} == 1 ]]; then
+  create_peer_kafka_external_account
+fi
+
+python -u $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
+  --create-cluster \
+    --template $TEMPLATE_FILE \
+    $(get_create_cluster_tls_option)
 
 echo "Set shadow permissions - needed by Knox when using PAM authentication"
 chgrp shadow /etc/shadow
 chmod g+r /etc/shadow
 id knox > /dev/null 2>&1 && usermod -G knox,hadoop,shadow knox || echo "User knox does not exist. Skipping usermod"
 if [[ ${HAS_KNOX:-0} == 1 ]]; then
-  curl -k -L -X POST -u admin:${THE_PWD} "http://${CLUSTER_HOST}:7180/api/v19/clusters/OneNodeCluster/services/knox/commands/restart"
+  curl -k -L -X POST -u admin:${THE_PWD} "$(get_cm_base_url)/api/v19/clusters/OneNodeCluster/services/knox/commands/restart"
 fi
 
 echo "-- Ensure Zepellin is on the shadow group for PAM auth to work (service needs restarting)"
 id zeppelin > /dev/null 2>&1 && usermod -G shadow zeppelin || echo "User zeppelin does not exist. Skipping usermod"
 if [[ ${HAS_ZEPPELIN:-0} == 1 ]]; then
-  curl -k -L -X POST -u admin:${THE_PWD} "http://${CLUSTER_HOST}:7180/api/v19/clusters/OneNodeCluster/services/zeppelin/commands/restart"
+  curl -k -L -X POST -u admin:${THE_PWD} "$(get_cm_base_url)/api/v19/clusters/OneNodeCluster/services/zeppelin/commands/restart"
 fi
 
 echo "-- Tighten permissions"
@@ -734,6 +747,12 @@ fi
 
 echo "-- Set Ranger policies for NiFi"
 if [[ ${HAS_RANGER:-0} == 1 && ${HAS_NIFI:-0} == 1 ]]; then
+  JOB_ID=$(curl -s -k -L -X POST -u admin:"${THE_PWD}" "$(get_cm_base_url)/api/v19/clusters/OneNodeCluster/services/ranger/commands/restart" | jq '.id')
+  while true; do
+    [[ $(curl -s -k -L -u admin:"${THE_PWD}" "$(get_cm_base_url)/api/v19/commands/$JOB_ID" | jq -r '.active') == "false" ]] && break
+    echo "Waiting for Ranger to restart"
+    sleep 1
+  done
   $BASE_DIR/ranger_policies.sh
 fi
 
@@ -781,11 +800,7 @@ if [[ ${HAS_KAFKA:-0} == 1 ]]; then
   else
     CLIENT_CONFIG_OPTION=""
   fi
-  if [ "$(is_tls_enabled)" == "yes" ]; then
-    KAFKA_PORT="9093"
-  else
-    KAFKA_PORT="9092"
-  fi
+  KAFKA_PORT=$(get_kafka_port)
   for topic in iot iot_enriched iot_enriched_avro; do
     retry_if_needed 60 1 "kafka-topics $CLIENT_CONFIG_OPTION --bootstrap-server ${CLUSTER_HOST}:${KAFKA_PORT} --create --topic $topic --partitions 10 --replication-factor 1"
     kafka-topics $CLIENT_CONFIG_OPTION --bootstrap-server ${CLUSTER_HOST}:${KAFKA_PORT} --describe --topic $topic

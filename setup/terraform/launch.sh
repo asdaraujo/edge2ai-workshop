@@ -1,6 +1,8 @@
 #!/bin/bash
 BASE_DIR=$(cd $(dirname $0); pwd -L)
 CAFFEINATE_ME=1
+unset SSH_AUTH_SOCK SSH_AGENT_PID
+
 source ${BASE_DIR}/common.sh
 check_version
 check_stack_version
@@ -59,6 +61,7 @@ validate_stack $NAMESPACE $BASE_DIR/resources
 log "Validate services selection: $CM_SERVICES"
 THE_PWD=dummy CLUSTER_HOST=dummy PRIVATE_IP=dummy PUBLIC_DNS=dummy DOCKER_DEVICE=dummy CDSW_DOMAIN=dummy \
 IPA_HOST="$([[ $USE_IPA == "1" ]] && echo dummy || echo "")" USE_IPA="$USE_IPA" \
+CLUSTER_ID=dummy PEER_CLUSTER_ID=dummy PEER_PUBLIC_DNS=dummy \
 python $BASE_DIR/resources/cm_template.py --cdh-major-version $CDH_MAJOR_VERSION $CM_SERVICES --validate-only
 
 # Presign URLs, if needed

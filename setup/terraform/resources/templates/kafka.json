@@ -20,12 +20,6 @@
       "serviceType": "KAFKA",
       "displayName": "Kafka",
       "serviceConfigs": [
-{% if ENABLE_KERBEROS == 'yes' %}
-        {
-          "name": "kerberos.auth.enable",
-          "value": "true"
-        },
-{% endif %}
         {
           "name" : "zookeeper.chroot",
           "value" : "/kafka"
@@ -38,6 +32,26 @@
           "name": "producer.metrics.enable",
           "value": "true"
         }
+{% if ENABLE_KERBEROS == 'yes' %}
+       ,{
+          "name": "kerberos.auth.enable",
+          "value": "true"
+        }
+{% endif %}
+{% if USE_IPA %}
+       ,{
+          "name": "sasl.plain.auth",
+          "value": "LDAP"
+        },
+        {
+          "name": "ldap.auth.url",
+          "value": "ldaps://{{IPA_HOST}}"
+        },
+        {
+          "name": "ldap.auth.user.dn.template",
+          "value": "uid={0},cn=users,cn=accounts,dc=workshop,dc=com"
+        }
+{% endif %}
 {% if CDH_MAJOR_VERSION == '7' %}
        ,{
           "name" : "transaction.state.log.min.isr",

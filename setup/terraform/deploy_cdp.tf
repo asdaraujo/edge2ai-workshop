@@ -19,6 +19,11 @@ resource "null_resource" "deploy_cdp" {
     destination = "/tmp/"
   }
 
+  provisioner "file" {
+    content     = "CLUSTER_ID=${count.index}\nCLUSTERS_PUBLIC_DNS=${join(",", var.use_elastic_ip ? aws_eip.eip_cluster.*.public_dns : aws_instance.cluster.*.public_dns)}\n"
+    destination = "/tmp/resources/clusters_metadata.sh"
+  }
+
   provisioner "remote-exec" {
     inline = [
       "set -o nounset",

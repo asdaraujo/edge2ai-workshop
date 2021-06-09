@@ -18,6 +18,37 @@ function is_tls_enabled() {
   echo $ENABLE_TLS
 }
 
+function get_cm_base_url() {
+  if [ "$(is_tls_enabled)" == "yes" ]; then
+    echo "https://${CLUSTER_HOST}:7183"
+  else
+    echo "http://${CLUSTER_HOST}:7180"
+  fi
+}
+
+function get_kafka_port() {
+  if [ "$(is_tls_enabled)" == "yes" ]; then
+    echo "9093"
+  else
+    echo "9092"
+  fi
+}
+
+function get_kafka_security_protocol() {
+  if [ "$(is_tls_enabled)" == "yes" ]; then
+    echo "SASL_SSL"
+  else
+    echo "SASL_PLAINTEXT"
+  fi
+}
+
+function get_create_cluster_tls_option() {
+  if [[ $(netstat -anp | grep ':7183 .*LISTEN ' | wc -l) > 0 ]]; then
+    echo "--tls-ca-cert /opt/cloudera/security/x509/truststore.pem"
+  else
+    echo ""
+  fi
+}
 # Often yum connection to Cloudera repo fails and causes the instance create to fail.
 # yum timeout and retries options don't see to help in this type of failure.
 # We explicitly retry a few times to make sure the build continues when these timeouts happen.
@@ -707,6 +738,14 @@ EOF
   chmod 755 /opt/cloudera/security/hue
   chmod 444 /opt/cloudera/security/hue/loadbalancer.pw
 
+  # Create copies of the stores (needed by NiFi in CDP < 7.1.6 due to hard-coded names in the CSD)
+  groupadd -r nifi || true
+  /usr/sbin/useradd -r -m -g nifi -K UMASK=022 --home /var/lib/nifi --comment NiFi --shell /bin/bash nifi || true
+  cp --force $KEYSTORE_JKS /var/lib/nifi/cm-auto-host_keystore.jks
+  cp --force $TRUSTSTORE_JKS /var/lib/nifi/cm-auto-in_cluster_truststore.jks
+  chmod 444 /var/lib/nifi/cm-auto-host_keystore.jks /var/lib/nifi/cm-auto-in_cluster_truststore.jks
+  chown nifi:nifi /var/lib/nifi/cm-auto-host_keystore.jks /var/lib/nifi/cm-auto-in_cluster_truststore.jks
+
   # Set permissions
   chown cloudera-scm:cloudera-scm $KEY_PEM $KEYSTORE_JKS $CERT_PEM $TRUSTSTORE_PEM $TRUSTSTORE_JKS
   chmod 444 $KEY_PEM $UNENCRYTED_KEY_PEM $KEYSTORE_JKS
@@ -832,6 +871,7 @@ function get_service_urls() {
   load_stack $NAMESPACE $BASE_DIR/resources validate_only exclude_signed
   CLUSTER_HOST=dummy PRIVATE_IP=dummy PUBLIC_DNS=dummy DOCKER_DEVICE=dummy CDSW_DOMAIN=dummy \
   IPA_HOST="$([[ $USE_IPA == "1" ]] && echo dummy || echo "")" \
+  CLUSTER_ID=dummy PEER_CLUSTER_ID=dummy PEER_PUBLIC_DNS=dummy \
   python $BASE_DIR/resources/cm_template.py --cdh-major-version $CDH_MAJOR_VERSION $CM_SERVICES > $tmp_template_file
 
   local cm_port=$([[ $ENABLE_TLS == "yes" ]] && echo 7183 || echo 7180)
@@ -907,9 +947,14 @@ function clean_all() {
   if [[ $pids != "" ]]; then
     kill -9 $pids
   fi
-  [[ -h /dev/mapper/docker-thinpool ]] && while true; do dmsetup remove docker-thinpool && break; sleep 1; done
-  [[ -h /dev/mapper/docker-thinpool_tdata ]] && while true; do dmsetup remove docker-thinpool_tdata && break; sleep 1; done
-  [[ -h /dev/mapper/docker-thinpool_tmeta ]] && while true; do dmsetup remove docker-thinpool_tmeta && break; sleep 1; done
+  while true; do
+    for dv in $(dmsetup ls | sort | awk '{print $1}'); do
+      echo "Removing device $dv"
+      [[ -h "/dev/mapper/$dv" ]] && dmsetup remove "$dv"
+    done
+    [[ $(dmsetup ls | grep -v "No devices found" | wc -l) -eq 0 ]] && break
+    sleep 1
+  done
   lvdisplay docker/thinpool >/dev/null 2>&1 && while true; do lvremove docker/thinpool && break; sleep 1; done
   vgdisplay docker >/dev/null 2>&1 && while true; do vgremove docker && break; sleep 1; done
   pvdisplay /dev/nvme1n1 >/dev/null 2>&1 && while true; do pvremove /dev/nvme1n1 && break; sleep 1; done
@@ -922,4 +967,72 @@ function clean_all() {
   cp -f /etc/cloudera-scm-agent/config.ini.original /etc/cloudera-scm-agent/config.ini
 
   rm -rf /var/lib/pgsql/10/data/* /var/lib/pgsql/10/initdb.log /var/kerberos/krb5kdc/* /var/lib/{accumulo,cdsw,cloudera-host-monitor,cloudera-scm-agent,cloudera-scm-eventserver,cloudera-scm-server,cloudera-service-monitor,cruise_control,druid,flink,hadoop-hdfs,hadoop-httpfs,hadoop-kms,hadoop-mapreduce,hadoop-yarn,hbase,hive,impala,kafka,knox,kudu,livy,nifi,nifiregistry,nifitoolkit,oozie,phoenix,ranger,rangerraz,schemaregistry,shellinabox,solr,solr-infra,spark,sqoop,streams_messaging_manager,streams_replication_manager,superset,yarn-ce,zeppelin,zookeeper}/* /var/log/{atlas,catalogd,cdsw,cloudera-scm-agent,cloudera-scm-alertpublisher,cloudera-scm-eventserver,cloudera-scm-firehose,cloudera-scm-server,cruisecontrol,flink,hadoop-hdfs,hadoop-httpfs,hadoop-mapreduce,hadoop-yarn,hbase,hive,httpd,hue,hue-httpd,impalad,impala-minidumps,kafka,kudu,livy,nifi,nifiregistry,nifi-registry,oozie,schemaregistry,solr-infra,spark,statestore,streams-messaging-manager,yarn,zeppelin,zookeeper}/* /kudu/*/* /dfs/*/* /var/local/kafka/data/* /var/{lib,run}/docker/* /var/run/cloudera-scm-agent/process/*
+}
+
+function create_peer_kafka_external_account() {
+
+  # Check if the current version of CM supports Kafka external credentials
+  local cat_name=$(curl \
+    -k -s \
+    -H "Content-Type: application/json" \
+    -u admin:"${THE_PWD}" \
+    "$(get_cm_base_url)/api/v40/externalAccounts/supportedCategories" | jq -r '.items[] | select(.name == "KAFKA").name')
+
+  if [[ $cat_name != "KAFKA" ]]; then
+    return
+  fi
+
+  cat > /tmp/kafka_external.json <<EOF
+{
+  "name" : "cluster_${PEER_CLUSTER_ID}",
+  "displayName" : "cluster_${PEER_CLUSTER_ID}",
+  "typeName" : "KAFKA_SERVICE",
+  "accountConfigs" : {
+    "items" : [
+      {
+        "name" : "kafka_bootstrap_servers",
+        "value" : "${PEER_PUBLIC_DNS}:$(get_kafka_port)"
+      }, {
+        "name" : "kafka_jaas_secret1",
+        "value" : "${THE_PWD}"
+      }, {
+        "name" : "kafka_jaas_template",
+        "value" : "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"admin\" password=\"##JAAS_SECRET_1##\";"
+      }, {
+        "name" : "kafka_sasl_mechanism",
+        "value" : "PLAIN"
+      }, {
+        "name" : "kafka_security_protocol",
+        "value" : "$(get_kafka_security_protocol)"
+      }
+$(
+  if [[ -f /opt/cloudera/security/jks/truststore.jks ]]; then
+    cat <<EOF2
+      , {
+        "name" : "kafka_truststore_password",
+        "value" : "${THE_PWD}"
+      }, {
+        "name" : "kafka_truststore_path",
+        "value" : "/opt/cloudera/security/jks/truststore.jks"
+      }, {
+        "name" : "kafka_truststore_type",
+        "value" : "JKS"
+      }
+EOF2
+  fi
+)
+    ]
+  }
+}
+EOF
+
+  curl \
+    -i -k \
+    -X POST \
+    -H "Content-Type: application/json" \
+    -d @/tmp/kafka_external.json \
+    -u admin:"${THE_PWD}" \
+    "$(get_cm_base_url)/api/v40/externalAccounts/create"
+
+  rm -f /tmp/kafka_external.json
 }
