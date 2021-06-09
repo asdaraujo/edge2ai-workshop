@@ -218,6 +218,7 @@ EOF
   sed -i.bak 's#APP_EXT_LIB_DIR=.*#APP_EXT_LIB_DIR=/usr/share/java#' /opt/cloudera/cem/efm/conf/efm.conf
   sed -i.bak \
 's#^efm.server.address=.*#efm.server.address=edge2ai-1.dim.local#;'\
+'s#^efm.server.port=.*#efm.server.port=10088#;'\
 's#^efm.security.user.certificate.enabled=.*#efm.security.user.certificate.enabled=false#;'\
 's#^efm.nifi.registry.enabled=.*#efm.nifi.registry.enabled=true#;'\
 's#^efm.nifi.registry.url=.*#efm.nifi.registry.url=http://edge2ai-1.dim.local:18080#;'\
