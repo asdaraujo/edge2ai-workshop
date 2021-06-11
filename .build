@@ -1,2 +1,2 @@
-20210610081052
-Previous commit: 6bb17a9 Fix atlas service TLS for secure CDP <= 7.1.4
+20210611121215
+Previous commit: c960315 Ensure reset-to-lab.sh kinit if there's a keytab available
