@@ -91,6 +91,8 @@ if [[ ! -f $CM_REPO_FILE ]]; then
   yum_install npm gcc-c++ make shellinabox mosquitto jq transmission-cli rng-tools rh-python36 httpd
   # Below is needed for secure clusters (required by Impyla)
   yum_install cyrus-sasl-md5 cyrus-sasl-plain cyrus-sasl-gssapi cyrus-sasl-devel
+  # For troubleshooting purposes, when needed
+  yum_install sysstat strace iotop lsof
 
   echo "-- Installing redis (for SSB)"
   yum_install redis

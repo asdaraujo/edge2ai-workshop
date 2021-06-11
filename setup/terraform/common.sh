@@ -2,6 +2,10 @@
 
 export PS4='+ [${BASH_SOURCE#'"$BASE_DIR"/'}:${LINENO}]: ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
 
+if [[ ${DEBUG:-} != "" ]]; then
+  set -x
+fi
+
 DOCKER_REPO=asdaraujo/edge2ai-workshop
 DEFAULT_DOCKER_IMAGE=${DOCKER_REPO}:latest
 GITHUB_FQDN="github.com"
@@ -175,7 +179,7 @@ function use_ips_file() {
 }
 
 function is_docker_image_stale() {
-  local image_id=$(docker inspect $DEFAULT_DOCKER_IMAGE | grep '"Id":' | awk -F\" '{print $4}')
+  local image_id=$(docker inspect $DEFAULT_DOCKER_IMAGE 2>/dev/null | grep '"Id":' | awk -F\" '{print $4}')
   local token=$(curl -s "https://auth.docker.io/token?service=registry.docker.io&scope=repository:${DOCKER_REPO}:pull" | grep '"token":' | awk -F\" '{print $4}')
   local latest_image_id=$(curl -s -H "Authorization: Bearer $token" -H "Accept: application/vnd.docker.distribution.manifest.v2+json" "https://index.docker.io/v2/${DOCKER_REPO}/manifests/latest" | grep -A4 '"config":' | grep '"digest":' | awk -F\" '{print $4}')
   if [[ $image_id != $latest_image_id ]]; then

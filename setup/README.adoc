@@ -166,13 +166,7 @@ The setup of the workshop environment is fully automated. Before launching the w
 
 === Pre-requisites
 
-. Ensure a recent version of link:https://hub.docker.com/editions/community/docker-ce-desktop-mac[Docker] is running on your laptop
-. Pull the latest Docker image for the workshop:
-+
-[source,shell]
-----
-docker pull asdaraujo/edge2ai-workshop:latest
-----
+. Ensure a recent version of link:https://hub.docker.com/editions/community/docker-ce-desktop-mac[Docker] is installed *and* _running_ on your laptop
 
 === Launching the workshop environment
 
@@ -180,55 +174,25 @@ docker pull asdaraujo/edge2ai-workshop:latest
 +
 [source,shell]
 ----
-# Install YUM, skip if you already have it
+# Install Git, skip if you already have it
 sudo yum install -y git
 
 # Clone the repo
 git clone https://github.com/cloudera-labs/edge2ai-workshop.git
 ----
 
-. Review software versions and edit them as needed. All the versions and locations of the software used for the setup are defined in the `edge2ai-workshop/setup/scripts/stack.sh` file. If this file does not exist, create it with one of the commands below:
+. Create a copy of the stack template and name it `stack.sh`, in the `resources` directory:
 +
 [source,shell]
 ----
-# For a CDH cluster:
-cp edge2ai-workshop/setup/scripts/stack.template-cdh.sh edge2ai-workshop/setup/scripts/stack.sh
-
-# For a CDP-DC cluster:
-cp edge2ai-workshop/setup/scripts/stack.template-cdp.sh edge2ai-workshop/setup/scripts/stack.sh
+cp edge2ai-workshop/setup/scripts/stack.cdp716p.sh edge2ai-workshop/setup/scripts/stack.sh
 ----
 +
-The `stack.sh` file is the default stack definition file used by all the namespaces. You can create namespace-specific definitions by creating the following file for a given namespace:
-+
-[source,shell]
-----
-# For a CDH cluster:
-cp edge2ai-workshop/setup/scripts/stack.template-cdh.sh edge2ai-workshop/setup/scripts/stack.<namespace>.sh
+The `stack.sh` file is the default stack definition file used by all the namespaces that lack _namespace-specific_ stacks. You can create namespace-specific stack by naming the file `stack.<namespace>.sh` instead.
 
-# For a CDP-DC cluster:
-cp edge2ai-workshop/setup/scripts/stack.template-cdp.sh edge2ai-workshop/setup/scripts/stack.<namespace>.sh
-----
+. Create a copy of the `.env.template` file and name it `.env.<namespace>`.
 +
-IMPORTANT: Most of the software locations are already pre-defined in the template. For a few of the required software, though, there's currently no public repository available. Make sure you follow the instructions below to install these components.
-+
-For Schema Registry (SR) and Streams Messaging Manager (SMM) installation you have two options:
-
-* If you have an URL link to a location where the CSP parcel and SR/SMM CSDs can be downloaded from, configure the corresponding properties in the `stack.sh` (or `stack.<namespace>.sh`) file:
-+
-[source,shell]
-----
-SCHEMAREGISTRY_VERSION=
-STREAMS_MESSAGING_MANAGER_VERSION=
-CSP_PARCEL_REPO=
-SCHEMAREGISTRY_CSD_URL=
-STREAMS_MESSAGING_MANAGER_CSD_URL=
-----
-+
-NOTE: The version of the components, as indicated in the `SCHEMAREGISTRY_VERSION` and `STREAMS_MESSAGING_MANAGER_VERSION` variables, have the form: `<csd_version>.<parcel_version>`. For example, for the CSD binary `SCHEMAREGISTRY-0.8.0.jar` and parcel version `2.0.0.0-112` the Schema Registry version is `0.8.0.2.0.0.0-112`.
-
-* Alternatively, leave the properties above unset and download the CSP parcel into `edge2ai-workshop/setup/parcels/` and both CSDs into `edge2ai-workshop/setup/csds/`. Note that the setup process will upload these files to every VM it creates, so if you're launching a large nuber of VMs, expect a good amount of upload volume.
-
-. Review the cloud and workshop environment definitions and edit them as needed. This information is defined in the
+This file contains the details and credentials for your environment. Ensure the permissions on this file are set to `400`.
 +
 [source,shell]
 ----
@@ -237,19 +201,20 @@ chmod 400 edge2ai-workshop/setup/terraform/.env.<namespace>
 ----
 +
 where `<namespace>` is an arbitrary name for your environment namespace.
+
+. Edit the `.env.<namespace>` file to match your environment.
 +
-The variables in this file are explained below:
+Ensure you set these variables:
 +
 --
-* `TF_VAR_cluster_count`: number of one-node cluster to be created
-* `TF_VAR_registration_code`: registration code for the workshop environment. This is the code to be used as a password for users to successfully register in the workshop Web Portal. If not set or empty, a random registration code will be generated when the environment is launched.
+* `TF_VAR_cluster_count`: number of one-node clusters to be created
 * `TF_VAR_use_elastic_ip`: enable elastic IPs for the environment VMs. This is required if you need to stop/start VMs.
 
 '''
 
 * `TF_VAR_owner`: your user id. This will be used to tag your cloud resources.
-* `TF_VAR_web_server_admin_email`: email used by the Web Server admin. This will only be used to identify the admin upon logging in to the Web Server.
-* `TF_VAR_web_server_admin_password`: Web Server admin password.
+* `TF_VAR_enddate`: value for the `enddate` tag to be added to your cloude resources.
+* `TF_VAR_project`: value for the `project` tag to be added to your cloude resources.
 
 '''
 
@@ -259,20 +224,10 @@ The variables in this file are explained below:
 
 '''
 
-* `TF_VAR_deploy_cdsw_model`: Whether or not to deploy the CDSW model. If set to `false` CDSW will be installed but the workshop model will *not* be deployment. Default is `true`, which causes the model to be deployed.
+* `TF_VAR_web_server_admin_email`: email used by the Web Server admin. This will only be used to identify the admin upon logging in to the Web Server.
+* `TF_VAR_web_server_admin_password`: Web Server admin password.
+* `TF_VAR_registration_code`: registration code for the workshop environment. This is the code to be used as a password for users to successfully register in the workshop Web Portal. If not set or empty, a random registration code will be generated when the environment is launched.
 
-'''
-
-* `TF_VAR_cluster_ami`: AMI ID to use for the one-node cluster. Ensure you pick a Centos 7 image.
-+
-NOTE: This is a vanilla Centos 7 AMI. No other prerequistes are necessary. All the required software will be installed by the setup process.
-* `TF_VAR_ssh_username`: The username used to log in to the VM. Typically: `centos`
-* `TF_VAR_cluster_instance_type`: Instance type to use for the one-node cluster. Recommended: `m5.4xlarge` or later/larger.
-
-'''
-
-* `TF_VAR_project`: Project name. This is used for instance tagging.
-* `TF_VAR_enddate`: End date in MMDDYYYY format. This is used for instance tagging. Some Cloudera environment use this to automatically kill "expired" instances.
 --
 
 . Launch your environment
@@ -294,17 +249,7 @@ At the end of the script execution it will list the following information for al
 
 A private key file will also be created on the local directory for authenticating the connections to the clusters.
 
-. Once the workshop is completed, terminate all the environments with the following command:
-+
-[source,shell]
-----
-# cd edge2ai-workshop/setup/terraform/
-./terminate.sh <namespace>
-----
-+
-where `<namespace>` is the name of one of your namespaces.
-
-. A few helper scripts are provided to help connecting to the clusters:
+A few helper scripts are provided to help managing the clusters. Cluster numbers start from 0 (zero).
 
 * `./list-details.sh [namespace]` - if run without arguments it will display a summary of all the existing environments. If a namespace is specified, it will display the details for all the clusters on that environment (public DNS, public IP and private DNS).
 * `./check-services.sh <namespace>` - perform a health check of all the cluster to verify if all the services are up and running.
@@ -315,11 +260,9 @@ where `<namespace>` is the name of one of your namespaces.
 * `./run-on-all-clusters.sh <namespace> '<command>'` - run a command on all clusters.
 * `./upload-instance-details.sh <namespace> [web_ip_adress] [admin_email] [admin_password] [admin_full_name]` - upload all the instances' details to the web server. If no parameters are specified it will use the default web server for the current deployment, otherwise will upload to the specified webserver. Note that this script is automatically executed upon launch for the current web server.
 
-Clusters numbers start from 0 (zero).
+== Use the environment
 
-== Use
-
-* Once the script returns, you can open Cloudera Manager at http://<public_dns>:7180. The default credentials are `admin/admin`.
+* Once the script returns, you can open Cloudera Manager at http://<public_dns>:7180. The default credentials are `admin/supersecret1`.
 
 * Wait for about 10-20 mins for CDSW to be ready. You can monitor the status of CDSW by issuing the `cdsw status` command.
 
@@ -327,80 +270,49 @@ Clusters numbers start from 0 (zero).
 
 * You can also check the CDSW deployment status on `CM > CDSW service > Instances > Master role > Processes > stdout`.
 
-== Other setup scripts
+== Terminating the workshop environment
 
-=== SMM Truck Demo
-The scripts necessary to run the SMM Truck Demo are deployed to the cluster instances upon launch but are *not* executed.
-
-To complete the setup for the SMM Truck Demo, follow the steps below:
-
-==== Run for all clusters.
-
-* Go to the terminal window where you launched the workshop (under the `setup/terraform` directory)
-* Run the SMM Truck Demo setup (only needed once):
+. Once the workshop is completed, terminate all the resource in the namespace with the following command:
 +
 [source,shell]
 ----
-./run-on-all-clusters.sh <namespace> "sudo /opt/dataloader/smm-generator.sh setup"
+# cd edge2ai-workshop/setup/terraform/
+./terminate.sh <namespace>
 ----
 +
---
-The setup will:
+where `<namespace>` is the name of one of your namespaces.
 
-* Deploy all the necessary scripts and files
-* Load the NiFi flows used in the demo
-* Start all the NiFi Controller Services
---
+== Deploying on an existing VM
 
-After the setup is complete, you can start/stop the consumer and producers as many times as needed:
+The `launch.sh` script used above to create the environment, currently only with AWS and will create all the required AWS resources needed for the workshop.
+If you already have virtual machine created somewhere (AWS, GCP or private cloud), you have the option to manually execute the setup script locally on that VM to set up the single-node cluster on it.
 
-* To start all the consumers and producers:
-+
-[source,shell]
-----
-./run-on-all-clusters.sh <namespace> "sudo /opt/dataloader/smm-generator.sh start"
-----
+NOTE: The steps below assume that you already have a *Centos 7* VM created on the infrastructure of your preference.
 
-* To stop all the consumers and producers:
+To deploy the single-node cluster on that VM following these steps:
+
+. Attach an additional *200GB* volume to this VM but *do not* mount it (this will be used as CDSW's docker device)
+. Log in as `root`
+. Execute these commands:
 +
 [source,shell]
 ----
-./run-on-all-clusters.sh <namespace> "sudo /opt/dataloader/smm-generator.sh stop"
+yum install -y git
+git clone https://github.com/cloudera-labs/edge2ai-workshop/
+cp -r edge2ai-workshop/setup/terraform/resources /tmp
+cd /tmp/resources
+bash -x ./setup.sh <CLOUD_PROVIDER> <SSH_USER> <SSH_PWD> cdp716p <DOCKER_DEVICE>
 ----
 
-* You can check the producer and consumer status using:
-+
-[source,shell]
-----
-./run-on-all-clusters.sh <namespace> "sudo /opt/dataloader/smm-generator.sh status"
-----
-+
---
-After a successful start there should be 43 clients running: 13 consumers and 30 producers. There are 2 different types of consumers and 2 of producers. The status command shows the number of running consumers and producers by type, as shown below:
+where:
 
-[source,python]
-----
-      3 LoggerAvroEventConsumer
-     10 LoggerStringEventConsumer
-      9 SMMSimulationRunnerSingleDriverApp
-     21 SMMSimulationRunnerTruckFleetApp
-----
+* `CLOUD_PROVIDER` can be one of `aws`, `gcp` or `other`. For private cloud VMs, choose `other`.
+* `SSH_USER` is the user you'll use to connect. This user must have passwordless sudo to root
+* `SSH_PWD` is the password that the setup script will set for this user. You don't need to set this up for this user.
+* `"cdp716p"`, this is the name of the stack. Do not change this, unless you know what you're doing.
+* `DOCKER_DEVICE` path of the device created in step 1. Something like `/dev/<devname>`
 
---
-
-==== Run for a single node
-
-You can also run the commands above for a single instance.
-
-1. SSH to the cluster instance
-2. Run the commands as per below:
-
-* *Setup*: `sudo /opt/dataloader/smm-generator.sh setup`
-* *Start*: `sudo /opt/dataloader/smm-generator.sh start`
-* *Stop*: `sudo /opt/dataloader/smm-generator.sh stop`
-* *Status*: `sudo /opt/dataloader/smm-generator.sh status`
-
-== Running without Docker
+== Running locally without Docker
 
 If you need or want to run the setup scripts without installing Docker, you should install the following prerequisites in your laptop.
 
