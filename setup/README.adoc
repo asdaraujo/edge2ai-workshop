@@ -301,6 +301,20 @@ yum install -y git
 git clone https://github.com/cloudera-labs/edge2ai-workshop/
 cp -r edge2ai-workshop/setup/terraform/resources /tmp
 cd /tmp/resources
+----
+
+. Edit the `stack.cdp716p.sh` file and update the following variables with your CDP credentials:
++
+[source,properties]
+----
+REMOTE_REPO_USR=<YOUR_USERNAME_HERE>
+REMOTE_REPO_PWD=<YOUR_PASSWORD_HERE>
+----
+
+. Run the setup script to deployment the cluster:
++
+[source,shell]
+----
 bash -x ./setup.sh <CLOUD_PROVIDER> <SSH_USER> <SSH_PWD> cdp716p <DOCKER_DEVICE>
 ----
 
