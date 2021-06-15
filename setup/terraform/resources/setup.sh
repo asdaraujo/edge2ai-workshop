@@ -31,6 +31,16 @@ KEY_FILE=${BASE_DIR}/myRSAkey
 TEMPLATE_FILE=$BASE_DIR/cluster_template.${NAMESPACE}.json
 
 load_stack $NAMESPACE
+if [[ ${ENABLE_TLS:-} == "yes" ]]; then
+  touch $BASE_DIR/.enable-tls
+fi
+if [[ ${ENABLE_KERBEROS:-} == "yes" ]]; then
+  touch $BASE_DIR/.enable-kerberos
+fi
+if [[ ${USE_IPA:-0} -eq 1 ]]; then
+  touch $BASE_DIR/.use-ipa
+fi
+
 
 CM_REPO_FILE=/etc/yum.repos.d/cloudera-manager.repo
 
@@ -420,7 +430,8 @@ case "${CLOUD_PROVIDER}" in
           sed -i.bak '/server 169.254.169.123/ d' /etc/chrony.conf
           echo "server 169.254.169.123 prefer iburst minpoll 4 maxpoll 4" >> /etc/chrony.conf
           systemctl restart chronyd
-          export PUBLIC_DNS=$(curl http://169.254.169.254/latest/meta-data/public-hostname)
+          #export PUBLIC_DNS=$(curl http://169.254.169.254/latest/meta-data/public-hostname)
+          export PUBLIC_DNS=cdp.${PUBLIC_IP}.nip.io
           export PRIVATE_DNS=$(curl http://169.254.169.254/latest/meta-data/local-hostname)
           export PRIVATE_IP=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)
           ;;
@@ -468,55 +479,26 @@ if [[ -f /etc/sysconfig/network ]]; then
 fi
 echo "HOSTNAME=${CLUSTER_HOST}" >> /etc/sysconfig/network
 
-# Create certs is TLS is enabled
-if [[ $ENABLE_TLS == yes ]]; then
-  create_ca
-  create_certs "$IPA_HOST"
+if [ "$(is_kerberos_enabled)" == "yes" ]; then
+  if [[ ${KERBEROS_TYPE} == "MIT" ]]; then
+    echo "-- Install Kerberos KDC"
+    install_kerberos
+  else
+    echo "-- Install IPA client"
+    install_ipa_client "$IPA_HOST"
+    echo "-- Ensure user homedirs are created when using IPA"
+  fi
 fi
 
-echo "-- Generate self-signed certificate for ShellInABox with the needed SAN entries"
-# Generate self-signed certificate for ShellInABox with the needed SAN entries
-openssl req \
-  -x509 \
-  -nodes \
-  -newkey 2048 \
-  -keyout key.pem \
-  -out cert.pem \
-  -days 365 \
-  -subj "/C=US/ST=California/L=San Francisco/O=Cloudera/OU=Data in Motion/CN=${CLUSTER_HOST}" \
-  -extensions 'v3_user_req' \
-  -config <( cat <<EOF
-[ req ]
-default_bits = 2048
-default_md = sha256
-distinguished_name = req_distinguished_name
-req_extensions = v3_user_req
-string_mask = utf8only
+# Add users - after Kerberos installation so that principals are also created correctly, if needed
 
-[ req_distinguished_name ]
-countryName_default = XX
-countryName_min = 2
-countryName_max = 2
-localityName_default = Default City
-0.organizationName_default = Default Company Ltd
-commonName_max = 64
-emailAddress_max = 64
+add_user workshop cdp-users
+add_user admin cdp-admins,shadow,supergroup
+add_user alice cdp-users
+add_user bob cdp-users
 
-[ v3_user_req ]
-basicConstraints = CA:FALSE
-subjectKeyIdentifier = hash
-keyUsage = digitalSignature, keyEncipherment
-extendedKeyUsage = serverAuth, clientAuth
-subjectAltName = DNS:${CLUSTER_HOST},IP:${PRIVATE_IP},IP:${PUBLIC_IP},DNS:edge2ai-1.dim.local
-EOF
-)
-cat key.pem cert.pem > /var/lib/shellinabox/certificate.pem
-chown shellinabox:shellinabox /var/lib/shellinabox/certificate.pem
-chmod 400 /var/lib/shellinabox/certificate.pem
-rm -f /var/lib/shellinabox/certificate-{localhost,edge2ai-1.dim.local,${CLUSTER_HOST}}.pem
-ln -s /var/lib/shellinabox/certificate.pem /var/lib/shellinabox/certificate-localhost.pem
-ln -s /var/lib/shellinabox/certificate.pem /var/lib/shellinabox/certificate-edge2ai-1.dim.local.pem
-ln -s /var/lib/shellinabox/certificate.pem /var/lib/shellinabox/certificate-${CLUSTER_HOST}.pem
+# Create certs. This is done even if ENABLE_TLS == no, since ShellInABox always needs a cert
+create_certs "$IPA_HOST"
 
 # Enable and start ShelInABox
 systemctl enable shellinaboxd
@@ -633,23 +615,6 @@ systemctl restart sshd
 
 echo "-- Check for additional parcels"
 chmod +x ${BASE_DIR}/check-for-parcels.sh
-
-if [ "$(is_kerberos_enabled)" == "yes" ]; then
-  if [[ ${KERBEROS_TYPE} == "MIT" ]]; then
-    echo "-- Install Kerberos KDC"
-    install_kerberos
-  else
-    echo "-- Install IPA client"
-    install_ipa_client "$IPA_HOST"
-    echo "-- Ensure user homedirs are created when using IPA"
-  fi
-fi
-
-# Add users - after Kerberos installation so that principals are also created correctly, if needed
-add_user workshop users
-add_user admin admins,shadow,supergroup
-add_user alice users
-add_user bob users
 
 wait_for_cm
 
@@ -914,8 +879,8 @@ if [[ ${HAS_FLINK:-0} == 1 ]]; then
   echo "-- Flink: extra workaround due to CSA-116"
   auth admin
   retry_if_needed 60 1 "hdfs dfs -chown flink:flink /user/flink"
-  hdfs dfs -mkdir /user/admin
-  hdfs dfs -chown admin:admin /user/admin
+  retry_if_needed 60 1 "hdfs dfs -mkdir /user/admin"
+  retry_if_needed 60 1 "hdfs dfs -chown admin:admin /user/admin"
   unauth
 
   echo "-- Runs a quick Flink WordCount to ensure everything is ok"

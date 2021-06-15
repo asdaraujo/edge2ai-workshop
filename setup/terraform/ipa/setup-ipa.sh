@@ -15,6 +15,9 @@ USER_PASSWORD=$THE_PWD
 
 CM_PRINCIPAL=cloudera-scm
 
+USERS_GROUP=cdp-users
+ADMINS_GROUP=cdp-admins
+
 # Often yum connection to Cloudera repo fails and causes the instance create to fail.
 # yum timeout and retries options don't see to help in this type of failure.
 # We explicitly retry a few times to make sure the build continues when these timeouts happen.
@@ -61,7 +64,7 @@ function add_user() {
     echo "-- User [$princ] already exists"
   else
     echo "-- Creating user [$princ]"
-    USERS_GRP_ID=$(get_group_id users)
+    USERS_GRP_ID=$(get_group_id $USERS_GROUP)
     echo clouderatemp | ipa user-add "$princ" --first="$princ" --last="User" --cn="$princ" --noprivate --gidnumber $USERS_GRP_ID --password || true
     kadmin.local change_password -pw ${USER_PASSWORD} $princ
   fi
@@ -102,10 +105,10 @@ ipa-server-install --hostname=$(hostname -f) -r $REALM_NAME -n $(hostname -d) -a
 echo "${IPA_ADMIN_PASSWORD}" | kinit admin >/dev/null
 
 # create groups
-add_groups users shadow admins supergroup
+add_groups $USERS_GROUP $ADMINS_GROUP shadow supergroup
 
 # create CM principal user and add to admins group
-add_user admin admins "trust admins" shadow supergroup
+add_user admin admins $ADMINS_GROUP "trust admins" shadow supergroup
 
 kinit -kt "${KEYTABS_DIR}/admin.keytab" admin
 ipa krbtpolicy-mod --maxlife=3600 --maxrenew=604800 || true
@@ -114,9 +117,9 @@ ipa krbtpolicy-mod --maxlife=3600 --maxrenew=604800 || true
 add_user ldap_bind_user
 
 # Add users
-add_user workshop users
-add_user alice users
-add_user bob users
+add_user workshop $USERS_GROUP
+add_user alice $USERS_GROUP
+add_user bob $USERS_GROUP
 
 # Add this role to avoid racing conditions between multiple CMs coming up at the same time
 ipa role-add cmadminrole

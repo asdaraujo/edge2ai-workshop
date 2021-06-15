@@ -94,7 +94,7 @@
             },
             {
               "name" : "gateway_knox_admin_groups",
-              "value" : "admins"
+              "value" : "cdp-admins"
             },
             {
               "name" : "gateway_port",

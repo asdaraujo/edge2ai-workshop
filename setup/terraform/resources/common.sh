@@ -10,6 +10,30 @@ export THE_PWD_SALT=7690128891203708887
 
 echo -n "$THE_PWD" > $BASE_DIR/the_pwd.txt
 
+# CA details
+SEC_BASE=/opt/cloudera/security
+export CA_DIR=${SEC_BASE}/ca
+export CA_KEY=$CA_DIR/ca-key.pem
+export CA_KEY_PWD=${THE_PWD}
+export CA_CONF=$CA_DIR/openssl.cnf
+export CA_EMAIL=admin@cloudera.com
+export ROOT_PEM=$CA_DIR/ca-cert.pem
+
+export KEY_PEM=${SEC_BASE}/x509/key.pem
+export UNENCRYTED_KEY_PEM=${SEC_BASE}/x509/unencrypted-key.pem
+export CSR_PEM=${SEC_BASE}/x509/host.csr
+export HOST_PEM=${SEC_BASE}/x509/host.pem
+export KEY_PWD=${THE_PWD}
+export KEYSTORE_PWD=$KEY_PWD
+export TRUSTSTORE_PWD=${THE_PWD}
+
+# Generated files
+export CERT_PEM=${SEC_BASE}/x509/cert.pem
+export TRUSTSTORE_PEM=${SEC_BASE}/x509/truststore.pem
+export KEYSTORE_JKS=${SEC_BASE}/jks/keystore.jks
+export TRUSTSTORE_JKS=${SEC_BASE}/jks/truststore.jks
+
+
 function is_kerberos_enabled() {
   echo $ENABLE_KERBEROS
 }
@@ -44,7 +68,7 @@ function get_kafka_security_protocol() {
 
 function get_create_cluster_tls_option() {
   if [[ $(netstat -anp | grep ':7183 .*LISTEN ' | wc -l) > 0 ]]; then
-    echo "--tls-ca-cert /opt/cloudera/security/x509/truststore.pem"
+    echo "--tls-ca-cert $TRUSTSTORE_PEM"
   else
     echo ""
   fi
@@ -145,7 +169,7 @@ function prepare_keytabs_dir() {
 security.protocol=SASL_SSL
 sasl.mechanism=GSSAPI
 sasl.kerberos.service.name=kafka
-ssl.truststore.location=/opt/cloudera/security/jks/truststore.jks
+ssl.truststore.location=$TRUSTSTORE_JKS
 sasl.jaas.config=com.sun.security.auth.module.Krb5LoginModule required useTicketCache=true;
 EOF
     elif [[ $(is_kerberos_enabled) == yes ]]; then
@@ -158,7 +182,7 @@ EOF
     elif [[ $(is_tls_enabled) == yes ]]; then
       cat > ${KAFKA_CLIENT_PROPERTIES} <<EOF
 security.protocol=SSL
-ssl.truststore.location=/opt/cloudera/security/jks/truststore.jks
+ssl.truststore.location=$TRUSTSTORE_JKS
 EOF
     fi
 
@@ -293,6 +317,7 @@ function auth() {
   username=${username%%@*}
   local keytab_file=${KEYTABS_DIR}/${username}.keytab
   if [ -f $keytab_file ]; then
+    export KRB5CCNAME=/tmp/workshop.${username}
     kinit -kt $keytab_file $princ
     export KAFKA_OPTS="-Djava.security.auth.login.config=${KEYTABS_DIR}/jaas.conf"
   else
@@ -482,12 +507,9 @@ EOF
 }
 
 function create_ca() {
-  export CA_DIR=/opt/cloudera/security/ca
-  export CA_KEY=$CA_DIR/ca-key.pem
-  export CA_KEY_PWD=${THE_PWD}
-  export ROOT_PEM=$CA_DIR/ca-cert.pem
-  export CA_CONF=$CA_DIR/openssl.cnf
-  export CA_EMAIL=admin@cloudera.com
+  if [[ -s $ROOT_PEM ]]; then
+    return
+  fi
 
   mkdir -p $CA_DIR/newcerts
   touch $CA_DIR/index.txt
@@ -584,29 +606,14 @@ EOF
 function create_certs() {
   local ipa_host=$1
 
-  export KEY_PEM=/opt/cloudera/security/x509/key.pem
-  export UNENCRYTED_KEY_PEM=/opt/cloudera/security/x509/unencrypted-key.pem
-  export CSR_PEM=/opt/cloudera/security/x509/host.csr
-  export HOST_PEM=/opt/cloudera/security/x509/host.pem
-  export KEY_PWD=${THE_PWD}
-
-  # Generated files
-  export IPA_PEM=/opt/cloudera/security/x509/ipa.pem
-  export CERT_PEM=/opt/cloudera/security/x509/cert.pem
-  export TRUSTSTORE_PEM=/opt/cloudera/security/x509/truststore.pem
-  export KEYSTORE_JKS=/opt/cloudera/security/jks/keystore.jks
-  export TRUSTSTORE_JKS=/opt/cloudera/security/jks/truststore.jks
-  export KEYSTORE_PWD=$KEY_PWD
-  export TRUSTSTORE_PWD=${THE_PWD}
-
-  mkdir -p $(dirname $KEY_PEM) $(dirname $CSR_PEM) $(dirname $HOST_PEM) /opt/cloudera/security/jks
+  mkdir -p $(dirname $KEY_PEM) $(dirname $CSR_PEM) $(dirname $HOST_PEM) ${SEC_BASE}/jks
 
   # Create private key
   openssl genrsa -des3 -out ${KEY_PEM} -passout pass:${KEY_PWD} 2048
 
   # Create CSR
   local public_ip=$(curl -s http://ifconfig.me || curl -s http://api.ipify.org/)
-  export ALT_NAMES="DNS:edge2ai-1.dim.local,DNS:$(hostname -f),IP:$(hostname -I),IP:${public_ip},DNS:*.${public_ip}.nip.io"
+  export ALT_NAMES="DNS:edge2ai-1.dim.local,DNS:$(hostname -f),DNS:*.${public_ip}.nip.io"
   openssl req\
     -new\
     -key ${KEY_PEM} \
@@ -643,51 +650,53 @@ EOF
   openssl rsa -in "$KEY_PEM" -passin pass:"$KEY_PWD" > "$UNENCRYTED_KEY_PEM"
 
   # Sign cert
-  openssl ca \
-    -config ${CA_CONF} \
-    -in ${CSR_PEM} \
-    -key ${CA_KEY_PWD} \
-    -batch \
-    -extensions v3_user_extensions | \
-  openssl x509 > $HOST_PEM
-
-  # Download IPA cert, if it exists
   if [[ $ipa_host != "" ]]; then
-    curl "http://${ipa_host}/ca.crt" > $IPA_PEM
+    kinit -kt $KEYTABS_DIR/admin.keytab admin
+    ipa host-add-principal $(hostname -f) "host/edge2ai-1.dim.local"
+    ipa host-add-principal $(hostname -f) "host/*.${public_ip}.nip.io"
+    ipa cert-request ${CSR_PEM} --principal=host/$(hostname -f)
+    echo -e "-----BEGIN CERTIFICATE-----\n$(ipa host-find $(hostname -f) | grep Certificate: | tail -1 | awk '{print $NF}')\n-----END CERTIFICATE-----" | openssl x509 > ${HOST_PEM}
+
+    # Download IPA cert
+    mkdir -p $(dirname $ROOT_PEM)
     local retries=60
     while [[ $retries -gt 0 ]]; do
-      ret=$(curl -s -o $IPA_PEM -w "%{http_code}" "http://${ipa_host}/ca.crt")
-      if [[ $ret == "200" ]]; then
+      set +e
+      ret=$(curl -s -o $ROOT_PEM -w "%{http_code}" "http://${ipa_host}/ca.crt")
+      err=$?
+      set -e
+      if [[ $err == 0 && $ret == "200" ]]; then
         break
       else
-        rm -f $IPA_PEM
-        touch $IPA_PEM
+        rm -f $ROOT_PEM
+        touch $ROOT_PEM
       fi
       retries=$((retries - 1))
       sleep 1
       echo "Waiting for IPA to be ready (retries left: $retries)"
     done
-    if [[ ! -s $IPA_PEM ]]; then
+    if [[ ! -s $ROOT_PEM ]]; then
       echo "ERROR: Cannot download the IPA CA certificate"
       exit 1
     fi
   else
-    touch $IPA_PEM
+    create_ca
+
+    openssl ca \
+      -config ${CA_CONF} \
+      -in ${CSR_PEM} \
+      -key ${CA_KEY_PWD} \
+      -batch \
+      -extensions v3_user_extensions | \
+    openssl x509 > ${HOST_PEM}
   fi
 
   # Create PEM truststore
   rm -f $TRUSTSTORE_PEM
-  cat > $TRUSTSTORE_PEM <<EOF
-# Local Root CA
-$(cat $ROOT_PEM)
-# IPA CA
-$(cat $IPA_PEM)
-EOF
+  cp $ROOT_PEM $TRUSTSTORE_PEM
 
   # Create PEM combined certificate
-  cat > $CERT_PEM <<EOF
-$(cat $HOST_PEM)
-EOF
+  cp $HOST_PEM $CERT_PEM
 
   # Generate JKS keystore
   rm -f temp.p12
@@ -714,7 +723,7 @@ EOF
 
   # Generate JKS truststore
   rm -f $TRUSTSTORE_JKS
-  for cert in $ROOT_PEM $IPA_PEM; do
+  for cert in $ROOT_PEM; do
     if [[ -s $cert ]]; then
       keytool \
         -importcert \
@@ -728,15 +737,15 @@ EOF
   done
 
   # Create agent password file
-  echo $KEY_PWD > /opt/cloudera/security/x509/pwfile
-  chown cloudera-scm:cloudera-scm /opt/cloudera/security/x509/pwfile
-  chmod 400 /opt/cloudera/security/x509/pwfile
+  echo $KEY_PWD > ${SEC_BASE}/x509/pwfile
+  chown cloudera-scm:cloudera-scm ${SEC_BASE}/x509/pwfile
+  chmod 400 ${SEC_BASE}/x509/pwfile
 
   # Create HUE LB password file
-  mkdir -p /opt/cloudera/security/hue
-  echo $KEY_PWD > /opt/cloudera/security/hue/loadbalancer.pw
-  chmod 755 /opt/cloudera/security/hue
-  chmod 444 /opt/cloudera/security/hue/loadbalancer.pw
+  mkdir -p ${SEC_BASE}/hue
+  echo $KEY_PWD > ${SEC_BASE}/hue/loadbalancer.pw
+  chmod 755 ${SEC_BASE}/hue
+  chmod 444 ${SEC_BASE}/hue/loadbalancer.pw
 
   # Create copies of the stores (needed by NiFi in CDP < 7.1.6 due to hard-coded names in the CSD)
   groupadd -r nifi || true
@@ -751,13 +760,25 @@ EOF
   chmod 444 $KEY_PEM $UNENCRYTED_KEY_PEM $KEYSTORE_JKS
   chmod 444 $CERT_PEM $TRUSTSTORE_PEM $TRUSTSTORE_JKS
 
+  # Prepare key+cert for ShellInABox
+  local sib_dir=/var/lib/shellinabox
+  local sib_cert=${sib_dir}/certificate.pem
+  openssl rsa -in "$KEY_PEM" -passin pass:"$KEY_PWD" > $sib_cert
+  cat $CERT_PEM $ROOT_PEM >> $sib_cert
+  chown shellinabox:shellinabox $sib_cert
+  chmod 400 $sib_cert
+  rm -f ${sib_dir}/certificate-{localhost,edge2ai-1.dim.local,${CLUSTER_HOST}}.pem
+  ln -s $sib_cert ${sib_dir}/certificate-localhost.pem
+  ln -s $sib_cert ${sib_dir}/certificate-edge2ai-1.dim.local.pem
+  ln -s $sib_cert ${sib_dir}/certificate-${CLUSTER_HOST}.pem
+
 }
 
 function tighten_keystores_permissions() {
   # Set permissions for HUE LB password file
-  chown -R hue:hue /opt/cloudera/security/hue
-  chmod 500 /opt/cloudera/security/hue
-  chmod 400 /opt/cloudera/security/hue/loadbalancer.pw
+  chown -R hue:hue ${SEC_BASE}/hue
+  chmod 500 ${SEC_BASE}/hue
+  chmod 400 ${SEC_BASE}/hue/loadbalancer.pw
 
   # Set permissions and ACLs
   chmod 440 $KEY_PEM $KEYSTORE_JKS
@@ -1006,14 +1027,14 @@ function create_peer_kafka_external_account() {
         "value" : "$(get_kafka_security_protocol)"
       }
 $(
-  if [[ -f /opt/cloudera/security/jks/truststore.jks ]]; then
+  if [[ $ENABLE_TLS == "yes" ]]; then
     cat <<EOF2
       , {
         "name" : "kafka_truststore_password",
         "value" : "${THE_PWD}"
       }, {
         "name" : "kafka_truststore_path",
-        "value" : "/opt/cloudera/security/jks/truststore.jks"
+        "value" : "${TRUSTSTORE_JKS}"
       }, {
         "name" : "kafka_truststore_type",
         "value" : "JKS"

@@ -861,7 +861,7 @@ function cluster_instances() {
     if [[ $cluster_id != "" ]]; then
       filter='select(.index == '$cluster_id') |'
     fi
-    cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.type == "aws_instance" and .name == "cluster") |'"$filter"' "\(.index) \(.values.tags.Name) \(.values.public_dns) \(.values.public_ip) \(.values.private_ip)"'
+    cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.type == "aws_instance" and .name == "cluster") |'"$filter"' "\(.index) \(.values.tags.Name) cdp.\(.values.public_ip).nip.io \(.values.public_ip) \(.values.private_ip)"'
   fi
 }
 

@@ -153,18 +153,18 @@ create_user "$(hostname -f)"
 create_policy "$NIFI_SERVICE" "nifi" "Data Access" "nifi-resource" "/data/*"
 create_policy "$NIFI_SERVICE" "nifi" "Provenance"  "nifi-resource" "/provenance;/provenance-data/*/*"
 create_policy "$NIFI_SERVICE" "nifi" "System"      "nifi-resource" "/system"
-add_perms_to_policy ":admins;users:READ;WRITE" "Flow"
-add_perms_to_policy ":admins:READ;WRITE"       "Restricted Components"
-add_perms_to_policy ":admins:READ;WRITE"       "Controller"
-add_perms_to_policy ":admins:READ;WRITE"       "Policies"
-add_perms_to_policy ":admins:READ;WRITE"       "Tenants"
-add_perms_to_policy ":admins;nifi;users:READ;WRITE" "Data Access"
-add_perms_to_policy ":admins;nifi;users:READ;WRITE" "Provenance"
-add_perms_to_policy ":admins;nifi:READ"             "System"
+add_perms_to_policy ":cdp-admins;cdp-users:READ;WRITE" "Flow"
+add_perms_to_policy ":cdp-admins:READ;WRITE"       "Restricted Components"
+add_perms_to_policy ":cdp-admins:READ;WRITE"       "Controller"
+add_perms_to_policy ":cdp-admins:READ;WRITE"       "Policies"
+add_perms_to_policy ":cdp-admins:READ;WRITE"       "Tenants"
+add_perms_to_policy ":cdp-admins;nifi;cdp-users:READ;WRITE" "Data Access"
+add_perms_to_policy ":cdp-admins;nifi;cdp-users:READ;WRITE" "Provenance"
+add_perms_to_policy ":cdp-admins;nifi:READ"             "System"
 ROOT_PG_ID=$(get_root_pg)
 if [[ $ROOT_PG_ID != "" ]]; then
   create_policy "$NIFI_SERVICE" "nifi" "Root Process Group" "nifi-resource" "/process-groups/$ROOT_PG_ID"
-  add_perms_to_policy ":admins;nifi;users:READ;WRITE" "Root Process Group"
+  add_perms_to_policy ":cdp-admins;nifi;cdp-users:READ;WRITE" "Root Process Group"
 fi
 
 ## Needed for EFM to send data via S2S
@@ -177,16 +177,19 @@ add_perms_to_policy "$(hostname -f):nifi:WRITE" "Output ports"
 
 # Kafka
 
-add_perms_to_policy ":admins:consume;describe;delete"                                                                                    "all - consumergroup"   "$KAFKA_SERVICE"
-add_perms_to_policy ":admins:publish;consume;configure;describe;create;delete;describe_configs;alter_configs;alter"                      "all - topic"           "$KAFKA_SERVICE"
-add_perms_to_policy ":admins:publish;describe"                                                                                           "all - transactionalid" "$KAFKA_SERVICE"
-add_perms_to_policy ":admins:configure;describe;kafka_admin;create;idempotent_write;describe_configs;alter_configs;cluster_action;alter" "all - cluster"         "$KAFKA_SERVICE"
-add_perms_to_policy ":admins:describe"                                                                                                   "all - delegationtoken" "$KAFKA_SERVICE"
-add_perms_to_policy ":admins:publish"                                                                                                    "ATLAS_HOOK"            "$KAFKA_SERVICE"
+add_perms_to_policy ":cdp-admins:consume;describe;delete"                                                                                    "all - consumergroup"   "$KAFKA_SERVICE"
+add_perms_to_policy ":cdp-admins:publish;consume;configure;describe;create;delete;describe_configs;alter_configs;alter"                      "all - topic"           "$KAFKA_SERVICE"
+add_perms_to_policy ":cdp-admins:publish;describe"                                                                                           "all - transactionalid" "$KAFKA_SERVICE"
+add_perms_to_policy ":cdp-admins:configure;describe;kafka_admin;create;idempotent_write;describe_configs;alter_configs;cluster_action;alter" "all - cluster"         "$KAFKA_SERVICE"
+add_perms_to_policy ":cdp-admins:describe"                                                                                                   "all - delegationtoken" "$KAFKA_SERVICE"
+add_perms_to_policy ":cdp-admins:publish"                                                                                                    "ATLAS_HOOK"            "$KAFKA_SERVICE"
+# TODO: The ssb permissions below are only necessary until CSA-1470 is resolved
+add_perms_to_policy "ssb::consume;describe"                                                                                              "all - consumergroup"   "$KAFKA_SERVICE"
+add_perms_to_policy "ssb::consume;describe"                                                                                              "all - topic"           "$KAFKA_SERVICE"
 
 # HDFS
 
-add_perms_to_policy ":admins:read;write;execute" "all - path" "$HDFS_SERVICE"
+add_perms_to_policy ":cdp-admins:read;write;execute" "all - path" "$HDFS_SERVICE"
 
 # Schema Registry
 
@@ -195,23 +198,24 @@ create_policy "$SCHEMA_REGISTRY_SERVICE" "schema-registry" "all - schema-group, 
 create_policy "$SCHEMA_REGISTRY_SERVICE" "schema-registry" "all - schema-group, schema-metadata, schema-branch"                 "schema-metadata" "*" "schema-group" "*" "schema-branch" "*"
 create_policy "$SCHEMA_REGISTRY_SERVICE" "schema-registry" "all - registry-service"                                             "registry-service" "*"
 create_policy "$SCHEMA_REGISTRY_SERVICE" "schema-registry" "all - schema-group, schema-metadata, schema-branch, schema-version" "schema-metadata" "*" "schema-group" "*" "schema-branch" "*" "schema-version" "*"
-add_perms_to_policy ":admins:create;read;update;delete" "all - serde"                                                        "$SCHEMA_REGISTRY_SERVICE"
-add_perms_to_policy ":admins:create;read;update;delete" "all - schema-group, schema-metadata"                                "$SCHEMA_REGISTRY_SERVICE"
-add_perms_to_policy ":admins:create;read;update;delete" "all - schema-group, schema-metadata, schema-branch"                 "$SCHEMA_REGISTRY_SERVICE"
-add_perms_to_policy ":admins:create;read;update;delete" "all - registry-service"                                             "$SCHEMA_REGISTRY_SERVICE"
-add_perms_to_policy ":admins:create;read;update;delete" "all - schema-group, schema-metadata, schema-branch, schema-version" "$SCHEMA_REGISTRY_SERVICE"
+add_perms_to_policy ":cdp-admins:create;read;update;delete" "all - serde"                                                        "$SCHEMA_REGISTRY_SERVICE"
+add_perms_to_policy ":cdp-admins:create;read;update;delete" "all - schema-group, schema-metadata"                                "$SCHEMA_REGISTRY_SERVICE"
+add_perms_to_policy ":cdp-admins:create;read;update;delete" "all - schema-group, schema-metadata, schema-branch"                 "$SCHEMA_REGISTRY_SERVICE"
+add_perms_to_policy ":cdp-admins:create;read;update;delete" "all - registry-service"                                             "$SCHEMA_REGISTRY_SERVICE"
+add_perms_to_policy ":cdp-admins:create;read;update;delete" "all - schema-group, schema-metadata, schema-branch, schema-version" "$SCHEMA_REGISTRY_SERVICE"
 # CDP 7.1.4 and earlier had a predefined policy called "Add super used" for the registry-service resource. The one below is for "backward compatibility".
-add_perms_to_policy ":admins:create;read;update;delete" "Add super user"                                                     "$SCHEMA_REGISTRY_SERVICE"
+add_perms_to_policy ":cdp-admins:create;read;update;delete" "Add super user"                                                     "$SCHEMA_REGISTRY_SERVICE"
 
 # NiFi Registry
 
-add_perms_to_policy ":admins:READ;WRITE;DELETE" "Actuator" "$NIFI_REGISTRY_SERVICE"
-add_perms_to_policy ":admins:READ;WRITE;DELETE" "Buckets"  "$NIFI_REGISTRY_SERVICE"
-add_perms_to_policy ":admins:READ"              "Tenants"  "$NIFI_REGISTRY_SERVICE"
-add_perms_to_policy ":admins:READ"              "Policies" "$NIFI_REGISTRY_SERVICE"
-add_perms_to_policy ":admins:READ;WRITE;DELETE" "Swagger"  "$NIFI_REGISTRY_SERVICE"
-add_perms_to_policy ":admins:READ;WRITE;DELETE" "Proxies"  "$NIFI_REGISTRY_SERVICE"
+add_perms_to_policy ":cdp-admins:READ;WRITE;DELETE" "Actuator" "$NIFI_REGISTRY_SERVICE"
+add_perms_to_policy ":cdp-admins:READ;WRITE;DELETE" "Buckets"  "$NIFI_REGISTRY_SERVICE"
+add_perms_to_policy ":cdp-admins:READ"              "Tenants"  "$NIFI_REGISTRY_SERVICE"
+add_perms_to_policy ":cdp-admins:READ"              "Policies" "$NIFI_REGISTRY_SERVICE"
+add_perms_to_policy ":cdp-admins:READ;WRITE;DELETE" "Swagger"  "$NIFI_REGISTRY_SERVICE"
+add_perms_to_policy ":cdp-admins:READ;WRITE;DELETE" "Proxies"  "$NIFI_REGISTRY_SERVICE"
 
 # Kudu
+
 create_policy "$KUDU_SERVICE" "kudu" "All databases" "database" "*" "table" "*" "column" "*"
-add_perms_to_policy ":admins:all;alter;create;delete;drop;insert;metadata;select;update" "All databases" "$KUDU_SERVICE"
+add_perms_to_policy ":cdp-admins:all;alter;create;delete;drop;insert;metadata;select;update" "All databases" "$KUDU_SERVICE"

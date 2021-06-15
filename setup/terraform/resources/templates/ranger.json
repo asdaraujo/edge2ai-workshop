@@ -78,12 +78,8 @@
               "name": "ssl_client_truststore_password",
               "value": "{{THE_PWD}}"
             }
-{% endif %}
-{% if ENABLE_TLS == 'yes' and USE_IPA and ENABLE_TLS == 'never' %}
-            ,
-{% endif %}
-{% if USE_IPA and ENABLE_TLS == 'never' %}
-            {
+{% if USE_IPA %}
+            ,{
               "name" : "ranger.usersync.group.memberattributename",
               "value" : "member"
             },
@@ -119,14 +115,21 @@
               "name" : "ranger.usersync.ldap.user.searchbase",
               "value" : "cn=users,cn=accounts,dc=workshop,dc=com"
             },
+{% if USE_IPA == "never" %}
             {
               "name" : "ranger.usersync.source.impl.class",
               "value" : "org.apache.ranger.ldapusersync.process.LdapUserGroupBuilder"
+            },
+{% endif %}
+            {
+              "name" : "conf/ranger-ugsync-site.xml_role_safety_valve",
+              "value" : "<property><name>ranger.usersync.unix.backend</name><value>nss</value></property>"
             },
             {
               "name" : "ranger_usersync_ldap_ldapbindpassword",
               "value" : "{{THE_PWD}}"
             }
+{% endif %}
 {% endif %}
           ]
         },
@@ -184,6 +187,10 @@
             {
               "name": "ssl_server_keystore_password",
               "value": "{{THE_PWD}}"
+            },
+            {
+              "name": "ranger.default.policy.groups",
+              "value": "cdp-admins"
             }
 {% endif %}
 {% if ((CM_VERSION == '7.1.1' and (CM_BUILD_NUMBER|int) < 2929688) or CM_VERSION is lt('7.1.1')) and ENABLE_TLS == 'yes' %}

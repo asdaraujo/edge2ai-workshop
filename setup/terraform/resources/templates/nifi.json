@@ -70,6 +70,18 @@
             {
               "name": "nifi.registry.web.https.port",
               "value": "18433"
+            },
+            {
+              "name": "xml.authorizers.userGroupProvider.shell-user-group-provider.enabled",
+              "value": "true"
+            },
+            {
+              "name": "xml.authorizers.userGroupProvider.shell-user-group-provider.property.Exclude Groups",
+              "value": "nifi|nifiregistry|users|hadoop"
+            },
+            {
+              "name": "xml.authorizers.userGroupProvider.shell-user-group-provider.property.Refresh Delay",
+              "value": "30 secs"
             }
 {% if ENABLE_TLS == 'yes' %}
             ,{
@@ -161,10 +173,6 @@
               "value": "cn=users,cn=accounts,dc=workshop,dc=com"
             },
             {
-              "name": "staging/authorizers.xml_role_safety_valve",
-              "value": "<property><name>xml.authorizers.userGroupProvider.composite-configurable-user-group-provider.property.User Group Provider 2</name><value>ldap-user-group-provider</value></property>"
-            },
-            {
               "name": "xml.authorizers.userGroupProvider.ldap-user-group-provider.property.Group Member Attribute",
               "value": "member"
             },
@@ -199,6 +207,15 @@
             {
               "name": "xml.identityProviders.provider.ldap-provider.property.User Search Filter",
               "value": "uid={0}"
+            },
+            {
+              "name": "staging/authorizers.xml_role_safety_valve",
+              "value": "<property><name>xml.authorizers.userGroupProvider.composite-configurable-user-group-provider.property.User Group Provider 2</name><value>ldap-user-group-provider</value></property>"
+            }
+{% else %}
+           ,{
+              "name": "staging/authorizers.xml_role_safety_valve",
+              "value": "<property><name>xml.authorizers.userGroupProvider.composite-configurable-user-group-provider.property.User Group Provider 2</name><value>shell-user-group-provider</value></property>"
             }
 {% endif %}
           ]
@@ -223,32 +240,6 @@
           "roleType": "NIFI_NODE",
           "base": true,
           "configs": [
-{% if ENABLE_TLS == 'yes' %}
-            {
-              "name": "ssl_client_truststore_location",
-              "value": "/opt/cloudera/security/jks/truststore.jks"
-            },
-            {
-              "name": "ssl_client_truststore_password",
-              "value": "{{THE_PWD}}"
-            },
-            {
-              "name": "ssl_enabled",
-              "value": "true"
-            },
-            {
-              "name": "ssl_server_keystore_keypassword",
-              "value": "{{THE_PWD}}"
-            },
-            {
-              "name": "ssl_server_keystore_location",
-              "value": "/opt/cloudera/security/jks/keystore.jks"
-            },
-            {
-              "name": "ssl_server_keystore_password",
-              "value": "{{THE_PWD}}"
-            },
-{% endif %}
             {
               "name": "nifi.web.http.port",
               "value": "8080"
@@ -272,9 +263,47 @@
             {
               "name": "nifi.cluster.flow.election.max.wait.time",
               "value": "10 secs"
+            },
+            {
+              "name": "xml.authorizers.userGroupProvider.shell-user-group-provider.enabled",
+              "value": "true"
+            },
+            {
+              "name": "xml.authorizers.userGroupProvider.shell-user-group-provider.property.Exclude Groups",
+              "value": "nifi|nifiregistry|users|hadoop"
+            },
+            {
+              "name": "xml.authorizers.userGroupProvider.shell-user-group-provider.property.Refresh Delay",
+              "value": "30 secs"
             }
+{% if ENABLE_TLS == 'yes' %}
+            ,{
+              "name": "ssl_client_truststore_location",
+              "value": "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name": "ssl_client_truststore_password",
+              "value": "{{THE_PWD}}"
+            },
+            {
+              "name": "ssl_enabled",
+              "value": "true"
+            },
+            {
+              "name": "ssl_server_keystore_keypassword",
+              "value": "{{THE_PWD}}"
+            },
+            {
+              "name": "ssl_server_keystore_location",
+              "value": "/opt/cloudera/security/jks/keystore.jks"
+            },
+            {
+              "name": "ssl_server_keystore_password",
+              "value": "{{THE_PWD}}"
+            }
+{% endif %}
 {% if CDH_VERSION is ge('7.1') and CFM_BUILD is gt('2.0.1.0-25') %}
-           ,{
+            ,{
               "name": "nifi.security.identity.mapping.pattern.kerb",
               "value": "^(.*?)(/.*?)?@(.*?)$"
             },
@@ -288,11 +317,7 @@
             }
 {% endif %}
 {% if USE_IPA %}
-           ,{
-              "name": "staging/authorizers.xml_role_safety_valve",
-              "value": "<property><name>xml.authorizers.userGroupProvider.composite-configurable-user-group-provider.property.User Group Provider 2</name><value>ldap-user-group-provider</value></property>"
-            },
-            {
+            ,{
               "name": "nifi.ldap.enabled",
               "value": "true"
             },
@@ -371,23 +396,21 @@
             {
               "name": "xml.loginIdentityProviders.provider.ldap-provider.property.User Search Filter",
               "value": "uid={0}"
+            },
+            {
+              "name": "staging/authorizers.xml_role_safety_valve",
+              "value": "<property><name>xml.authorizers.userGroupProvider.composite-configurable-user-group-provider.property.User Group Provider 2</name><value>ldap-user-group-provider</value></property>"
             }
 {% else %}
-           ,{
-              "name" : "staging/authorizers.xml_role_safety_valve",
-              "value" : "<property><name>xml.authorizers.userGroupProvider.composite-configurable-user-group-provider.property.User Group Provider 2</name><value>shell-user-group-provider</value></property>"
-            },
-            {
-              "name": "xml.authorizers.userGroupProvider.shell-user-group-provider.enabled",
+            ,{
+              "name": "staging/authorizers.xml_role_safety_valve",
+              "value": "<property><name>xml.authorizers.userGroupProvider.composite-configurable-user-group-provider.property.User Group Provider 2</name><value>shell-user-group-provider</value></property>"
+            }
+{% endif %}
+{% if CDH_VERSION is ge('7.1.7') %}
+            ,{
+              "name": "nifi.analytics.predict.enabled",
               "value": "true"
-            },
-            {
-              "name": "xml.authorizers.userGroupProvider.shell-user-group-provider.property.Exclude Groups",
-              "value": "nifi"
-            },
-            {
-              "name": "xml.authorizers.userGroupProvider.shell-user-group-provider.property.Refresh Delay",
-              "value": "30 secs"
             }
 {% endif %}
           ]

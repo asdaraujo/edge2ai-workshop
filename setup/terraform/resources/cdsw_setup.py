@@ -13,9 +13,11 @@ if len(sys.argv) > 3:
 else:
     PASSWORD = os.environ['THE_PWD']
 
+BASE_DIR = os.path.dirname(__file__) if os.path.dirname(__file__) else '.'
+IS_TLS_ENABLED = os.path.exists(os.path.join(BASE_DIR, '.enable-tls'))
+
 TRUSTSTORE = '/opt/cloudera/security/x509/truststore.pem'
-IS_SECURE = os.path.exists(TRUSTSTORE)
-URL_SCHEME = 'https' if IS_SECURE else 'http'
+URL_SCHEME = 'https' if IS_TLS_ENABLED else 'http'
 
 CDSW_API = URL_SCHEME + '://cdsw.%s.nip.io/api/v1' % (PUBLIC_IP,)
 CDSW_ALTUS_API = URL_SCHEME + '://cdsw.%s.nip.io/api/altus-ds-1' % (PUBLIC_IP,)
@@ -28,7 +30,7 @@ print('# Prepare CDSW for workshop')
 r = None
 try:
     s = requests.Session()
-    if IS_SECURE:
+    if IS_TLS_ENABLED:
         s.verify = TRUSTSTORE
     
     print('# Create user')

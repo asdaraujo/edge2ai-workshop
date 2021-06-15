@@ -16,6 +16,8 @@ resource "null_resource" "deploy_web" {
       "set -o nounset",
       "set -o errexit",
       "set -o pipefail",
+      "set -o xtrace",
+      "trap 'echo Return code: $?' 0",
       "cd web/",
       "bash -x ./start-web.sh 2>&1 | tee ./start-web.log",
     ]

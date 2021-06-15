@@ -29,6 +29,8 @@ resource "null_resource" "deploy_cdp" {
       "set -o nounset",
       "set -o errexit",
       "set -o pipefail",
+      "set -o xtrace",
+      "trap 'echo Return code: $?' 0",
       "# Prepare resources",
       "sudo mkdir -p /opt/dataloader/",
       "sudo cp /tmp/smm/* /opt/dataloader/",

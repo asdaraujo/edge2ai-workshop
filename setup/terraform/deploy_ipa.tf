@@ -18,6 +18,8 @@ resource "null_resource" "deploy_ipa" {
       "set -o nounset",
       "set -o errexit",
       "set -o pipefail",
+      "set -o xtrace",
+      "trap 'echo Return code: $?' 0",
       "cd ipa/",
       "sudo bash -x ./setup-ipa.sh 2>&1 | tee ./setup-ipa.log",
     ]

@@ -76,7 +76,8 @@ TBLPROPERTIES ('kudu.num_tablet_replicas' = '1');
 _DROP_KUDU_TABLE = "DROP TABLE IF EXISTS sensors;"
 
 _TRUSTSTORE = '/opt/cloudera/security/x509/truststore.pem'
-_IS_SECURE = os.path.exists(_TRUSTSTORE)
+_BASE_DIR = os.path.dirname(__file__) if os.path.dirname(__file__) else '.'
+_IS_TLS_ENABLED = os.path.exists(os.path.join(_BASE_DIR, '.enable-tls'))
 
 # General helper functions
 
@@ -87,22 +88,22 @@ def disable_debug():
     LOG.setLevel(logging.INFO)
 
 def _get_url_scheme():
-    return 'https' if _IS_SECURE else 'http'
+    return 'https' if _IS_TLS_ENABLED else 'http'
 
 def _get_nifi_port():
-    return '8443' if _IS_SECURE else '8080'
+    return '8443' if _IS_TLS_ENABLED else '8080'
 
 def _get_nifireg_port():
-    return '18433' if _IS_SECURE else '18080'
+    return '18433' if _IS_TLS_ENABLED else '18080'
 
 def _get_schreg_port():
-    return '7790' if _IS_SECURE else '7788'
+    return '7790' if _IS_TLS_ENABLED else '7788'
 
 def _get_kafka_port():
-    return '9093' if _IS_SECURE else '9092'
+    return '9093' if _IS_TLS_ENABLED else '9092'
 
 def _get_smm_port():
-    return '8587' if _IS_SECURE else '8585'
+    return '8587' if _IS_TLS_ENABLED else '8585'
 
 def _get_kafka_bootstrap_servers():
     return _HOSTNAME + ':' + _get_kafka_port()
@@ -124,7 +125,7 @@ def _get_common_kafka_client_properties(env, client_type):
             'auto.offset.reset': 'latest',
             'header-name-regex': 'schema.*',
         })
-    if _IS_SECURE:
+    if _IS_TLS_ENABLED:
         props.update({
             'kerberos-credentials-service': env.keytab_svc.id,
             'sasl.kerberos.service.name': 'kafka',
@@ -169,8 +170,8 @@ def get_public_ip():
 
 def api_request(method, url, expected_code=requests.codes.ok, auth=None, **kwargs):
     LOG.debug("Request: method: %s, url: %s, auth: %s, verify: %s, kwargs: %s",
-        method, url, 'yes' if auth else 'no', _TRUSTSTORE if _IS_SECURE else None, kwargs)
-    resp = requests.request(method, url, auth=auth, verify=(_TRUSTSTORE if _IS_SECURE else None), **kwargs)
+        method, url, 'yes' if auth else 'no', _TRUSTSTORE if _IS_TLS_ENABLED else None, kwargs)
+    resp = requests.request(method, url, auth=auth, verify=(_TRUSTSTORE if _IS_TLS_ENABLED else None), **kwargs)
     if resp.status_code != expected_code:
         raise RuntimeError('Request to URL %s returned code %s (expected was %s), Response: %s' % (resp.url, resp.status_code, expected_code, resp.text))
     return resp
@@ -222,7 +223,7 @@ def cdsw_session():
     global _CDSW_SESSION
     if not _CDSW_SESSION:
         _CDSW_SESSION = requests.Session()
-        if _IS_SECURE:
+        if _IS_TLS_ENABLED:
             _CDSW_SESSION.verify = _TRUSTSTORE
         r = _CDSW_SESSION.post(get_cdsw_api() + '/authenticate', json={'login': _CDSW_USERNAME, 'password': _THE_PWD}, )
         _CDSW_SESSION.headers.update({'Authorization': 'Bearer ' + r.json()['auth_token']})
@@ -264,7 +265,7 @@ def get_cdsw_model_access_key():
 # Kudu helper functions
 
 def connect_to_impala():
-    if _IS_SECURE:
+    if _IS_TLS_ENABLED:
         params = {
             'auth_mechanism': 'GSSAPI',
             'kerberos_service_name': 'impala',
@@ -603,7 +604,7 @@ def nifireg_delete_flows(identifier, identifier_type='name'):
 
 def schreg_api_request(method, endpoint, expected_code=requests.codes.ok, **kwargs):
     url = _get_schreg_api_url() + endpoint
-    if _IS_SECURE:
+    if _IS_TLS_ENABLED:
         auth = HTTPSPNEGOAuth()
     else:
         auth = None
@@ -684,7 +685,7 @@ def read_in_schema(uri=_SCHEMA_URI):
 
 def smm_api_request(method, endpoint, expected_code=requests.codes.ok, **kwargs):
     url = _get_smm_api_url() + endpoint
-    if _IS_SECURE:
+    if _IS_TLS_ENABLED:
         auth = HTTPSPNEGOAuth()
     else:
         auth = None
@@ -697,7 +698,7 @@ def smm_api_get(endpoint, expected_code=requests.codes.ok, **kwargs):
 
 def get_kudu_version():
     version = None
-    if _IS_SECURE:
+    if _IS_TLS_ENABLED:
         resp = requests.get('https://' + _HOSTNAME + ':8051/', verify=False, auth=HTTPSPNEGOAuth())
     else:
         resp = requests.get('http://' + _HOSTNAME + ':8051/')
@@ -722,7 +723,7 @@ def set_environment(run_id):
     # Initialize NiFi API
     config.nifi_config.host = _get_nifi_api_url()
     config.registry_config.host = _get_nifireg_api_url()
-    if _IS_SECURE:
+    if _IS_TLS_ENABLED:
         security.set_service_ssl_context(service='nifi', ca_file=_TRUSTSTORE)
         security.set_service_ssl_context(service='registry', ca_file=_TRUSTSTORE)
         security.service_login(service='nifi', username='admin', password='supersecret1')
@@ -864,7 +865,7 @@ def lab4_nifi_flow(env):
 
     # Update default SSL context controller service
     ssl_svc_name = 'Default NiFi SSL Context Service'
-    if _IS_SECURE:
+    if _IS_TLS_ENABLED:
         props = {
             'SSL Protocol': 'TLS',
             'Truststore Type': 'JKS',
@@ -888,7 +889,7 @@ def lab4_nifi_flow(env):
 
 
     # Create controller services
-    if _IS_SECURE:
+    if _IS_TLS_ENABLED:
         env.ssl_svc = canvas.get_controller(ssl_svc_name, 'name')
         props = {
             'Kerberos Keytab': '/keytabs/admin.keytab',
@@ -902,7 +903,7 @@ def lab4_nifi_flow(env):
     props = {
         'url': _get_schreg_api_url(),
     }
-    if _IS_SECURE:
+    if _IS_TLS_ENABLED:
         props.update({
             'kerberos-credentials-service': env.keytab_svc.id,
             'ssl-context-service': env.ssl_svc.id,
@@ -998,7 +999,7 @@ def lab7_rest_and_kudu(env):
         'rest-lookup-record-reader': env.json_reader_svc.id,
         'rest-lookup-record-path': '/response'
     }
-    if _IS_SECURE:
+    if _IS_TLS_ENABLED:
         props.update({
             'rest-lookup-ssl-context-service': env.ssl_svc.id,
         })
@@ -1061,7 +1062,7 @@ def lab7_rest_and_kudu(env):
                 'Kudu Masters': _HOSTNAME + ':7051',
                 'Table Name': kudu_table_name,
                 'record-reader': env.json_reader_with_schema_svc.id,
-                'kerberos-credentials-service': env.keytab_svc.id if _IS_SECURE else None,
+                'kerberos-credentials-service': env.keytab_svc.id if _IS_TLS_ENABLED else None,
             },
         }
     )

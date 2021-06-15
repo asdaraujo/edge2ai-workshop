@@ -21,8 +21,9 @@ printf "%-30s %-30s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %s\n" "instance
 ensure_tf_json_file
 if [ -s $TF_JSON_FILE ]; then
   cat $TF_JSON_FILE | \
-  jq -r '.values.root_module.resources[] | select(.type == "aws_instance" and .name == "web" or .type == "aws_instance" and .name == "cluster") | "\(.type).\(.name)[\(.index)] \(.values.public_ip) \(.values.public_dns)"' | \
-  while read instance ip host; do
+  jq -r '.values.root_module.resources[] | select(.type == "aws_instance" and .name == "web" or .type == "aws_instance" and .name == "cluster") | "\(.type).\(.name)[\(.index)] \(.values.public_ip)"' | \
+  while read instance ip; do
+    host="cdp.$ip.nip.io"
     CDSW_API="http://cdsw.$ip.nip.io/api/v1"
     CDSW_ALTUS_API="http://cdsw.$ip.nip.io/api/altus-ds-1"
     ("${CURL[@]}" http://$host/api/ping 2>/dev/null | grep 'Pong!' > /dev/null 2>&1 && echo Ok) > .curl.web.$$ &
