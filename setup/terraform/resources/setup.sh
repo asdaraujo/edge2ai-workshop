@@ -461,10 +461,16 @@ export CLUSTER_HOST=$PUBLIC_DNS
 export CDSW_DOMAIN=cdsw.${PUBLIC_IP}.nip.io
 
 echo "-- Load cluster metadata"
-source $BASE_DIR/clusters_metadata.sh
-PEER_CLUSTER_ID=$(( (CLUSTER_ID/2)*2 + (CLUSTER_ID+1)%2 ))
-PEER_PUBLIC_DNS=$(echo "$CLUSTERS_PUBLIC_DNS" | awk -F, -v pos=$(( PEER_CLUSTER_ID + 1 )) '{print $pos}')
-PEER_PUBLIC_DNS=${PEER_PUBLIC_DNS:-$PUBLIC_DNS}
+if [[ -f $BASE_DIR/clusters_metadata.sh ]]; then
+  source $BASE_DIR/clusters_metadata.sh
+  PEER_CLUSTER_ID=$(( (CLUSTER_ID/2)*2 + (CLUSTER_ID+1)%2 ))
+  PEER_PUBLIC_DNS=$(echo "$CLUSTERS_PUBLIC_DNS" | awk -F, -v pos=$(( PEER_CLUSTER_ID + 1 )) '{print $pos}')
+  PEER_PUBLIC_DNS=${PEER_PUBLIC_DNS:-$PUBLIC_DNS}
+else
+  CLUSTER_ID=0
+  PEER_CLUSTER_ID=0
+  PEER_PUBLIC_DNS=$PUBLIC_DNS
+fi
 export CLUSTER_ID PEER_CLUSTER_ID PEER_PUBLIC_DNS
 
 echo "-- Set /etc/hosts - Public DNS must come first"
