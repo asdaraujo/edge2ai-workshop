@@ -28,20 +28,22 @@
       "serviceType": "FLINK",
       "displayName": "Flink",
       "serviceConfigs": [
-{% if CDH_VERSION is lt('7.1.6') %}
-        {
-          "name": "atlas_collection_enable",
-          "value": "true"
-        },
-{% endif %}
-        {
-          "name": "enable_hive_catalog",
-          "value": "true"
-        },
         {
           "name" : "taskmanager_number_of_task_slots",
           "value" : "5"
         }
+{% if CDH_VERSION is gt('7.0.3') %}
+        ,{
+          "name": "enable_hive_catalog",
+          "value": "true"
+        }
+{% endif %}
+{% if CDH_VERSION is gt('7.0.3') and CDH_VERSION is lt('7.1.6') %}
+        ,{
+          "name": "atlas_collection_enable",
+          "value": "true"
+        }
+{% endif %}
 {% if ENABLE_KERBEROS == 'yes' %}
         ,{
           "name": "kerberos.auth.enabled",

@@ -45,13 +45,30 @@
           "value": "/opt/cloudera/security/x509/cert.pem"
         }
 {% endif %}
-{% if ENABLE_KERBEROS == 'yes' and ENABLE_TLS == 'yes' %}
+{% if ENABLE_KERBEROS == 'yes' and CDH_VERSION is ge('7') and ENABLE_TLS == 'yes' %}
         ,
 {% endif %}
 {% if ENABLE_KERBEROS == 'yes' and CDH_VERSION is ge('7') %}
         {
           "name" : "hadoop_secure_web_ui",
           "value" : "true"
+        }
+{% endif %}
+{% if ((ENABLE_KERBEROS == 'yes' and CDH_VERSION is ge('7')) or ENABLE_TLS == 'yes') and USE_IPA %}
+        ,
+{% endif %}
+{% if USE_IPA %}
+        {
+          "name" : "enable_ldap_auth",
+          "value" : "true"
+        },
+        {
+          "name" : "impala_ldap_uri",
+          "value" : "ldaps://{{IPA_HOST}}"
+        },
+        {
+          "name" : "ldap_bind_pattern",
+          "value" : "uid=#UID,cn=users,cn=accounts,dc=workshop,dc=com"
         }
 {% endif %}
       ],
@@ -82,6 +99,15 @@
             {
               "name": "webserver_private_key_password_cmd",
               "value": "{{THE_PWD}}"
+            }
+{% endif %}
+{% if (ENABLE_KERBEROS == 'yes' or ENABLE_TLS == 'yes') and USE_IPA %}
+            ,
+{% endif %}
+{% if USE_IPA %}
+            {
+              "name": "impalad_ldap_ca_certificate",
+              "value": "/opt/cloudera/security/x509/truststore.pem"
             }
 {% endif %}
           ]

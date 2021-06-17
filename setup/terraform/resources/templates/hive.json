@@ -21,8 +21,24 @@
       "serviceType": "HIVE",
       "displayName": "Hive",
       "serviceConfigs": [
-{% if ENABLE_TLS == 'yes' %}
         {
+          "name": "hive_metastore_database_password",
+          "value": "{{THE_PWD}}"
+        },
+        {
+          "name" : "hive_metastore_database_type",
+          "value" : "postgresql"
+        },
+        {
+          "name" : "hive_metastore_database_port",
+          "value" : "5432"
+        },
+        {
+          "name": "hive_metastore_database_host",
+          "value": "{{CLUSTER_HOST}}"
+        }
+{% if ENABLE_TLS == 'yes' %}
+        ,{
           "name": "hiveserver2_enable_ssl",
           "value": "true"
         },
@@ -49,24 +65,34 @@
         {
           "name": "ssl_client_truststore_password",
           "value": "{{THE_PWD}}"
-        },
-{% endif %}
-        {
-          "name": "hive_metastore_database_password",
-          "value": "{{THE_PWD}}"
-        },
-        {
-          "name" : "hive_metastore_database_type",
-          "value" : "postgresql"
-        },
-        {
-          "name" : "hive_metastore_database_port",
-          "value" : "5432"
-        },
-        {
-          "name": "hive_metastore_database_host",
-          "value": "{{CLUSTER_HOST}}"
         }
+{% endif %}
+{% if USE_IPA %}
+        ,{
+          "name": "hive_metastore_enable_ldap_auth",
+          "value": "true"
+        },
+        {
+          "name": "hive_metastore_ldap_basedn",
+          "value": "cn=users,cn=accounts,dc=workshop,dc=com"
+        },
+        {
+          "name": "hive_metastore_ldap_uri",
+          "value": "ldaps://{{IPA_HOST}}"
+        },
+        {
+          "name": "hiveserver2_enable_ldap_auth",
+          "value": "true"
+        },
+        {
+          "name": "hiveserver2_ldap_basedn",
+          "value": "cn=users,cn=accounts,dc=workshop,dc=com"
+        },
+        {
+          "name": "hiveserver2_ldap_uri",
+          "value": "ldaps://{{IPA_HOST}}"
+        }
+{% endif %}
       ],
       "roleConfigGroups": [
         {
@@ -121,16 +147,84 @@
       "refName": "hive_on_tez",
       "serviceType": "HIVE_ON_TEZ",
       "displayName": "Hive on Tez",
+      "serviceConfigs": [
+{% if ENABLE_TLS == 'yes' %}
+        {
+          "name": "hiveserver2_enable_ssl",
+          "value": "true"
+        },
+        {
+          "name": "hiveserver2_keystore_password",
+          "value": "{{THE_PWD}}"
+        },
+        {
+          "name": "hiveserver2_keystore_path",
+          "value": "/opt/cloudera/security/jks/keystore.jks"
+        },
+        {
+          "name": "hiveserver2_truststore_file",
+          "value": "/opt/cloudera/security/jks/truststore.jks"
+        },
+        {
+          "name": "hiveserver2_truststore_password",
+          "value": "{{THE_PWD}}"
+        }
+{% endif %}
+{% if ENABLE_TLS == 'yes' and USE_IPA %}
+        ,
+{% endif %}
+{% if USE_IPA %}
+        {
+          "name": "hiveserver2_enable_ldap_auth",
+          "value": "true"
+        },
+        {
+          "name": "hiveserver2_ldap_basedn",
+          "value": "cn=users,cn=accounts,dc=workshop,dc=com"
+        },
+        {
+          "name": "hiveserver2_ldap_uri",
+          "value": "ldaps://{{IPA_HOST}}"
+        }
+{% endif %}
+      ],
       "roleConfigGroups": [
         {
           "refName": "hive_on_tez-GATEWAY-BASE",
           "roleType": "GATEWAY",
-          "base": true
+          "base": true,
+          "configs": [
+          ]
         },
         {
           "refName": "hive_on_tez-HIVESERVER2-BASE",
           "roleType": "HIVESERVER2",
-          "base": true
+          "base": true,
+          "configs": [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name": "ssl_enabled",
+              "value": "true"
+            },
+            {
+              "name": "ssl_server_keystore_password",
+              "value": "{{THE_PWD}}"
+            },
+            {
+              "name": "ssl_server_keystore_location",
+              "value": "/opt/cloudera/security/jks/keystore.jks"
+            }
+{% endif %}
+{% if ENABLE_TLS == 'yes' and USE_IPA %}
+            ,
+{% endif %}
+{% if USE_IPA %}
+            {
+              "name": "hive_hs2_config_safety_valve",
+              "value": "<property><name>hive.server2.authentication.ldap.url</name><value>ldaps://ip-10-0-1-200.us-west-2.compute.internal</value><description>Workaround for CDPD-21585</description></property><property><name>hive.server2.authentication.ldap.baseDN</name><value>cn=users,cn=accounts,dc=workshop,dc=com</value><description>Workaround for CDPD-21585</description></property><property><name>hive.server2.authentication</name><value>LDAP</value><description>Workaround for CDPD-21585</description></property>"
+            }
+{% endif %}
+          ]
         }
       ]
     }

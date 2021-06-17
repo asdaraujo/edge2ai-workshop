@@ -33,6 +33,72 @@
           "name" : "database_port",
           "value" : "5432"
         }
+{% if USE_IPA %}
+        ,{
+          "name" : "auth_backend",
+          "value" : "desktop.auth.backend.LdapBackend,desktop.auth.backend.AllowFirstUserDjangoBackend"
+        },
+        {
+          "name" : "base_dn",
+          "value" : "cn=accounts,dc=workshop,dc=com"
+        },
+        {
+          "name" : "bind_dn",
+          "value" : "uid=ldap_bind_user,cn=users,cn=accounts,dc=workshop,dc=com"
+        },
+        {
+          "name" : "bind_password",
+          "value" : "{{THE_PWD}}"
+        },
+        {
+          "name" : "group_filter",
+          "value" : "(objectClass=posixgroup)"
+        },
+        {
+          "name" : "group_member_attr",
+          "value" : "member"
+        },
+        {
+          "name" : "group_name_attr",
+          "value" : "cn"
+        },
+        {
+          "name" : "ldap_cert",
+          "value" : "/opt/cloudera/security/x509/truststore.pem"
+        },
+        {
+          "name" : "ldap_url",
+          "value" : "ldaps://{{IPA_HOST}}"
+        },
+        {
+          "name" : "ldap_username_pattern",
+          "value" : "uid=<username>,cn=users,cn=accounts,dc=workshop,dc=com"
+        },
+        {
+          "name" : "search_bind_authentication",
+          "value" : "true"
+        },
+        {
+          "name" : "test_ldap_group",
+          "value" : "cdp-admins"
+        },
+        {
+          "name" : "test_ldap_user",
+          "value" : "ldap_bind_user"
+        },
+        {
+          "name" : "use_start_tls",
+          "value" : "false"
+        },
+        {
+          "name" : "user_filter",
+          "value" : "(objectClass=person)"
+        },
+        {
+          "name" : "user_name_attr",
+          "value" : "uid"
+        }
+{% endif %}
       ],
       "roleConfigGroups": [
 {% if ENABLE_KERBEROS == 'yes' %}

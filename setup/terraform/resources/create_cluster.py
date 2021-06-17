@@ -317,6 +317,17 @@ class ClusterCreator:
                 cm_client.ApiConfig(name='KDC_ADMIN_HOST', value=ipa_host),
                 cm_client.ApiConfig(name='KDC_HOST', value=ipa_host),
                 cm_client.ApiConfig(name='KDC_TYPE', value='Red Hat IPA'),
+                cm_client.ApiConfig(name='AUTH_BACKEND_ORDER', value='LDAP_THEN_DB'),
+                cm_client.ApiConfig(name='LDAP_BIND_DN', value='uid=ldap_bind_user,cn=users,cn=accounts,dc=workshop,dc=com'),
+                cm_client.ApiConfig(name='LDAP_BIND_DN_MONITORING', value='uid=ldap_bind_user,cn=users,cn=accounts,dc=workshop,dc=com'),
+                cm_client.ApiConfig(name='LDAP_BIND_PW', value=the_pwd()),
+                cm_client.ApiConfig(name='LDAP_BIND_PW_MONITORING', value=the_pwd()),
+                cm_client.ApiConfig(name='LDAP_GROUP_SEARCH_BASE', value='cn=groups,cn=accounts,dc=workshop,dc=com'),
+                cm_client.ApiConfig(name='LDAP_GROUP_SEARCH_FILTER', value='(member={0})'),
+                cm_client.ApiConfig(name='LDAP_TYPE', value='LDAP'),
+                cm_client.ApiConfig(name='LDAP_URL', value='ldaps://' + ipa_host),
+                cm_client.ApiConfig(name='LDAP_USER_SEARCH_BASE', value='cn=users,cn=accounts,dc=workshop,dc=com'),
+                cm_client.ApiConfig(name='LDAP_USER_SEARCH_FILTER', value='(uid={0})'),
             ]
         self.cm_api.update_config(message='Updating Kerberos config', body=cm_client.ApiConfigList(config))
 

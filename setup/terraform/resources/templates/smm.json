@@ -47,7 +47,7 @@
         },
         {
           "name" : "cm.metrics.password",
-          "value" : "admin"
+          "value" : "{{THE_PWD}}"
         }
 {% else %}
         {

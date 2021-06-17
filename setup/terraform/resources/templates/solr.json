@@ -44,6 +44,23 @@
           "value": "kerberos"
         }
 {% endif %}
+{% if (ENABLE_KERBEROS == 'yes' or ENABLE_TLS == 'yes') and USE_IPA %}
+        ,
+{% endif %}
+{% if USE_IPA %}
+        {
+          "name": "solr_enable_ldap_auth",
+          "value": "true"
+        },
+        {
+          "name": "solr_ldap_basedn",
+          "value": "cn=users,cn=accounts,dc=workshop,dc=com"
+        },
+        {
+          "name": "solr_ldap_uri",
+          "value": "ldaps://{{IPA_HOST}}"
+        }
+{% endif %}
       ],
       "roleConfigGroups": [
         {

@@ -9,6 +9,20 @@ function cleanup() {
   rm -f .curl.*.$$
 }
 
+function get_model_status() {
+  local ip=$1
+  CDSW_API="cdsw.$ip.nip.io/api/v1"
+  CDSW_ALTUS_API="cdsw.$ip.nip.io/api/altus-ds-1"
+  status=""
+  for scheme in http https; do
+    token=$("${CURL[@]}" -X POST --cookie-jar .curl.cj.$$ --cookie .curl.cj.$$ -H "Content-Type: application/json" --data '{"_local":false,"login":"admin","password":"'"${THE_PWD}"'"}' "$scheme://$CDSW_API/authenticate" 2>/dev/null | jq -r '.auth_token' 2> /dev/null)
+    [[ ! -n $token ]] && continue
+    status=$("${CURL[@]}" -X POST --cookie-jar .curl.cj.$$ --cookie .curl.cj.$$ -H "Content-Type: application/json" -H "Authorization: Bearer $token" --data '{"projectOwnerName":"admin","latestModelDeployment":true,"latestModelBuild":true}' "$scheme://$CDSW_ALTUS_API/models/list-models" 2>/dev/null | jq -r '.[].latestModelDeployment | select(.model.name == "IoT Prediction Model").status' 2>/dev/null)
+    [[ -n $status ]] && break
+  done
+  echo -n $status
+}
+
 if [ $# != 1 ]; then
   echo "Syntax: $0 <namespace>"
   show_namespaces
@@ -35,8 +49,7 @@ if [ -s $TF_JSON_FILE ]; then
     (("${CURL[@]}" http://$host:9991/                || "${CURL[@]}" https://$host:9991/)                2>/dev/null | grep "<title>STREAMS MESSAGING MANAGER</title>" > /dev/null 2>&1 && echo Ok) > .curl.smm.$$ &
     (("${CURL[@]}" http://$host:8888/                ;  "${CURL[@]}" https://$host:8889/)                2>/dev/null | grep "<title>Hue" > /dev/null 2>&1 && echo Ok) > .curl.hue.$$ &
     (("${CURL[@]}" http://cdsw.$ip.nip.io/           || "${CURL[@]}" https://cdsw.$ip.nip.io/)           2>/dev/null | egrep "(Cloudera Machine Learning|Cloudera Data Science Workbench)" > /dev/null 2>&1 && echo Ok) > .curl.cml.$$ &
-    (token=$("${CURL[@]}" -X POST --cookie-jar .curl.cj.$$ --cookie .curl.cj.$$ -H "Content-Type: application/json" --data '{"_local":false,"login":"admin","password":"'"${THE_PWD}"'"}' "$CDSW_API/authenticate" 2>/dev/null | jq -r '.auth_token' 2> /dev/null) && \
-     "${CURL[@]}" -X POST --cookie-jar .curl.cj.$$ --cookie .curl.cj.$$ -H "Content-Type: application/json" -H "Authorization: Bearer $token" --data '{"projectOwnerName":"admin","latestModelDeployment":true,"latestModelBuild":true}' "$CDSW_ALTUS_API/models/list-models" 2>/dev/null | jq -r '.[].latestModelDeployment | select(.model.name == "IoT Prediction Model").status' 2>/dev/null) > .curl.model.$$ &
+    (get_model_status $ip) > .curl.model.$$ &
     wait
     printf "%-30s %-30s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %s\n" "$instance" "$ip" "$(cat .curl.web.$$)" "$(cat .curl.cm.$$)" "$(cat .curl.cem.$$)" "$(cat .curl.nifi.$$)" "$(cat .curl.nifireg.$$)" "$(cat .curl.schreg.$$)" "$(cat .curl.smm.$$)" "$(cat .curl.hue.$$)" "$(cat .curl.cml.$$)" "$(cat .curl.model.$$)"
   done | sort -t\[ -k1,1r -k2,2n

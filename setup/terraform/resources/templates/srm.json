@@ -5,7 +5,9 @@
       "roleConfigGroupsRefNames": [
          "streams_replication_manager-STREAMS_REPLICATION_MANAGER_DRIVER-BASE"
         ,"streams_replication_manager-STREAMS_REPLICATION_MANAGER_SERVICE-BASE"
+{% if CM_VERSION is ge('7.1.1') %}
         ,"streams_replication_manager-GATEWAY-BASE"
+{% endif %}
       ]
     }
   ],
@@ -155,8 +157,9 @@
             }
 {% endif %}
           ]
-        },
-        {
+        }
+{% if CM_VERSION is ge('7.1.1') %}
+        ,{
           "refName": "streams_replication_manager-GATEWAY-BASE",
           "roleType": "GATEWAY",
           "base": true,
@@ -187,6 +190,7 @@
 {% endif %}
           ]
         }
+{% endif %}
       ]
     }
   ]

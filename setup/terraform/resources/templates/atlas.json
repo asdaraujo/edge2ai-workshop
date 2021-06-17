@@ -89,6 +89,48 @@
             }
 {% endif %}
 {% endif %}
+{% if USE_IPA %}
+            ,{
+              "name": "atlas_authentication_method_ldap",
+              "value": "true"
+            },
+            {
+              "name": "atlas_authentication_method_ldap_base_dn",
+              "value": "cn=accounts,dc=workshop,dc=com"
+            },
+            {
+              "name": "atlas_authentication_method_ldap_bind_dn",
+              "value": "ldap_bind_user"
+            },
+            {
+              "name": "atlas_authentication_method_ldap_bind_password",
+              "value": "{{THE_PWD}}"
+            },
+            {
+              "name": "atlas_authentication_method_ldap_groupSearchBase",
+              "value": "cn=groups,cn=accounts,dc=workshop,dc=com"
+            },
+            {
+              "name": "atlas_authentication_method_ldap_groupSearchFilter",
+              "value": "(objectClass=posixgroup)"
+            },
+            {
+              "name": "atlas_authentication_method_ldap_type",
+              "value": "ldap"
+            },
+            {
+              "name": "atlas_authentication_method_ldap_url",
+              "value": "ldaps://{{IPA_HOST}}"
+            },
+            {
+              "name": "atlas_authentication_method_ldap_userDNpattern",
+              "value": "uid={0},cn=users,cn=accounts,dc=workshop,dc=com"
+            },
+            {
+              "name": "atlas_authentication_method_ldap_user_searchfilter",
+              "value": "(objectClass=person)"
+            }
+{% endif %}
           ]
         },
         {
