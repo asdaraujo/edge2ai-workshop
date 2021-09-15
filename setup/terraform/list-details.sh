@@ -5,7 +5,7 @@ BASE_DIR=$(cd $(dirname $0); pwd -L)
 source $BASE_DIR/common.sh
 
 function cleanup() {
-  rm -f $INSTANCE_LIST_FILE $WEB_INSTANCE_LIST_FILE $IPA_INSTANCE_LIST_FILE
+  rm -f ${INSTANCE_LIST_FILE}* ${WEB_INSTANCE_LIST_FILE}* ${IPA_INSTANCE_LIST_FILE}*
 }
 
 EC2_PRICES_URL_TEMPLATE=https://raw.githubusercontent.com/yeo/ec2.shop/master/data/REGION-ondemand.json
@@ -60,17 +60,17 @@ function show_details() {
 
   web_instance | while read name public_dns public_ip private_ip instance_type; do
     printf "%-40s %-55s %-15s %-15s %-9s\n" "$name" "$public_dns" "$public_ip" "$private_ip" "$(is_stoppable web 0)"
-  done | sed 's/\([^ ]*-\)\([0-9]*\)\( .*\)/\1\2\3 \2/' | sort -k4n | sed 's/ [0-9]*$//' > $WEB_INSTANCE_LIST_FILE
+  done | sed 's/\([^ ]*-\)\([0-9]*\)\( .*\)/\1\2\3 \2/' | sort -k4n | sed 's/ [0-9]*$//' > ${WEB_INSTANCE_LIST_FILE}.$namespace
 
   ipa_instance | while read name public_dns public_ip private_ip instance_type; do
     printf "%-40s %-55s %-15s %-15s %-9s\n" "$name" "$public_dns" "$public_ip" "$private_ip" "Yes"
-  done | sed 's/\([^ ]*-\)\([0-9]*\)\( .*\)/\1\2\3 \2/' | sort -k4n | sed 's/ [0-9]*$//' > $IPA_INSTANCE_LIST_FILE
+  done | sed 's/\([^ ]*-\)\([0-9]*\)\( .*\)/\1\2\3 \2/' | sort -k4n | sed 's/ [0-9]*$//' > ${IPA_INSTANCE_LIST_FILE}.$namespace
 
   cluster_instances | while read index name public_dns public_ip private_ip instance_type; do
     printf "%-40s %-55s %-15s %-15s %-9s\n" "$name" "$public_dns" "$public_ip" "$private_ip" "$(is_stoppable cluster $index)"
-  done | sed 's/\([^ ]*-\)\([0-9]*\)\( .*\)/\1\2\3 \2/' | sort -k4n | sed 's/ [0-9]*$//' > $INSTANCE_LIST_FILE
+  done | sed 's/\([^ ]*-\)\([0-9]*\)\( .*\)/\1\2\3 \2/' | sort -k4n | sed 's/ [0-9]*$//' > ${INSTANCE_LIST_FILE}.$namespace
 
-  if [ -s $WEB_INSTANCE_LIST_FILE ]; then
+  if [ -s ${WEB_INSTANCE_LIST_FILE}.$namespace ]; then
     web_server="http://$(web_instance | web_attr public_ip)"
   else
     web_server="-"
@@ -87,7 +87,7 @@ function show_details() {
   fi
 
   if [ "$summary_only" != "no" ]; then
-    printf "%-25s %-40s %10d  %8s  %9s %s\n" "$namespace" "$web_server" "$(cat $INSTANCE_LIST_FILE | wc -l)" "$enddate" "$remaining_days" "$warning"
+    printf "%-25s %-40s %10d  %8s  %9s %s\n" "$namespace" "$web_server" "$(cat ${INSTANCE_LIST_FILE}.$namespace | wc -l)" "$enddate" "$remaining_days" "$warning"
   else
     if [ -s "$TF_VAR_web_ssh_private_key" ]; then
       echo "WEB SERVER Key file: $TF_VAR_web_ssh_private_key"
@@ -115,26 +115,26 @@ function show_details() {
     echo "SSH username: $TF_VAR_ssh_username"
     echo ""
 
-    if [[ -s $WEB_INSTANCE_LIST_FILE ]]; then
+    if [[ -s ${WEB_INSTANCE_LIST_FILE}.$namespace ]]; then
       echo "WEB SERVER VM:"
       echo "=============="
       printf "%-40s %-55s %-15s %-15s %-9s\n" "Web Server Name" "Public DNS Name" "Public IP" "Private IP" "Stoppable"
-      cat $WEB_INSTANCE_LIST_FILE
+      cat ${WEB_INSTANCE_LIST_FILE}.$namespace
       echo ""
     fi
 
-    if [[ -s $IPA_INSTANCE_LIST_FILE ]]; then
+    if [[ -s ${IPA_INSTANCE_LIST_FILE}.$namespace ]]; then
       echo "IPA SERVER VM:"
       echo "=============="
       printf "%-40s %-55s %-15s %-15s %-9s\n" "IPA Server Name" "Public DNS Name" "Public IP" "Private IP" "Stoppable"
-      cat $IPA_INSTANCE_LIST_FILE
+      cat ${IPA_INSTANCE_LIST_FILE}.$namespace
       echo ""
     fi
 
     echo "CLUSTER VMS:"
     echo "============"
     printf "%-40s %-55s %-15s %-15s %-9s\n" "Cluster Name" "Public DNS Name" "Public IP" "Private IP" "Stoppable"
-    cat $INSTANCE_LIST_FILE
+    cat ${INSTANCE_LIST_FILE}.$namespace
 
     if [[ $summary_only == "no" ]]; then
       show_costs
