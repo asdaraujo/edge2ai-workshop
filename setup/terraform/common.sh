@@ -49,9 +49,13 @@ function check_version() {
     if [[ $(which git 2>/dev/null) ]]; then
       #
       mkdir -p ~/.ssh
-      set -o pipefail
-      ssh-keyscan "$GITHUB_FQDN" 2>&1 | (egrep -v "${GITHUB_FQDN}:22|${GITHUB_FQDN} *ssh-rsa" || true) || (echo "ERROR: Docker is unable to resolve the IP for ${GITHUB_FQDN}"; false)
-      set +o pipefail
+
+      # check github can be resolved
+      if ! nslookup "$GITHUB_FQDN" > /dev/null 2>&1; then
+        echo "ERROR: Unable to resolve the IP for ${GITHUB_FQDN}"
+        exit 1
+      fi
+
       # git is installed
       remote=$(git status | grep "Your branch" | egrep -o "[^']*/${GITHUB_BRANCH}\>" | sed 's#/.*##')
       if [[ $remote != "" ]]; then
