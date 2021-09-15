@@ -23,7 +23,7 @@ resource "aws_instance" "cluster" {
 
   root_block_device {
     volume_type           = "gp2"
-    volume_size           = "100"
+    volume_size           = "200"
     delete_on_termination = true
   }
 
