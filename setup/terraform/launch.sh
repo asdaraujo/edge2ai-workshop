@@ -26,6 +26,10 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+if [[ ${DEBUG:-} != "" ]]; then
+  set -x
+fi
+
 validate_env
 load_env $NAMESPACE
 check_python_modules
