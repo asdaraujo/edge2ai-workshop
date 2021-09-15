@@ -336,7 +336,8 @@ function unauth() {
 
 function add_user() {
   local princ=$1
-  local groups=${2:-}
+  local homedir=$2
+  local groups=${3:-}
 
   if [[ $USE_IPA -eq 1 ]]; then
     echo "Skipping creation of local user [$princ] since we're using a central IPA server"
@@ -347,7 +348,7 @@ function add_user() {
   local username=${princ%%/*}
   username=${username%%@*}
   if [ "$(getent passwd $username > /dev/null && echo exists || echo does_not_exist)" == "does_not_exist" ]; then
-    useradd -U $username
+    useradd -U $username -d $homedir
     echo -e "${THE_PWD}\n${THE_PWD}" | passwd $username
   fi
 
@@ -485,7 +486,7 @@ EOF
 EOF
 
   # Create CM principal
-  add_user scm/admin
+  add_user scm/admin /home/scm
 
   # Set maxrenewlife for krbtgt
   # IMPORTANT: You must explicitly set this, even if the default is already set correctly.
@@ -500,10 +501,10 @@ EOF
   systemctl start kadmin
 
   # Add service principals
-  add_user hdfs
-  add_user yarn
-  add_user kafka
-  add_user flink
+  add_user hdfs /var/lib/hadoop-hdfs
+  add_user yarn /var/lib/hadoop-yarn
+  add_user kafka /var/lib/kafka
+  add_user flink /var/lib/flink
 }
 
 function create_ca() {

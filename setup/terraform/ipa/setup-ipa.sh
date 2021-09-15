@@ -57,7 +57,8 @@ function add_groups() {
 
 function add_user() {
   local princ=$1
-  shift 1
+  local homedir=$2
+  shift 2
 
   # Add user, set password and get keytab
   if ipa user-show "$princ" >/dev/null 2>&1; then
@@ -65,7 +66,7 @@ function add_user() {
   else
     echo "-- Creating user [$princ]"
     USERS_GRP_ID=$(get_group_id $USERS_GROUP)
-    echo clouderatemp | ipa user-add "$princ" --first="$princ" --last="User" --cn="$princ" --noprivate --gidnumber $USERS_GRP_ID --password || true
+    echo clouderatemp | ipa user-add "$princ" --first="$princ" --last="User" --cn="$princ" --homedir="$homedir" --noprivate --gidnumber $USERS_GRP_ID --password || true
     kadmin.local change_password -pw ${USER_PASSWORD} $princ
   fi
   mkdir -p "${KEYTABS_DIR}"
@@ -108,18 +109,18 @@ echo "${IPA_ADMIN_PASSWORD}" | kinit admin >/dev/null
 add_groups $USERS_GROUP $ADMINS_GROUP shadow supergroup
 
 # create CM principal user and add to admins group
-add_user admin admins $ADMINS_GROUP "trust admins" shadow supergroup
+add_user admin /home/admin admins $ADMINS_GROUP "trust admins" shadow supergroup
 
 kinit -kt "${KEYTABS_DIR}/admin.keytab" admin
 ipa krbtpolicy-mod --maxlife=3600 --maxrenew=604800 || true
 
 # Add LDAP bind user
-add_user ldap_bind_user
+add_user ldap_bind_user /home/ldap_bind_user
 
 # Add users
-add_user workshop $USERS_GROUP
-add_user alice $USERS_GROUP
-add_user bob $USERS_GROUP
+add_user workshop /home/workshop $USERS_GROUP
+add_user alice /home/alice $USERS_GROUP
+add_user bob /home/bob $USERS_GROUP
 
 # Add this role to avoid racing conditions between multiple CMs coming up at the same time
 ipa role-add cmadminrole

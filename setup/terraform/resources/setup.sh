@@ -498,10 +498,10 @@ fi
 
 # Add users - after Kerberos installation so that principals are also created correctly, if needed
 
-add_user workshop cdp-users
-add_user admin cdp-admins,shadow,supergroup
-add_user alice cdp-users
-add_user bob cdp-users
+add_user workshop /home/workshop cdp-users
+add_user admin /home/admin cdp-admins,shadow,supergroup
+add_user alice /home/alice cdp-users
+add_user bob /home/bob cdp-users
 
 # Create certs. This is done even if ENABLE_TLS == no, since ShellInABox always needs a cert
 create_certs "$IPA_HOST"
