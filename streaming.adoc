@@ -325,7 +325,7 @@ image::images/add_kafka_failure_connection.png[width=600]
 +
 image::images/terminate_publishkafka_relationship.png[width=600]
 
-. Start the input port and the two processors. Your canvas should now look like the one below:
+. Your canvas should now look like the one below:
 +
 image::images/publishKafka_flow.png[width=800]
 
@@ -338,6 +338,10 @@ image::images/breadcrumbs.png[width=400]
 image::images/connect_input.png[width=800]
 +
 image::images/to_input.png[width=800]
+
+. Next, right click on the Process Group and click start, to make all processors in the group start up
++
+image::images/start_process_group.png[width=800]
 
 . Refresh the screen (`Ctrl+R` on Linux/Windows; `Cmd+R` on Mac) and you should see that the records that were queued on the "*from Gateway*" Input Port disappeared. They flowed into the *Process Sensor Data* flow. If you expand the Process Group you should see that those records were processed by the _PublishKafkaRecord_ processor and there should be no records queued on the "failure" output queue.
 +
