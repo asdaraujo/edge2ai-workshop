@@ -28,13 +28,21 @@ if [[ $(echo "$IP_ADDRESS" | tr "a-z" "A-Z") == "MYIP" ]]; then
   IP_ADDRESS=$(curl -s ifconfig.me)
 fi
 
+if [[ $(expr "$IP_ADDRESS" : '.*:') -gt 0 ]]; then
+  # IPv6
+  cidr="${IP_ADDRESS}/128"
+else
+  # IPv4
+  cidr="${IP_ADDRESS}/32"
+fi
+
 cluster_sg=$(security_groups cluster)
 web_sg=$(security_groups web)
 
 if [[ $ACTION == "add" ]]; then
-  add_ingress "$web_sg" "${IP_ADDRESS}/32" tcp 80 "MANUAL" force
-  add_ingress "$cluster_sg" "${IP_ADDRESS}/32" tcp 0-65535 "MANUAL" force
+  add_ingress "$web_sg" "$cidr" tcp 80 "MANUAL" force
+  add_ingress "$cluster_sg" "$cidr" tcp 0-65535 "MANUAL" force
 elif [[ $ACTION == "remove" ]]; then
-  remove_ingress "$web_sg" "${IP_ADDRESS}/32" tcp 80 force
-  remove_ingress "$cluster_sg" "${IP_ADDRESS}/32" tcp 0-65535 force
+  remove_ingress "$web_sg" "$cidr" tcp 80 force
+  remove_ingress "$cluster_sg" "$cidr" tcp 0-65535 force
 fi

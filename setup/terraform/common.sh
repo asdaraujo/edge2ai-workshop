@@ -723,6 +723,43 @@ function collect_logs() {
 # AWS EC2 functions
 #
 
+function ingress_permissions() {
+  local cidr=$1
+  local protocol=$2
+  local port=$3
+  local description=${4:-}
+
+  local port_option=""
+  local proto=$protocol
+  if [[ $protocol == "all" ]]; then
+     proto=-1
+  else
+    if [[ $port == "" ]]; then
+      echo "ERROR: Port is required for protocol $protocol"
+      exit 1
+    fi
+    if [[ $port == *"-"* ]]; then
+      from_port=${port%%-*}
+      to_port=${port##*-}
+    else
+      from_port=$port
+      to_port=$port
+    fi
+    port_option="FromPort=${from_port},ToPort=${to_port},"
+  fi
+  if [[ $description != "" ]]; then
+    description=",Description=$description"
+  fi
+  if [[ $(expr "$cidr" : '.*:') -gt 0 ]]; then
+    # IPv6
+    iprange="Ipv6Ranges=[{CidrIpv6=${cidr}${description}}]"
+  else
+    # IPv4
+    iprange="IpRanges=[{CidrIp=${cidr}${description}}]"
+  fi
+  echo "IpProtocol=${proto},${port_option}${iprange}"
+}
+
 function add_ingress() {
   local group_id=$1
   local cidr=$2
@@ -735,25 +772,7 @@ function add_ingress() {
 
   ingress=$(get_ingress "$group_id" "$cidr" "$protocol" "$port")
   if [[ $ingress == "" || $force == "force" ]]; then
-    local port_option=""
-    local proto=$protocol
-    if [[ $protocol == "all" ]]; then
-       proto=-1
-    else
-      if [[ $port == "" ]]; then
-        echo "ERROR: Port is required for protocol $protocol"
-        exit 1
-      fi
-      if [[ $port == *"-"* ]]; then
-        from_port=${port%%-*}
-        to_port=${port##*-}
-      else
-        from_port=$port
-        to_port=$port
-      fi
-      port_option="FromPort=${from_port},ToPort=${to_port},"
-    fi
-    cmd=(aws ec2 authorize-security-group-ingress --group-id "$group_id" --ip-permissions "IpProtocol=${proto},${port_option}IpRanges=[{CidrIp=${cidr},Description=${description}}]")
+    cmd=(aws ec2 authorize-security-group-ingress --group-id "$group_id" --ip-permissions "$(ingress_permissions "$cidr" "$protocol" "$port" "$description")")
 
     msg="  Granting access on ${group_id}:${protocol}:${port} to ${cidr} $([[ $description == "" ]] || echo "($description)") $([[ $force == "force" ]] && echo " - (forced)" || true)"
     set +e
@@ -782,15 +801,7 @@ function remove_ingress() {
 
   ingress=$(get_ingress "$group_id" "$cidr" "$protocol" "$port")
   if [[ $ingress != "" || $force == "force" ]]; then
-    local port_option=""
-    if [[ $protocol != "all" ]]; then
-      if [[ $port == "" ]]; then
-        echo "ERROR: Port is required for protocol $protocol"
-        exit 1
-      fi
-      port_option="--port ${port}"
-    fi
-    cmd=(aws ec2 revoke-security-group-ingress --group-id $group_id --protocol $protocol --cidr $cidr $port_option)
+    cmd=(aws ec2 revoke-security-group-ingress --group-id "$group_id" --ip-permissions "$(ingress_permissions "$cidr" "$protocol" "$port")")
     msg="  Revoking access on ${group_id}:${protocol}:${port} from ${cidr} $([[ $force == "force" ]] && echo "(forced)" || true)"
     set +e
     "${cmd[@]}" > $tmp_file 2>&1
