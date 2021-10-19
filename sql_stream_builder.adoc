@@ -1,27 +1,38 @@
 = Querying streams with SQL
 
-NOTE: This lab assumes that the link:streaming.adoc[From Edge to Streams Processing] lab has been completed. If you haven't done so, please ask your instructor to set your cluster state for you so that you can perform the steps in this lab (or you can do this yourself by SSH'ing to your cluster host and running the script `/tmp/resources/reset-to-lab.sh`)
-
 In this workshop you will use SQL Stream Builder to query and manipulate data streams using SQL language. SQL Stream Builder is a powerful service that enables you to create Flink jobs without having to write Java/Scala code.
 
 == Labs summary
 
-* *Lab 1* - Create a Data Source
-* *Lab 2* - Create a Source Virtual Table for a topic with JSON messages
-* *Lab 3* - Create a Source Virtual Table for a topic with AVRO messages
-* *Lab 4* - Run a simple query
-* *Lab 5* - Computing and storing agregation results
+* *Lab 1* - Create a Data Provider
+* *Lab 2* - Create a Table for a topic with JSON messages
+* *Lab 3* - Integrate SQL Stream Builder with Schema Registry
+* *Lab 4* - Computing and storing agregation results
+* *Lab 5* - Materialized Views
+
+== Preparation
+
+The labs in this workshop assume that the link:streaming.adoc[From Edge to Streams Processing] workshop has been completed.
+
+If you haven't completed that workshop, please SSH to your cluster host and run the following command to prepare the environment:
+
+NOTE: The command below will undo everything done in the cluster in previous workshops.
+
+[source,shell]
+----
+/tmp/resources/reset-to-lab.sh
+----
 
 == Introduction
 
-In this lab, and the subsequent ones, we will use the `iot_enriched` topic created and populated in previous labs and contains a datastream of computer performance data points.
+In these labs we will use the `iot_enriched` topic created and populated in previous labs and contains a datastream of computer performance data points.
 
 So let's start with a straightforward goal: to query the contents of the `iot_enriched` topic using SQL to examine the data that is being streamed.
 
 Albeit simple, this task will show the ease of use and power of SQL Stream Builder (SSB).
 
 [[lab_1, Lab 1]]
-== Lab 1 - Create a Data Source
+== Lab 1 - Create a Data Provider
 
 Before we can start querying data from Kafka topics we need to register the Kafka clusters as _data sources_ in SSB.
 
@@ -31,11 +42,11 @@ Before we can start querying data from Kafka topics we need to register the Kafk
 
 . On the logon screen, authenticate with user `admin` and password `supersecret1`.
 
-. You will notice that SSB already has a Kafka cluster registered as a data source, named `CDP Kafka`. This source is created automatically for SSB when it is installed on a cluster that also has a Kafka service:
+. You will notice that SSB already has a Kafka cluster registered as a data provider, named `CDP Kafka`. This provider is created automatically for SSB when it is installed on a cluster that also has a Kafka service:
 +
 image::images/ssb-register-kafka-provider.png[width=800]
 
-. You can use this screen to add other external Kafka clusters as data sources to SSB. In this lab we'll add a second data using a different host name and will enable Schema Registry integration for it.
+. You can use this screen to add other external Kafka clusters as data providers to SSB. In this lab we'll add a second data provider using a different host name, just to show how simple it is.
 
 . Click on *Register Kafka Provider* and in the *Add Kafka Provider* window, enter the details for our new data source and click *Save changes*.
 +
@@ -44,29 +55,25 @@ image::images/ssb-register-kafka-provider.png[width=800]
 Name:                           edge2ai-kafka
 Brokers:                        edge2ai-1.dim.local:9092
 Connection protocol:            PLAINTEXT
-Use Schema Registry:            Yes
-Schema Registry URL:            http://edge2ai-1.dim.local:7788/api/v1
-Schema Registry Authentication: None
 ----
 +
 image::images/ssb-add-kafka-provider.png[width=400]
 
 [[lab_2, Lab 2]]
-== Lab 2 - Create a Source Virtual Table for a topic with JSON messages
+== Lab 2 - Create a Table for a topic with JSON messages
 
-Now we can _map_ the `iot_enriched` topic to a _virtual table_ that we can reference in our query. _Virtual Tables_ on SSB are a way to associate a Kafka topic with a schema so that we can use that as a table in our queries. There are two types of virtual tables in SSB: _Source_ and _Sink_.
+Now we can _map_ the `iot_enriched` topic to a _table_ in SQL Stream Builder.
+_Tables_ in SSB are a way to associate a Kafka topic with a schema so that we can use it in our SQL queries.
 
-We will use a Source Virtual Table now to read from the topic. Later we will look into Sink Virtual Tables to write data to Kafka.
-
-. To create our first Source Virtual Table, click on *Console* (on the left bar) *> Virtual Tables > Source Virtual Table > Add Source > Apache Kafka*.
+. To create our first Table, click on *Console* (on the left bar) *> Tables > Add table > Apache Kafka*.
 +
-image::images/ssb-add-source-virtual-table.png[width=800]
+image::images/ssb-add-table.png[width=800]
 
-. On the *Kafka Source* window, enter the following information:
+. On the *Kafka* window, enter the following information:
 +
 [source,yaml]
 ----
-Virtual table name: iot_enriched_source
+Virtual table name: iot_enriched
 Kafka Cluster:      edge2ai-kafka
 Topic Name:         iot_enriched
 Data Format:        JSON
@@ -78,18 +85,18 @@ image::images/ssb-kafka-source.png[width=400]
 +
 image::images/ssb-detect-schema.png[width=400]
 
-. If we need to manipulate the source data to fix, cleanse or convert some values, we can define transformations for the data source to perform those changes. These transformations are defined in Javascript.
+. If we need to manipulate the source data to fix, cleanse or convert some values, we can define transformations for the table. Transformations are defined in Javascript code.
 +
-The serialized record read from Kafka is provided to the Javascript code in the `record` variable. The last command of the transformation must return the serialized content of the modified record.
+The serialized record read from Kafka is provided to the Javascript code in the `record` variable. The last command of the transformation code must return the serialized content of the modified record.
 +
-The data in the `iot_enriched` topic has a timestamp expressed in microseconds. Let's say we need the value in milliseconds. Let's write a transformation to perform that conversion for us at the source.
+The data in the `iot_enriched` topic has a timestamp expressed in microseconds. We want to have this field converted to milliseconds. Let's write a transformation to perform that conversion for us.
 +
 Click on the *Transformations* tab and enter the following code in the *Code* field:
 +
 [source,javascript]
 ----
 // parse the JSON record
-var parsedVal = JSON.parse(record);
+var parsedVal = JSON.parse(record.value);
 // Convert sensor_ts from micro to milliseconds
 parsedVal['sensor_ts'] = Math.round(parsedVal['sensor_ts']/1000);
 // serialize output as JSON
@@ -97,6 +104,21 @@ JSON.stringify(parsedVal);
 ----
 +
 image::images/ssb-source-transformations.png[width=400]
+
+. Now that we have converted the `sensor_ts` field to milliseconds, we can tell SSB to use it as a source for the event time, which is the time that will be used for defining aggregation windows for our queries.
++
+To do this, click on the *Event Time* tab and configure the following properties:
++
+[source]
+----
+Input Timestamp Column: sensor_ts
+Event Time Column:      event_time
+Watermark Seconds:      3
+----
++
+image::images/ssb-event-time-column.png[width=400]
++
+This will add the `event_time` column to the table. This column has a `TIMESTAMP ROWTIME` data type and is derived from the value of the `sensor_ts` column.
 
 . Click on the *Properties* tab, enter the following value for the *Consumer Group* property and click *Save changes*.
 +
@@ -109,14 +131,29 @@ image::images/ssb-source-properties.png[width=400]
 +
 NOTE: Setting the *Consumer Group* properties for a virtual table will ensure that if you stop a query and restart it later, the second query execute will continue to read the data from the point where the first query stopped, without skipping data. *However*, if _multiple queries_ use the same virtual table, setting this property will effectively distribute the data across the queries so that each record is only read by a single query. If you want to share a virtual table with multiple distinct queries, ensure that the Consumer Group property is unset.
 
+. Let's query the newly created table to ensure things are working correctly. Click on *>_Console > Compose > SQL* and type the following query:
++
+[source,sql]
+----
+SELECT *
+FROM iot_enriched
+----
+
+. Click on *Execute*. After a few seconds you should see the data from the topic displayed on the *Results* panel:
+
+image::images/ssb-first-query.png[width=800]
+
+. Click *Stop* to stop the job and release all the cluster resources used by the query.
+You can double-check that all queries/jobs have been stopped by clicking on the *SQL Jobs* tab.
+If any jobs are still running, you can stop them from that page.
+
 [[lab_3, Lab 3]]
-== Lab 3 - Create a Source Virtual Table for a topic with AVRO messages
+== Lab 3 - Integrate SQL Stream Builder with Schema Registry
 
-SQL Stream Builder is integrated with Schema Registry. For Kafka topics containing Avro messages, instead of specifying the schema directly on the virtual table we can, it will fetch the schema for the topic directly from Schema Registry.
+The SQL Stream Builder's integration with Schema Registry automatically exposes the schemas stored in the registry as tables in SSB.
+The schema names in Schema Registry _must match the corresponding topic names_ in Kafka.
 
-The schema name in Schema Registry _must be the same as the topic name_.
-
-In this lab we will register a schema for the topic `iot_enriched_avro` and create a virtual table source that uses it.
+In this lab we will register Schema Registry as a catalog in SSB so that we can automatically read the contents of the `iot_enriched_avro` topic, which is stored in AVRO format.
 
 . Go to the following URL, which contains the schema definition for the data in the `iot_enriched_avro` topic. Select and copy the contents of the page.
 +
@@ -138,80 +175,64 @@ Compatibility: Backward
 Evolve:        checked
 ----
 
-. Back on the SQL Stream Builder page, click on *Console* (on the left bar) *> Virtual Tables > Source Virtual Table > Add Source > Apache Kafka*.
-+
-image::images/ssb-add-source-virtual-table.png[width=800]
+image::images/schema-registy-iot-enriched.png[width=800]
 
-. On the *Kafka Source* window, enter the following information:
-+
-[source,yaml]
-----
-Virtual table name: iot_enriched_avro_source
-Kafka Cluster:      edge2ai-kafka
-Topic Name:         iot_enriched_avro
-Data Format:        AVRO
-----
-+
-image::images/ssb-kafka-avro-source.png[width=400]
+. Back on the SQL Stream Builder page, click on *Data Providers* (on the left bar) *> (+) Register Catalog*.
 
-. Click on the *Properties* tab, enter the following value for the *Consumer Group* property and click *Save changes*.
+. In the *Add Catalog* screen, enter the following details:
 +
-[source,yaml]
+[source]
 ----
-Default Read Position: End of Topic
-Consumer Group:        ssb-iot-avro-1
+Name:                sr
+Catalog Type:        Schema Registry
+Kafka Cluster:       edge2ai-kafka
+Schema Registry URL: http://cdp.35.84.231.219.nip.io:7788/api/v1
+Enable TLS:          No
 ----
 
-NOTE: We are setting the "Default Read Position" to "End of Topic" to skip any data that's already been writte to the topic. This will happen only on the first time this virtual table is read by SSH. Once that happens the offset of the last message read will be recorded for the specified consumer group so that the following read will continue from the last read offset.
+. Click on the *Add Filter* button and enter the following configuration for the filter:
++
+[source]
+----
+Database Filter: .*
+Table Filter:    iot.*
+----
+
+. Click on *Validate*. If the configuration is correct you should see the message "Validation was successful, 1 table found."
+
+image::images/ssb-add-sr-catalog.png[width=400]
+
+. Click on *Add Tables*.
+
+. On the *Tables* screen you should see now the list of tables that were imported from Schemar Registry.
+
+image::images/ssb-sr-tables.png[width=800]
+
+. Query the imported table to ensure it is working correctly. Click on *>_Console > Compose > SQL* and type the following query:
++
+[source,sql]
+----
+SELECT *
+FROM `sr`.`default_database`.`iot_enriched_avro`
+----
+
+. Click on *Execute*. After a few seconds you should see the data from the topic displayed on the *Results* panel.
+
+. Click *Stop* to stop the job and release all the cluster resources used by the query.
+You can double-check that all queries/jobs have been stopped by clicking on the *SQL Jobs* tab.
+If any jobs are still running, you can stop them from that page.
+
+
 [[lab_4, Lab 4]]
-== Lab 4 - Run a simple query
+== Lab 4 - Computing and storing aggregation results
 
-We have now all that we need to run our first query in SSB. We want to simply query the raw contents of topic to ensure that the everything is working correctly before we proceed to do more complex things.
+Now that we have already run a few basic queries and confirmed that our tables are working correctly,
+we want to start computing aggregates for our incoming data stream and make the results available
+for downstream applications.
 
-If your environment is healthy and all the steps from previous labs were completed correctly you should be able to visualize the data with the steps below.
+SQL Stream Builder's Tables give us the ability to publish/store streaming data to several different services (Kafka, AWS S3, Google GCS, Kudu, HBase, etc...).
 
-. On the SSB UI, click on *Console* (on the left bar) *> Compose > SQL* and type the following query:
-+
-[source,sql]
-----
-select *
-from iot_enriched_source
-----
-+
-image::images/ssb-compose-sql.png[width=800]
-
-. Set a *SQL Job Name* for your job or use the random name provided.
-
-. Do *not* add a Sink Virtual Table.
-
-. Click *Execute*
-
-. Scroll to the bottom of the page and you will see the log messages generated by your query execution.
-+
-image::images/ssb-sql-execution.png[width=800]
-
-. After a few seconds the SQL Console will start showing the results of the query coming from the `iot_enriched` topic.
-+
-The data displayed on the screen is only a sample of the data returned by the query, not the full data.
-+
-image::images/ssb-sql-results.png[width=800]
-+
-Note that the values of the column `sensor_ts` now show in milliseconds instead of microseconds, thanks to the transformation we created for the `iot_enriched_source` virtual table.
-
-. Try querying the AVRO virtual source table as well and verify that the data can be consumed correctly:
-+
-[source,sql]
-----
-select *
-from iot_enriched_avro_source
-----
-
-. Make sure to stop your queries to release all resources once you finish this lab. You can double-check that all queries/jobs have been stopped by clicking on the *SQL Jobs* tab. If any jobs are still running, you can stop them from that page.
-
-[[lab_5, Lab 5]]
-== Lab 5 - Computing and storing aggregation results
-
-We want to start computing window aggregates for our incoming data stream and make the aggregation results available for downstream applications. SQL Stream Builder's Sink Virtual Tables give us the ability to publish/store streaming data to several different services (Kafka, AWS S3, Google GCS, Elastic Search and generic webhooks). In this lab we'll use a Kafka sink to publish the results of our aggregation to another Kafka topic.
+In this lab we'll use another Kafka table to publish the results of our aggregation to another Kafka topic.
 
 . Let's first create a topic (`sensor6_stats`) where to publish our aggregation results:
 .. Navigate to the SMM UI (*Cloudera Manager > SMM* service *>
@@ -224,9 +245,9 @@ Streams Messaging Manager Web UI*).
 ... Availability: `Low`
 ... Cleanup Policy: `delete`
 
-. To create the Sink Virtual Table, click on *Console* (on the left bar) *> Virtual Tables > Sink Virtual Table > Add Source > Apache Kafka*.
+. To create the Table, click on *Console* (on the left bar) *> Tables > Add table > Apache Kafka*.
 +
-image::images/ssb-add-sink-virtual-table.png[width=800]
+image::images/ssb-add-table.png[width=800]
 
 . On the *Kafka Sink* window, enter the following information and click *Save changes*:
 +
@@ -235,6 +256,7 @@ image::images/ssb-add-sink-virtual-table.png[width=800]
 Virtual table name: sensor6_stats_sink
 Kafka Cluster:      edge2ai-kafka
 Topic Name:         sensor6_stats
+Dynamic Schema:     Enabled
 ----
 +
 image::images/ssb-kafka-sink.png[width=400]
@@ -255,17 +277,17 @@ This query will compute aggregates over 30-seconds windows that slide forward ev
 ----
 SELECT
   sensor_id as device_id,
-  HOP_END(sensor_ts, INTERVAL '1' SECOND, INTERVAL '30' SECOND) as windowEnd,
+  HOP_END(event_time, INTERVAL '1' SECOND, INTERVAL '30' SECOND) as windowEnd,
   count(*) as sensorCount,
   sum(sensor_6) as sensorSum,
   avg(cast(sensor_6 as float)) as sensorAverage,
   min(sensor_6) as sensorMin,
   max(sensor_6) as sensorMax,
   sum(case when sensor_6 > 70 then 1 else 0 end) as sensorGreaterThan60
-FROM iot_enriched_source
+FROM iot_enriched
 GROUP BY
   sensor_id,
-  HOP(sensor_ts, INTERVAL '1' SECOND, INTERVAL '30' SECOND)
+  HOP(event_time, INTERVAL '1' SECOND, INTERVAL '30' SECOND)
 ----
 +
 image::images/ssb-sql-aggregation.png[width=800]
@@ -302,15 +324,16 @@ image::images/ssb-job-details.png[width=800]
 +
 image::images/ssb-job-dashboard.png[width=800]
 
-. Let's query the `sensor6_stats` table to examine the data that is being written to it. First we need to define a Source Virtual Table associated with the `sensor6_stats` topic.
+. Let's query the `sensor6_stats` topic to examine the data that is being written to it.
+Since we were using a table with a *dynamic schema* to write the data to that topic, we cannot use it for reads. We need to define a new Table associated with the `sensor6_stats` topic with a schema for reads.
 +
 --
-.. Click on *Console* (on the left bar) *> Virtual Tables > Source Virtual Table > Add Source > Apache Kafka*.
+.. Click on *Console* (on the left bar) *> Tables > Add table > Apache Kafka*.
 .. On the *Kafka Source* window, enter the following information and click *Save changes*:
 +
 [source,yaml]
 ----
-Virtual table name: sensor6_stats_source
+Virtual table name: sensor6_stats
 Kafka Cluster:      edge2ai-kafka
 Topic Name:         sensor6_stats
 Data Format:        JSON
@@ -321,14 +344,14 @@ Data Format:        JSON
 
 . Click on *Console* (on the left bar) to refresh the screen and clear the SQL Compose field, which may still show the running aggregation job.
 +
-Note that the job will continue to run in the background and you can continue to monitor it through the *Job Logs* page.
+Note that the job will continue to run in the background. You can monitor and manage it through the *SQL Jobs* page.
 
 . Enter the following query in the SQL field and execute it:
 +
 [source,sql]
 ----
 SELECT *
-FROM sensor6_stats_source
+FROM sensor6_stats
 ----
 
 . After a few seconds you should see the contents of the `sensor6_stats` topic displayed on the screen:
@@ -339,8 +362,8 @@ image::images/ssb-stats-results.png[width=800]
 +
 image::images/ssb-jobs-running.png[width=800]
 
-[[lab_6, Lab 6]]
-== Lab 6 - Materialized Views
+[[lab_5, Lab 5]]
+== Lab 5 - Materialized Views
 
 SQL Stream Builder can also take keyed snapshots of the data stream and make that available through a REST interface in the form of Materialized Views.
 In this lab we'll create and query Materialized Views (MV).
@@ -367,7 +390,7 @@ image::images/ssb-mv-config1.png[width=300]
 +
 If you have already created an API Key in SSB you can select it from the drop-down list. Otherwise, create one on the spot by clicking on the *Add API Key* button shown above. Use `ssb-lab` as the Key Name.
 
-. Click *Apply Configuration*. This will enable the *Add Query* button below.
+. Click *Apply Configuration*. This will enable the *Add Query* button in the *Materialized View Queries* section.
 
 . Click *Add Query* to create a new MV. We want to create a view that shows all the devices for which `sensor6` has had at least 1 reading above 60 in the last recorded 30 second window. For this, enter the following parameters in the MV Query Configuration page:
 +
