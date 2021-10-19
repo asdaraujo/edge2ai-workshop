@@ -6,7 +6,13 @@ source /opt/rh/rh-python36/enable
 set -u
 set -e
 
-TARGET_LAB=${1:-99}
+if [[ $# -lt 2 && $(expr "${1:-}" : '^[0-9]*$') -gt 0 ]]; then
+  TARGET_WORKSHOP=base
+  TARGET_LAB=$1
+else
+  TARGET_WORKSHOP=${1:-base}
+  TARGET_LAB=${2:-99}
+fi
 
 export THE_PWD=$(cat $BASE_DIR/the_pwd.txt)
 if [[ $THE_PWD == "" ]]; then
@@ -19,8 +25,6 @@ if [[ -f /keytabs/admin.keytab ]]; then
 fi
 
 cd $BASE_DIR
-echo "Executing global teardown"
-python3 -c "import utils; utils.global_teardown()"
-echo "Running all setup functions less than Lab ${TARGET_LAB}"
-python3 -c "import utils; utils.global_setup(target_lab=${TARGET_LAB})"
-echo "Done"
+python3 -c "import labs; labs.global_teardown()"
+python3 -c "import labs; labs.global_setup(target_workshop='${TARGET_WORKSHOP}', target_lab=${TARGET_LAB})"
+echo "Done!"

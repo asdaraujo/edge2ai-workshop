@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
-
 """
-Testing NiFi reg
+Testing NiFi Registry
 """
-
 from nipyapi import versioning
 
 
 def test_nifi_registry_iot(run_id):
+    print('TEST:test_nifi_registry_iot:{}'.format(run_id))
     bucket = versioning.get_registry_bucket('IoT')
     assert bucket
     flows = versioning.list_flows_in_bucket(bucket.identifier)
@@ -22,6 +20,7 @@ def test_nifi_registry_iot(run_id):
 
 
 def test_nifi_registry_sensorflows(run_id):
+    print('TEST:test_nifi_registry_sensorflows:{}'.format(run_id))
     bucket = versioning.get_registry_bucket('SensorFlows')
     assert bucket
     flows = versioning.list_flows_in_bucket(bucket.identifier)
