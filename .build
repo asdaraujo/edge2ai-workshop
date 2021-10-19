@@ -1,2 +1,2 @@
-20211013143348
-Previous commit: ab51ad2 Adjusted Flink config for CSA 1.5
+20211019200105
+Previous commit: 9f6faf7 Fixes to the cdsw_setup.py script to launch VizApps correctly.

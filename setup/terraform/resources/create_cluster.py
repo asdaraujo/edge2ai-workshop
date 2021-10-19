@@ -10,6 +10,7 @@ from optparse import OptionParser
 import cm_client
 import json
 import os
+import re
 import requests
 import sys
 import time
@@ -73,8 +74,18 @@ def _get_parser():
 def parse_args():
     return _get_parser().parse_args()
 
+def to_int(x):
+    try:
+        return(int(x))
+    except:
+        return 999
+
 def cm_major_version():
     return int(os.environ.get('CM_MAJOR_VERSION', '7'))
+
+def cm_version():
+    cm_version = os.environ.get('CM_VERSION', '999.999.999')
+    return [to_int(x) for x in re.split('[-.]', cm_version)]
 
 def the_pwd():
     return os.environ['THE_PWD']
@@ -319,9 +330,7 @@ class ClusterCreator:
                 cm_client.ApiConfig(name='KDC_TYPE', value='Red Hat IPA'),
                 cm_client.ApiConfig(name='AUTH_BACKEND_ORDER', value='LDAP_THEN_DB'),
                 cm_client.ApiConfig(name='LDAP_BIND_DN', value='uid=ldap_bind_user,cn=users,cn=accounts,dc=workshop,dc=com'),
-                cm_client.ApiConfig(name='LDAP_BIND_DN_MONITORING', value='uid=ldap_bind_user,cn=users,cn=accounts,dc=workshop,dc=com'),
                 cm_client.ApiConfig(name='LDAP_BIND_PW', value=the_pwd()),
-                cm_client.ApiConfig(name='LDAP_BIND_PW_MONITORING', value=the_pwd()),
                 cm_client.ApiConfig(name='LDAP_GROUP_SEARCH_BASE', value='cn=groups,cn=accounts,dc=workshop,dc=com'),
                 cm_client.ApiConfig(name='LDAP_GROUP_SEARCH_FILTER', value='(member={0})'),
                 cm_client.ApiConfig(name='LDAP_TYPE', value='LDAP'),
@@ -329,6 +338,12 @@ class ClusterCreator:
                 cm_client.ApiConfig(name='LDAP_USER_SEARCH_BASE', value='cn=users,cn=accounts,dc=workshop,dc=com'),
                 cm_client.ApiConfig(name='LDAP_USER_SEARCH_FILTER', value='(uid={0})'),
             ]
+            if cm_version() < [7, 5, 3]:
+                # These properties were removed in OPSAPS-61384 (CM 7.5.3)
+                config += [
+                    cm_client.ApiConfig(name='LDAP_BIND_DN_MONITORING', value='uid=ldap_bind_user,cn=users,cn=accounts,dc=workshop,dc=com'),
+                    cm_client.ApiConfig(name='LDAP_BIND_PW_MONITORING', value=the_pwd()),
+                ]
         self.cm_api.update_config(message='Updating Kerberos config', body=cm_client.ApiConfigList(config))
 
         # Import Kerberos credentials
