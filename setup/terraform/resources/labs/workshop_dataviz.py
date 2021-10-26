@@ -27,11 +27,6 @@ DATASET_EXPORT_FILE = 'visuals_dataset.json'
 TABLE_VISUAL_EXPORT_FILE = 'visuals_table.json'
 SCATTER_VISUAL_EXPORT_FILE = 'visuals_scatter.json'
 
-def skip_cdsw():
-    flag = 'SKIP_CDSW' in os.environ
-    LOG.debug('SKIP_CDSW={}'.format(flag))
-    return flag
-
 
 class DataVizWorkshop(AbstractWorkshop):
 
@@ -65,46 +60,6 @@ class DataVizWorkshop(AbstractWorkshop):
         dataviz.create_connection(CONNECTION_TYPE, CONNECTION_NAME, CONNECTION_PARAMS)
 
     def lab3_create_dataset(self):
-        # conn = dataviz.get_connection(CONNECTION_NAME)
-        #
-        # params = {
-        #     'dataconnection_id': conn['id'],
-        #     'dataset_name': DATASET_NAME,
-        #     'dataset_type': 'singletable',
-        #     'dataset_info': json.dumps([
-        #         {
-        #             'tablename': 'default.sensors',
-        #             'columns': [
-        #                 {'name': 'sensor_id', 'type': 'INT', 'isdim': True, 'alias': 'sensor_id'},
-        #                 {
-        #                     'name': '',
-        #                     'type': 'TIMESTAMP',
-        #                     'isdim': True,
-        #                     'alias': 'sensor_timestamp',
-        #                     'basecol': 'sensor_ts',
-        #                     'expr': 'microseconds_add(to_timestamp(cast([sensor_ts]/1000000 as bigint)), [sensor_ts] % 1000000)',
-        #                 },
-        #                 {'name': 'sensor_ts', 'type': 'BIGINT', 'isdim': False, 'alias': 'sensor_ts'},
-        #                 {'name': 'sensor_0', 'type': 'DOUBLE', 'isdim': False, 'alias': 'sensor_0'},
-        #                 {'name': 'sensor_1', 'type': 'DOUBLE', 'isdim': False, 'alias': 'sensor_1'},
-        #                 {'name': 'sensor_2', 'type': 'DOUBLE', 'isdim': False, 'alias': 'sensor_2'},
-        #                 {'name': 'sensor_3', 'type': 'DOUBLE', 'isdim': False, 'alias': 'sensor_3'},
-        #                 {'name': 'sensor_4', 'type': 'DOUBLE', 'isdim': False, 'alias': 'sensor_4'},
-        #                 {'name': 'sensor_5', 'type': 'DOUBLE', 'isdim': False, 'alias': 'sensor_5'},
-        #                 {'name': 'sensor_6', 'type': 'DOUBLE', 'isdim': False, 'alias': 'sensor_6'},
-        #                 {'name': 'sensor_7', 'type': 'DOUBLE', 'isdim': False, 'alias': 'sensor_7'},
-        #                 {'name': 'sensor_8', 'type': 'DOUBLE', 'isdim': False, 'alias': 'sensor_8'},
-        #                 {'name': 'sensor_9', 'type': 'DOUBLE', 'isdim': False, 'alias': 'sensor_9'},
-        #                 {'name': 'sensor_10', 'type': 'DOUBLE', 'isdim': False, 'alias': 'sensor_10'},
-        #                 {'name': 'sensor_11', 'type': 'DOUBLE', 'isdim': False, 'alias': 'sensor_11'},
-        #                 {'name': 'is_healthy', 'type': 'INT', 'isdim': False, 'alias': 'is_healthy'},
-        #             ]
-        #         }
-        #     ]),
-        #     'dataset_detail': 'default.sensors',
-        #     'foreign_keys': '[["default.sensors", {}]]'
-        # }
-        # dataviz.create_dataset(params)
         dataviz.import_artifacts(CONNECTION_NAME, os.path.join(self.get_artifacts_dir(), DATASET_EXPORT_FILE))
 
     def lab4_create_table_visual(self):
