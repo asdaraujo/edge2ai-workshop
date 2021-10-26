@@ -1,0 +1,79 @@
+{
+  "reportimage": [],
+  "dashboards": [
+    {
+      "model": "reports.report",
+      "pk": 113,
+      "fields": {
+        "report_name": "",
+        "report_description": "placeholder desc",
+        "dataset": 26,
+        "workspace": 2,
+        "report_type": "dashboard",
+        "report_mode": "",
+        "dashboard_url_name": "",
+        "report_data": "{\"dashboard_sheets\":[{\"order\":1,\"sheet_id\":1,\"sheet_handle_title\":\"Sheet 1\",\"behaviors\":{},\"visual_widgets\":[{\"col\":1,\"row\":1,\"size_x\":32,\"size_y\":20,\"id\":\"uri-2-widget-112\"}],\"control_widgets\":[]}],\"global_control_widgets\":[],\"control_widgets\":[],\"dashboard_widgets\":[{\"col\":1,\"row\":1,\"size_x\":32,\"size_y\":20,\"id\":\"uri-2-widget-112\"}],\"numColumns\":64,\"metadataVersion\":2,\"user_settings\":{\"container_css_class\":\"\",\"css_styles\":\"[]\",\"inline_css\":\"\",\"dashboard_width\":\"1400\",\"override_visual_font_settings\":\"false\",\"dashboard_bg_color\":\"\",\"dashboard_fg_color\":\"\",\"page_bg_color\":\"\",\"display_context_menu\":\"true\",\"dashboard_display_view_data\":\"true\",\"detailed_data_max_columns\":\"1000\",\"manual_visual_refresh\":\"false\",\"auto_refresh_seconds\":\"5\",\"dashboard_enable_animations\":\"true\",\"horizontal_margin_between_visuals\":\"10\",\"vertical_margin_between_visuals\":\"10\",\"single_visual_dashboard\":\"false\",\"display_filters\":\"false\",\"dashboard_title_font\":\"default\",\"dashboard_title_font_size\":\"\",\"dashboard_title_font_weight\":\"default\",\"app_title_fg\":\"\",\"app_title_bg\":\"\",\"dashboard_title_alignment\":\"Left\",\"dashboard_subtitle_font\":\"default\",\"dashboard_subtitle_font_size\":\"\",\"dashboard_subtitle_fg_color\":\"\",\"dashboard_subtitle_bg_color\":\"\",\"dashboard_subtitle_alignment\":\"Left\",\"filters_on_left\":\"false\",\"filter_inline_labels\":\"false\",\"filter_label_line\":\"true\",\"borders_around_filters\":\"true\",\"filter_font\":\"default\",\"filter_font_size\":\"\",\"filter_title_color\":\"\",\"filter_selection_color\":\"\",\"filter_bg_color\":\"#f8f8f8\",\"filter_container_bg_color\":\"\",\"visual_font\":\"default\",\"borders_around_visuals\":\"false\",\"visual_border_color\":\"\",\"visual_border_radius\":\"\",\"title_font\":\"default\",\"subtitle_font\":\"default\",\"visual_font_size\":\"\",\"axis_label_font_size\":\"\",\"axis_ticks_font_size\":\"\",\"label_font_size\":\"\",\"label_color\":\"\",\"trellis_font_size\":\"\",\"legend_font_size\":\"\",\"visual_bg_color\":\"\",\"title_font_size\":\"\",\"subtitle_font_size\":\"\",\"visual_title_font_weight\":\"default\",\"tooltip_font\":\"default\",\"tooltip_font_size\":\"\",\"visual_title_fg\":\"\",\"visual_title_bg\":\"\",\"title_alignment\":\"Left\",\"visual_subtitle_fg\":\"\",\"visual_subtitle_bg\":\"\",\"subtitle_alignment\":\"Left\",\"dashboard_hide_title\":\"false\",\"permit_png_download\":\"false\",\"print_pdf_scale\":\"0\",\"print_pdf_size\":\"Letter\",\"print_pdf_orientation\":\"Portrait\",\"print_pdf_enable_header_footer\":\"false\",\"permit_csv_download_dashboard\":\"true\",\"permit_email_report\":\"true\",\"dashboard_case_sensitive\":\"true\",\"visuals_after_filters\":\"true\"},\"report_title\":\"\",\"report_subtitle\":\"\"}",
+        "shared_visual_dashboards": "[]",
+        "uuid": "c393e048-547e-4ee8-bbbf-15cc8c97f8ee",
+        "imported_uuid": null,
+        "has_css_styles": false,
+        "report_search_text": null
+      }
+    }
+  ],
+  "segments": [],
+  "appgroups": [],
+  "visuals": [
+    {
+      "model": "reports.report",
+      "pk": 112,
+      "fields": {
+        "report_name": "",
+        "report_description": "",
+        "dataset": 26,
+        "workspace": 2,
+        "report_type": "table",
+        "report_mode": "",
+        "dashboard_url_name": "",
+        "report_data": "{\"report_type\": \"table\", \"report_data\": {\"core\": {\"viz_type\": \"table\", \"shelves\": [{\"name\": \"dimensions_shelf\", \"shelf_type\": 1, \"column_type\": 1}, {\"name\": \"aggregates_shelf\", \"shelf_type\": 1, \"column_type\": 2}, {\"name\": \"tooltip_shelf\", \"shelf_type\": 1, \"column_type\": 2}, {\"name\": \"filters_shelf\", \"shelf_type\": 2, \"column_type\": 3}]}, \"dimensions_shelf\": [{\"persistentId\": 12894386847165546000, \"expression_for_trigger\": \"[sensor_timestamp]\", \"dataset_colname\": \"sensor_timestamp\", \"dataset_coltype\": \"TIMESTAMP\", \"dataset_isdim\": true, \"isDatasetSegment\": false, \"autotime_override\": \"AUTO\", \"backgroundColor\": {\"customColorsEnabled\": false, \"colorSettings\": {}, \"colors\": [\"#E0F7FA\", \"#B2EBF2\", \"#80DEEA\", \"#4DD0E1\", \"#26C6DA\", \"#00BCD4\", \"#00ACC1\", \"#0097A7\", \"#00838F\", \"#006064\"], \"isReversed\": false, \"opacity\": 80, \"fixedDimensionColors\": false}, \"order\": {\"ascending\": false, \"priority\": 1}}, {\"persistentId\": 121271386379471390000, \"expression_for_trigger\": \"[sensor_id]\", \"dataset_colname\": \"sensor_id\", \"dataset_coltype\": \"INT\", \"dataset_isdim\": true, \"isDatasetSegment\": false, \"autotime_override\": \"AUTO\", \"backgroundColor\": {\"customColorsEnabled\": false, \"colorSettings\": {}, \"colors\": [\"#E0F7FA\", \"#B2EBF2\", \"#80DEEA\", \"#4DD0E1\", \"#26C6DA\", \"#00BCD4\", \"#00ACC1\", \"#0097A7\", \"#00838F\", \"#006064\"], \"isReversed\": false, \"opacity\": 80, \"fixedDimensionColors\": false}}], \"aggregates_shelf\": [{\"persistentId\": 136164167761348500000, \"expression_for_trigger\": \"avg([sensor_0])\", \"dataset_colname\": \"sensor_0\", \"dataset_coltype\": \"DOUBLE\", \"isDatasetSegment\": false, \"fn_type\": 1, \"fn_name\": \"avg\", \"autotime_override\": \"AUTO\", \"backgroundColor\": {\"customColorsEnabled\": false, \"colorSettings\": {}, \"colors\": [\"#E0F7FA\", \"#B2EBF2\", \"#80DEEA\", \"#4DD0E1\", \"#26C6DA\", \"#00BCD4\", \"#00ACC1\", \"#0097A7\", \"#00838F\", \"#006064\"], \"isReversed\": false, \"opacity\": 80, \"fixedDimensionColors\": false}}, {\"persistentId\": 139632072946324300000, \"expression_for_trigger\": \"avg([sensor_1])\", \"dataset_colname\": \"sensor_1\", \"dataset_coltype\": \"DOUBLE\", \"isDatasetSegment\": false, \"fn_type\": 1, \"fn_name\": \"avg\", \"autotime_override\": \"AUTO\", \"backgroundColor\": {\"customColorsEnabled\": false, \"colorSettings\": {}, \"colors\": [\"#E0F7FA\", \"#B2EBF2\", \"#80DEEA\", \"#4DD0E1\", \"#26C6DA\", \"#00BCD4\", \"#00ACC1\", \"#0097A7\", \"#00838F\", \"#006064\"], \"isReversed\": false, \"opacity\": 80, \"fixedDimensionColors\": false}}], \"tooltip_shelf\": [], \"filters_shelf\": [], \"sample_pct\": \"Off\", \"user_settings\": {\"container_css_class\": \"\", \"css_styles\": \"[]\", \"inline_css\": \"\", \"permit_csv_download_visual\": \"true\", \"csv_download_quotation\": \"false\", \"default_language\": \"\", \"permit_png_download\": \"false\", \"explicit_scope\": \"false\", \"permit_email_report\": \"true\", \"send_aggregate_parameters\": \"false\", \"visual_dataset_scope\": \"GLOBAL\", \"nulls_order\": \"Default\", \"visual_font\": \"default\", \"visual_font_size\": \"\", \"visual_bg_color\": \"\", \"title_font\": \"default\", \"title_font_size\": \"\", \"visual_title_font_weight\": \"default\", \"visual_title_fg\": \"\", \"visual_title_bg\": \"\", \"title_alignment\": \"Left\", \"subtitle_font\": \"default\", \"subtitle_font_size\": \"\", \"visual_subtitle_fg\": \"\", \"visual_subtitle_bg\": \"\", \"subtitle_alignment\": \"Left\", \"visual_hide_title\": \"false\", \"visual_show_detail_data\": \"true\", \"download_rows\": \"\", \"show_tooltip\": \"true\", \"tooltip_font\": \"default\", \"tooltip_font_size\": \"\", \"max_rowcount\": \"\", \"disable_incremental_queries\": \"false\", \"ksql_stream_position\": \"default\", \"display_tooltips_table\": \"false\", \"table_template\": \"table-template-2\", \"table_header_alignment\": \"data_dependent\", \"table_full_width\": \"false\", \"table_wrap_column_contents\": \"false\", \"parameters_send_all_cols\": \"false\", \"show_contextmenu\": \"true\", \"enable_highlighting\": \"false\", \"cells_are_html\": \"false\", \"nulls_display_value\": \"\", \"http_auto_link\": \"true\", \"table_totals\": \"false\", \"table_totals_header\": \"false\", \"max_columns\": \"20\", \"enable_info\": \"false\", \"enable_pagination\": \"true\", \"page_size\": 20, \"table_header_background_color\": \"\", \"table_header_text_color\": \"\", \"table_odd_rows_background_color\": \"\", \"table_even_rows_background_color\": \"\", \"table_odd_rows_text_color\": \"\", \"table_even_rows_text_color\": \"\", \"table_border_color\": \"\", \"table_footer_background_color\": \"\", \"table_footer_text_color\": \"\", \"display_header\": \"true\", \"display_header_column_borders\": \"true\"}, \"settings\": {\"colorSettings\": {}, \"colors\": [\"#0097a7\", \"#7dcad2\", \"#546e7a\", \"#b0bec5\", \"#ed8111\", \"#f6c088\", \"#e54954\", \"#f2a4a9\", \"#ad73b1\", \"#d6b9d8\", \"#2375b8\", \"#91badb\", \"#3e8111\", \"#b0cb73\"], \"graded_colors\": [\"#E0F7FA\", \"#B2EBF2\", \"#80DEEA\", \"#4DD0E1\", \"#26C6DA\", \"#00BCD4\", \"#00ACC1\", \"#0097A7\", \"#00838F\", \"#006064\"], \"contrast_colors\": [\"#0097A7\", \"#ED8111\", \"#2375B8\", \"#E54954\", \"#42996F\", \"#AD73B1\", \"#B0CB73\", \"#EA8DCD\"], \"reverse_colors\": false}, \"report_title\": \"\", \"report_subtitle\": \"\", \"report_derived_data\": [], \"click_behaviors\": {}, \"limit\": 100, \"customWidths\": [], \"dashboard_id\": 113}}",
+        "shared_visual_dashboards": null,
+        "uuid": "50051271-138a-424d-a623-b987219e0d44",
+        "imported_uuid": null,
+        "has_css_styles": false,
+        "report_search_text": ""
+      }
+    }
+  ],
+  "appgroupmembership": [],
+  "events": [],
+  "colorpalette": [],
+  "dateranges": [],
+  "datasets": [
+    {
+      "model": "datasets.dataset",
+      "pk": 26,
+      "fields": {
+        "dataconnection": 22,
+        "dataset_name": "sensor data1",
+        "dataset_type": "singletable",
+        "dataset_detail": "default.sensors",
+        "dataset_description": "",
+        "dataset_info": "[{\"tablename\": \"default.sensors\", \"columns\": [{\"name\": \"sensor_id\", \"type\": \"INT\", \"isdim\": true, \"alias\": \"sensor_id\"}, {\"name\": \"\", \"type\": \"TIMESTAMP\", \"isdim\": true, \"alias\": \"sensor_timestamp\", \"basecol\": \"sensor_ts\", \"expr\": \"microseconds_add(to_timestamp(cast([sensor_ts]/1000000 as bigint)), [sensor_ts] % 1000000)\"}, {\"name\": \"sensor_ts\", \"type\": \"BIGINT\", \"isdim\": false, \"alias\": \"sensor_ts\"}, {\"name\": \"sensor_0\", \"type\": \"DOUBLE\", \"isdim\": false, \"alias\": \"sensor_0\"}, {\"name\": \"sensor_1\", \"type\": \"DOUBLE\", \"isdim\": false, \"alias\": \"sensor_1\"}, {\"name\": \"sensor_2\", \"type\": \"DOUBLE\", \"isdim\": false, \"alias\": \"sensor_2\"}, {\"name\": \"sensor_3\", \"type\": \"DOUBLE\", \"isdim\": false, \"alias\": \"sensor_3\"}, {\"name\": \"sensor_4\", \"type\": \"DOUBLE\", \"isdim\": false, \"alias\": \"sensor_4\"}, {\"name\": \"sensor_5\", \"type\": \"DOUBLE\", \"isdim\": false, \"alias\": \"sensor_5\"}, {\"name\": \"sensor_6\", \"type\": \"DOUBLE\", \"isdim\": false, \"alias\": \"sensor_6\"}, {\"name\": \"sensor_7\", \"type\": \"DOUBLE\", \"isdim\": false, \"alias\": \"sensor_7\"}, {\"name\": \"sensor_8\", \"type\": \"DOUBLE\", \"isdim\": false, \"alias\": \"sensor_8\"}, {\"name\": \"sensor_9\", \"type\": \"DOUBLE\", \"isdim\": false, \"alias\": \"sensor_9\"}, {\"name\": \"sensor_10\", \"type\": \"DOUBLE\", \"isdim\": false, \"alias\": \"sensor_10\"}, {\"name\": \"sensor_11\", \"type\": \"DOUBLE\", \"isdim\": false, \"alias\": \"sensor_11\"}, {\"name\": \"is_healthy\", \"type\": \"INT\", \"isdim\": false, \"alias\": \"is_healthy\"}]}]",
+        "uuid": "73d9de65-3fdf-4ff3-a1a2-cc08c2a7701b",
+        "imported_uuid": null,
+        "cache_sequence": 0,
+        "dataset_settings": "{}",
+        "search_enabled": false
+      }
+    }
+  ],
+  "customcss": [],
+  "staticasset": [],
+  "version": {
+    "Arcviz Version": "6.2.3",
+    "Raw Timestamp of last commit": "1611943183",
+    "Timestamp of last commit": "Fri Jan 29 18:59:43 2021 +0100",
+    "SHA of last commit": "4e609f54bd9deb0e1e61658008174cafa75f7e3c",
+    "Description": "6.2.3-b18"
+  }
+}

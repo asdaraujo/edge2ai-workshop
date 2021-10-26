@@ -1,0 +1,39 @@
+{
+  "reportimage": [],
+  "dashboards": [],
+  "segments": [],
+  "appgroups": [],
+  "visuals": [],
+  "appgroupmembership": [],
+  "events": [],
+  "colorpalette": [],
+  "dateranges": [],
+  "datasets": [
+    {
+      "model": "datasets.dataset",
+      "pk": 26,
+      "fields": {
+        "dataconnection": 22,
+        "dataset_name": "sensor data1",
+        "dataset_type": "singletable",
+        "dataset_detail": "default.sensors",
+        "dataset_description": "",
+        "dataset_info": "[{\"tablename\": \"default.sensors\", \"columns\": [{\"name\": \"sensor_id\", \"type\": \"INT\", \"isdim\": true, \"alias\": \"sensor_id\"}, {\"name\": \"\", \"type\": \"TIMESTAMP\", \"isdim\": true, \"alias\": \"sensor_timestamp\", \"basecol\": \"sensor_ts\", \"expr\": \"microseconds_add(to_timestamp(cast([sensor_ts]/1000000 as bigint)), [sensor_ts] % 1000000)\"}, {\"name\": \"sensor_ts\", \"type\": \"BIGINT\", \"isdim\": false, \"alias\": \"sensor_ts\"}, {\"name\": \"sensor_0\", \"type\": \"DOUBLE\", \"isdim\": false, \"alias\": \"sensor_0\"}, {\"name\": \"sensor_1\", \"type\": \"DOUBLE\", \"isdim\": false, \"alias\": \"sensor_1\"}, {\"name\": \"sensor_2\", \"type\": \"DOUBLE\", \"isdim\": false, \"alias\": \"sensor_2\"}, {\"name\": \"sensor_3\", \"type\": \"DOUBLE\", \"isdim\": false, \"alias\": \"sensor_3\"}, {\"name\": \"sensor_4\", \"type\": \"DOUBLE\", \"isdim\": false, \"alias\": \"sensor_4\"}, {\"name\": \"sensor_5\", \"type\": \"DOUBLE\", \"isdim\": false, \"alias\": \"sensor_5\"}, {\"name\": \"sensor_6\", \"type\": \"DOUBLE\", \"isdim\": false, \"alias\": \"sensor_6\"}, {\"name\": \"sensor_7\", \"type\": \"DOUBLE\", \"isdim\": false, \"alias\": \"sensor_7\"}, {\"name\": \"sensor_8\", \"type\": \"DOUBLE\", \"isdim\": false, \"alias\": \"sensor_8\"}, {\"name\": \"sensor_9\", \"type\": \"DOUBLE\", \"isdim\": false, \"alias\": \"sensor_9\"}, {\"name\": \"sensor_10\", \"type\": \"DOUBLE\", \"isdim\": false, \"alias\": \"sensor_10\"}, {\"name\": \"sensor_11\", \"type\": \"DOUBLE\", \"isdim\": false, \"alias\": \"sensor_11\"}, {\"name\": \"is_healthy\", \"type\": \"INT\", \"isdim\": false, \"alias\": \"is_healthy\"}]}]",
+        "uuid": "73d9de65-3fdf-4ff3-a1a2-cc08c2a7701b",
+        "imported_uuid": null,
+        "cache_sequence": 0,
+        "dataset_settings": "{}",
+        "search_enabled": false
+      }
+    }
+  ],
+  "customcss": [],
+  "staticasset": [],
+  "version": {
+    "Arcviz Version": "6.2.3",
+    "Raw Timestamp of last commit": "1611943183",
+    "Timestamp of last commit": "Fri Jan 29 18:59:43 2021 +0100",
+    "SHA of last commit": "4e609f54bd9deb0e1e61658008174cafa75f7e3c",
+    "Description": "6.2.3-b18"
+  }
+}

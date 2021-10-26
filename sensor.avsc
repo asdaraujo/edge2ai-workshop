@@ -11,7 +11,7 @@
     },
     {
       "name": "sensor_ts",
-      "doc": "Timestamp of the collected readings.",
+      "doc": "Timestamp, in microseconds, of the collected readings.",
       "type": "long"
     },
     {

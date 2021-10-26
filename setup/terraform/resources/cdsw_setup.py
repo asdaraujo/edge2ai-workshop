@@ -99,7 +99,6 @@ try:
     print('# Create user')
     while True:
         try:
-            print(CDSW_API)
             r = s.post(CDSW_API + '/users',
                     json={
                         'email': EMAIL,
@@ -134,7 +133,7 @@ try:
     models = [m for m in r.json() if m['name'] == model_name]
     if models and models[0]['latestModelDeployment']['status'] == 'deployed':
         model_id = models[0]['id']
-        project_id = get_project(name=PROJECT_NAME)['id']
+        project = get_project(name=PROJECT_NAME)
         print('Model is already deployed!! Skipping.')
     else:
         print('# Add engine')
@@ -153,8 +152,8 @@ try:
                                                                  'project_visibility': 'private',
                                                                  'name': PROJECT_NAME,
                                                                  'gitUrl': 'https://github.com/cloudera-labs/edge2ai-workshop'})
-            project_id = r.json()['id']
-        print('Project ID: %s'% (project_id,))
+            project = r.json()
+        print('Project ID: %s' % (project['id'],))
 
         print('# Upload setup script')
         setup_script = """!pip3 install --upgrade pip scikit-learn
@@ -166,7 +165,7 @@ try:
         r = s.put(CDSW_API + '/projects/admin/edge2ai-workshop/files/setup_workshop.py', files={'name': setup_script})
 
         print('# Upload model')
-        model_pkl = open(MODEL_PKL_FILE, 'r')
+        model_pkl = open(MODEL_PKL_FILE, 'rb')
         r = s.put(CDSW_API + '/projects/admin/edge2ai-workshop/files/iot_model.pkl', files={'name': model_pkl})
 
         print('# Create job to run the setup script')
@@ -216,7 +215,7 @@ try:
 
         print('# Deploy model')
         r = s.post(CDSW_ALTUS_API + '/models/create-model', json={
-                'projectId': project_id,
+                'projectId': project['id'],
                 'name': model_name,
                 'description': model_name,
                 'visibility': 'private',
@@ -272,7 +271,6 @@ try:
     print(viz_project_url + '/engine-images')
     r = s.patch(viz_project_url + '/engine-images',
                 json={'engineImageId': engine_image_id})
-    print(r)
     r = s.get(viz_project_url + '/engine-images')
     project_engine_image_id = r.json()['id']
     print('Project image default engine Image ID set to: %s'% (project_engine_image_id))  
@@ -302,7 +300,7 @@ try:
     print('# Wait for model to start')
     while True:
         r = s.post(CDSW_ALTUS_API + '/models/list-models', json={
-            'project': str(project_id),
+            'project': str(project['id']),
             'latestModelDeployment': True,
             'latestModelBuild': True,
         })

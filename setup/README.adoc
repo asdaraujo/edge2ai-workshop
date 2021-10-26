@@ -185,7 +185,7 @@ git clone https://github.com/cloudera-labs/edge2ai-workshop.git
 +
 [source,shell]
 ----
-cp edge2ai-workshop/setup/scripts/stack.cdp716p.sh edge2ai-workshop/setup/scripts/stack.sh
+cp edge2ai-workshop/setup/terraform/resources/stack.cdp716p.sh edge2ai-workshop/setup/terraform/resources/stack.sh
 ----
 +
 The `stack.sh` file is the default stack definition file used by all the namespaces that lack _namespace-specific_ stacks. You can create namespace-specific stack by naming the file `stack.<namespace>.sh` instead.

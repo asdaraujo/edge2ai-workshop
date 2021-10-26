@@ -1,4 +1,4 @@
-= CDF Workshop
+= CDF Workshops
 
 == Introduction
 
@@ -6,13 +6,15 @@ In this hands-on workshop, you will build a full OT to IT workflow for an **IoT 
 
 image::images/iot-architecture.png[width=800]
 
-=== Labs
+=== Workshops
 
 IMPORTANT: If this is your first time going through this content, please read the rest of this README introduction before jumping to the Labs.
 
 If you already familiar with the instructions in the README, time to start working and see some interesting stuff! Pick your lab and let's get started!
 
-* link:streaming.adoc[From Edge to Streams Processing]
+* link:workshop_edge.adoc[Ingesting data from the edge]
+* link:workshop_nifi.adoc[NiFi and Streams Processing]
+* link:workshop_dataviz.adoc[Creating Dashboards with Cloudera Data Viz]
 * link:streams_replication.adoc[Streams Replication]
 * link:sql_stream_builder.adoc[Querying streams with SQL]
 * link:spark_analytics.adoc[Spark and Fast Analytics with Kudu]

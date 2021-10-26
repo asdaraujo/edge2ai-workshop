@@ -9,7 +9,7 @@ _CREATE_KUDU_TABLE = """
 CREATE TABLE IF NOT EXISTS sensors
 (
  sensor_id INT,
- sensor_ts TIMESTAMP,
+ sensor_ts BIGINT,
  sensor_0 DOUBLE,
  sensor_1 DOUBLE,
  sensor_2 DOUBLE,

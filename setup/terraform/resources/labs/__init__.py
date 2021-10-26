@@ -112,17 +112,29 @@ class AbstractWorkshopMeta(ABCMeta):
 
 
 class AbstractWorkshop(metaclass=AbstractWorkshopMeta):
-    def __init__(self, run_id=None):
+    def __init__(self, run_id=None, context=None):
         class _Context(object):
             pass
 
-        self.context = _Context()
+        self.context = context or _Context()
         self.run_id = run_id if run_id is not None else get_run_id()
 
     @classmethod
     @abstractmethod
     def workshop_id(cls):
-        """Return a short string to identify the CA type."""
+        """Return a short string to identify the workshop."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def prereqs(cls):
+        """
+        Return a list of prereqs for this workshop. The list can contain either:
+          - Strings identifying the name of other workshops that need to be setup before this one does. In
+            this case all the labs of the specified workshop will be setup.
+          - Tuples (String, Integer), where the String specifies the name of the workshop and Integer the number
+            of the last lab of that workshop to be executed/setup.
+        """
         pass
 
     def before_setup(self):
@@ -135,7 +147,20 @@ class AbstractWorkshop(metaclass=AbstractWorkshopMeta):
     def teardown(self):
         pass
 
+    def _execute_prereqs(self):
+        global WORKSHOPS
+        for prereq in self.prereqs():
+            if isinstance(prereq, str):
+                workshop = prereq
+                lab = 99
+            else:
+                workshop, lab = prereq
+
+            LOG.info('Executing prereqs setup: Workshop {}, Lab < {}'.format(workshop, lab))
+            WORKSHOPS[workshop](self.run_id, self.context).setup(lab)
+
     def setup(self, target_lab=99):
+        self._execute_prereqs()
         self.before_setup()
         lab_setup_functions = [(n, f, _get_step_number(n)) for n, f in
                                getmembers(self.__class__) if _get_step_number(n) is not None]
@@ -147,7 +172,10 @@ class AbstractWorkshop(metaclass=AbstractWorkshopMeta):
             else:
                 LOG.debug("[{0}] is numbered higher than target [lab{1}], skipping".format(func_name, target_lab))
         self.after_setup()
+        return self.context
 
+    def get_artifacts_dir(self):
+        return os.path.join(os.path.dirname(__file__), 'artifacts', self.workshop_id())
 
 def _load_workshops():
     base_dir = get_base_dir()
@@ -158,22 +186,24 @@ def _load_workshops():
 
 
 def global_setup(target_workshop='base', target_lab=99, run_id=None):
-    LOG.info('Executing global setup for Lab {} in Workshop {}'.format(target_workshop, target_lab))
     _load_workshops()
     if target_workshop in WORKSHOPS:
+        LOG.info('Executing setup for Lab {} in Workshop {}'.format(target_workshop, target_lab))
         WORKSHOPS[target_workshop](run_id).setup(target_lab)
     else:
         raise RuntimeError("Workshop [{}] not found. Known workshops are: {}".format(target_workshop, WORKSHOPS))
     LOG.info('Global setup completed successfully!')
 
 
-def global_teardown(target_workshop='base', run_id=None):
-    LOG.info('Executing global teardown for Workshop {}'.format(target_workshop))
+def global_teardown(target_workshop=None, run_id=None):
     _load_workshops()
-    if target_workshop in WORKSHOPS:
+    if target_workshop is not None:
+        LOG.info('Executing teardown for Workshop {}'.format(target_workshop))
         WORKSHOPS[target_workshop](run_id).teardown()
     else:
-        raise RuntimeError("Workshop [{}] not found. Known workshops are: {}".format(target_workshop, WORKSHOPS))
+        for target_workshop in WORKSHOPS:
+            LOG.info('Executing teardown for Workshop {}'.format(target_workshop))
+            WORKSHOPS[target_workshop](run_id).teardown()
     LOG.info('Global teardown completed successfully!')
 
 

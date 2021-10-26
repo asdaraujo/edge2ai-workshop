@@ -15,9 +15,22 @@ function get_model_status() {
   CDSW_ALTUS_API="cdsw.$ip.nip.io/api/altus-ds-1"
   status=""
   for scheme in http https; do
-    token=$("${CURL[@]}" -X POST --cookie-jar .curl.cj.$$ --cookie .curl.cj.$$ -H "Content-Type: application/json" --data '{"_local":false,"login":"admin","password":"'"${THE_PWD}"'"}' "$scheme://$CDSW_API/authenticate" 2>/dev/null | jq -r '.auth_token' 2> /dev/null)
+    token=$("${CURL[@]}" -X POST --cookie-jar .curl.cj-model.$$ --cookie .curl.cj-model.$$ -H "Content-Type: application/json" --data '{"_local":false,"login":"admin","password":"'"${THE_PWD}"'"}' "$scheme://$CDSW_API/authenticate" 2>/dev/null | jq -r '.auth_token // empty' 2> /dev/null)
     [[ ! -n $token ]] && continue
-    status=$("${CURL[@]}" -X POST --cookie-jar .curl.cj.$$ --cookie .curl.cj.$$ -H "Content-Type: application/json" -H "Authorization: Bearer $token" --data '{"projectOwnerName":"admin","latestModelDeployment":true,"latestModelBuild":true}' "$scheme://$CDSW_ALTUS_API/models/list-models" 2>/dev/null | jq -r '.[].latestModelDeployment | select(.model.name == "IoT Prediction Model").status' 2>/dev/null)
+    status=$("${CURL[@]}" -X POST --cookie-jar .curl.cj-model.$$ --cookie .curl.cj-model.$$ -H "Content-Type: application/json" -H "Authorization: Bearer $token" --data '{"projectOwnerName":"admin","latestModelDeployment":true,"latestModelBuild":true}' "$scheme://$CDSW_ALTUS_API/models/list-models" 2>/dev/null | jq -r '.[].latestModelDeployment | select(.model.name == "IoT Prediction Model").status' 2>/dev/null)
+    [[ -n $status ]] && break
+  done
+  echo -n $status
+}
+
+function get_viz_status() {
+  local ip=$1
+  CDSW_API="cdsw.$ip.nip.io/api/v1"
+  status=""
+  for scheme in http https; do
+    token=$("${CURL[@]}" -X POST --cookie-jar .curl.cj-viz.$$ --cookie .curl.cj-viz.$$ -H "Content-Type: application/json" --data '{"_local":false,"login":"admin","password":"'"${THE_PWD}"'"}' "$scheme://$CDSW_API/authenticate" 2>/dev/null | jq -r '.auth_token // empty' 2> /dev/null)
+    [[ ! -n $token ]] && continue
+    status=$("${CURL[@]}" -X GET --cookie-jar .curl.cj-viz.$$ --cookie .curl.cj-viz.$$ -H "Content-Type: application/json" -H "Authorization: Bearer $token" "$scheme://$CDSW_API/projects/admin/vizapps-workshop/applications" 2>/dev/null | jq -r '.[0].status // empty' 2>/dev/null)
     [[ -n $status ]] && break
   done
   echo -n $status
@@ -50,8 +63,10 @@ if [ -s $TF_JSON_FILE ]; then
     (("${CURL[@]}" http://$host:8888/                ;  "${CURL[@]}" https://$host:8889/)                2>/dev/null | grep "<title>Hue" > /dev/null 2>&1 && echo Ok) > .curl.hue.$$ &
     (("${CURL[@]}" http://cdsw.$ip.nip.io/           || "${CURL[@]}" https://cdsw.$ip.nip.io/)           2>/dev/null | egrep "(Cloudera Machine Learning|Cloudera Data Science Workbench)" > /dev/null 2>&1 && echo Ok) > .curl.cml.$$ &
     (get_model_status $ip) > .curl.model.$$ &
-    ("${CURL[@]}" http://viz.cdsw.$ip.nip.io/arc/adminapi/users 2>/dev/null | grep 'user' > /dev/null 2>&1 && echo running) > .curl.viz.$$ &
+#    ("${CURL[@]}" http://viz.cdsw.$ip.nip.io/arc/adminapi/users 2>/dev/null | grep 'user' > /dev/null 2>&1 && echo running) > .curl.viz.$$ &
+    (get_viz_status $ip) > .curl.viz.$$ &
     wait
+#    printf "%-30s %-20s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %s\n" "$instance" "$ip" "$(cat .curl.web.$$)" "$(cat .curl.cm.$$)" "$(cat .curl.cem.$$)" "$(cat .curl.nifi.$$)" "$(cat .curl.nifireg.$$)" "$(cat .curl.schreg.$$)" "$(cat .curl.smm.$$)" "$(cat .curl.hue.$$)" "$(cat .curl.cml.$$)" "$(cat .curl.model.$$)"
     printf "%-30s %-20s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-14s %s\n" "$instance" "$ip" "$(cat .curl.web.$$)" "$(cat .curl.cm.$$)" "$(cat .curl.cem.$$)" "$(cat .curl.nifi.$$)" "$(cat .curl.nifireg.$$)" "$(cat .curl.schreg.$$)" "$(cat .curl.smm.$$)" "$(cat .curl.hue.$$)" "$(cat .curl.cml.$$)" "$(cat .curl.model.$$)" "$(cat .curl.viz.$$)"
   done | sort -t\[ -k1,1r -k2,2n
 fi
