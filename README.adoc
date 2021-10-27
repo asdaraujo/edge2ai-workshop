@@ -15,8 +15,8 @@ If you already familiar with the instructions in the README, time to start worki
 * link:workshop_edge.adoc[Ingesting data from the edge]
 * link:workshop_nifi.adoc[NiFi and Streams Processing]
 * link:workshop_dataviz.adoc[Creating Dashboards with Cloudera Data Viz]
+* link:workshop_ssb.adoc[Querying streams with SQL]
 * link:streams_replication.adoc[Streams Replication]
-* link:sql_stream_builder.adoc[Querying streams with SQL]
 * link:spark_analytics.adoc[Spark and Fast Analytics with Kudu]
 * link:datascience.adoc[CDSW Experiments and Models]
 
