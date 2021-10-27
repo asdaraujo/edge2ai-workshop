@@ -409,61 +409,11 @@ Replacement Value Strategy: Record Path Value
 
 . Connect the *Update health flag* to the same _Funnel_ you had created above. When prompted, check the *failure* relationship for this connection.
 
-==== PutKudu processor
-
-. Add a *PutKudu* processor to the canvas and configure it as shown below:
-+
-*SETTINGS* tab:
-+
-[source]
-----
-Name: Write to Kudu
-----
-+
-*PROPERTIES* tab:
-+
-[source]
-----
-Kudu Masters:                    edge2ai-1.dim.local:7051
-Table Name:
-    If Kudu version is 1.14.x:   default.sensors
-    For all other Kudu versions: impala::default.sensors
-Record Reader:                   JsonTreeReader - With schema identifier
-----
-+
-NOTE: You can check the Kudu version on the Kudu Master Web UI at `http://cdp.<YOUR_CLUSTER_PUBLIC_IP>.nip.io:8051/`
-
-. Connect the *Update health flag* processor to the *Write to Kudu* one. When prompted, check the *success* relationship for this connection.
-
-. Connect the *Write to Kudu* to the same _Funnel_ you had created above. When prompted, check the *failure* relationship for this connection.
-
-. Double-click on the *Write to Kudu* processor, go to the *SETTINGS* tab, check the "*success*" relationship in the *AUTOMATICALLY TERMINATED RELATIONSHIPS* section. Click *Apply*.
-
-==== CDSW Access Key
-
-When we added the *Predict machine health* above, you may have noticed that one of the properties (`request.body`) makes a reference to a variable called `cdsw.access.key`. This is an application key required to authenticate with the CDSW Model API when requesting predictions. So, we need to provide the key to the _LookupRecord_ processor by setting a variable with its value.
-
-. To get the Access Key, go to the CDSW Web UI and click on *Models > Iot Prediction Model > Settings*. Copy the Access Key.
-+
-image::images/nifi/model_access_key.png[width=800]
-
-. Go back to the NiFi Web UI, right-click on an empty area of the *Process Sensor Data* canvas, and click on *Variables*.
-
-. Click on the _plus_ button (image:images/nifi/plus_button.png[width=25]) and add the following variable:
-+
-[source]
-----
-Variable Name:  cdsw.access.key
-Variable Value: <key copied from CDSW>
-----
-+
-image::images/nifi/access_key_variable.png[width=800]
-
-. Click *Apply*
-
 ==== Create the Kudu table
 
-NOTE: If you already created this table in a previous workshop, please skip the table creation here.
+In the next section you will configure a _PutKudu_ processor in NiFi to write data to a Kudu table. Before you configure that processor, let's create the Kudu table.
+
+NOTE: If you already created this table in a previous workshop, you can skip the creation steps below.
 
 . Go to the Hue Web UI and login. The first user to login to a Hue installation is automatically created and granted admin privileges in Hue.
 
@@ -471,7 +421,9 @@ NOTE: If you already created this table in a previous workshop, please skip the 
 +
 image::images/nifi/impala_editor.png[width=800]
 
-. First, create the Kudu table. Login into Hue, and in the Impala Query, run this statement:
+. Create the Kudu table.
++
+Log in into Hue, and in the *Impala Query Editor*, run this statement:
 +
 [source,sql]
 ----
@@ -500,6 +452,67 @@ TBLPROPERTIES ('kudu.num_tablet_replicas' = '1');
 ----
 +
 image::images/nifi/create_table.png[width=800]
+
+. When you create the `sensors` table in Impala, the name of the backend Kudu table created by Impala can very, depending on the exact version of you CDP cluster.
+You need to know the exact name of the table to use in the configuration of the _PutKudu_ processor in the next section.
++
+You can find out the name of the Kudu table in Hue's *Table Browser*.
++
+Click on the *Table Browser* icon on the left-hand side and navigate to the `default` database. Click on the `sensors` table and open its *Details* tab.
++
+Take note of the Kudu table name.
++
+image::images/nifi/kudu-table-name.png[width=800]
+
+
+==== PutKudu processor
+
+. Add a *PutKudu* processor to the canvas and configure it as shown below:
++
+*SETTINGS* tab:
++
+[source]
+----
+Name: Write to Kudu
+----
++
+*PROPERTIES* tab:
++
+[source]
+----
+Kudu Masters:                    edge2ai-1.dim.local:7051
+Table Name:                      <KUDU_TABLE_NAME (see previous section)>
+Record Reader:                   JsonTreeReader - With schema identifier
+----
++
+
+. Connect the *Update health flag* processor to the *Write to Kudu* one. When prompted, check the *success* relationship for this connection.
+
+. Connect the *Write to Kudu* to the same _Funnel_ you had created above. When prompted, check the *failure* relationship for this connection.
+
+. Double-click on the *Write to Kudu* processor, go to the *SETTINGS* tab, check the "*success*" relationship in the *AUTOMATICALLY TERMINATED RELATIONSHIPS* section. Click *Apply*.
+
+==== CDSW Access Key
+
+When we added the *Predict machine health* above, you may have noticed that one of the properties (`request.body`) makes a reference to a variable called `cdsw.access.key`. This is an application key required to authenticate with the CDSW Model API when requesting predictions. So, we need to provide the key to the _LookupRecord_ processor by setting a variable with its value.
+
+. To get the Access Key, go to the CDSW Web UI and click on *Models > Iot Prediction Model > Settings*. Copy the Access Key.
++
+image::images/nifi/model_access_key.png[width=800]
+
+. Go back to the NiFi Web UI, right-click on an empty area of the *Process Sensor Data* canvas, and click on *Variables*.
+
+. Click on the _plus_ button (image:images/nifi/plus_button.png[width=25]) and add the following variable:
++
+[source]
+----
+Variable Name:  cdsw.access.key
+Variable Value: <key copied from CDSW>
+----
++
+image::images/nifi/access_key_variable.png[width=800]
+
+. Click *Apply*
 
 ==== Running the flow
 

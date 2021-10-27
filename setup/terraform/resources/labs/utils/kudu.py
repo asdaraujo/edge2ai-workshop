@@ -64,6 +64,17 @@ def drop_table():
         raise RuntimeError('Failed to drop Kudu table, response was:', str(result))
 
 
+def get_kudu_table_name(database_name, table_name):
+    conn = _connect_to_impala()
+    cursor = conn.cursor()
+    cursor.execute('DESCRIBE EXTENDED `{}`.`{}`'.format(database_name, table_name))
+    result = cursor.fetchall()
+    for _, col2, col3 in result:
+        if col2 and col3 and col2.strip() == 'kudu.table_name':
+            return col3.strip()
+    return None
+
+
 def get_version():
     if is_tls_enabled():
         resp = requests.get('https://' + get_hostname() + ':8051/', verify=False, auth=HTTPSPNEGOAuth())

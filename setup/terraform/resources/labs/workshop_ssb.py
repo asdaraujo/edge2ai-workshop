@@ -3,14 +3,42 @@
 """
 Common utilities for Python scripts
 """
-import json
-import os.path
-
-from nipyapi import canvas, versioning, nifi
-from nipyapi.nifi.rest import ApiException
-
 from . import *
-from .utils import dataviz
+from .utils import ssb, schreg
+
+KAFKA_PROVIDER_NAME = 'edge2ai-kafka'
+KAFKA_PROVIDER_BROKERS = 'edge2ai-1.dim.local:9092'
+KAFKA_PROVIDER_PROTOCOL = 'plaintext'
+
+SR_PROVIDER_NAME = 'sr'
+SR_PROVIDER_DATABASE_FILTER = '.*'
+SR_PROVIDER_TABLE_FILTER = 'iot.*'
+
+IOT_ENRICHED_TABLE = 'iot_enriched'
+IOT_ENRICHED_TOPIC = 'iot_enriched'
+IOT_ENRICHED_TS_COLUMN = 'sensor_ts'
+IOT_ENRICHED_ROWTIME_COLUMN = 'event_time'
+IOT_ENRICHED_GROUP_ID = 'ssb-iot-1'
+IOT_ENRICHED_OFFSET = 'earliest'
+IOT_ENRICHED_TRANSFORM = '''// parse the JSON record
+var parsedVal = JSON.parse(record.value);
+// Convert sensor_ts from micro to milliseconds
+parsedVal['sensor_ts'] = Math.round(parsedVal['sensor_ts']/1000);
+// serialize output as JSON
+JSON.stringify(parsedVal);'''
+
+IOT_ENRICHED_AVRO_TOPIC = 'iot_enriched_avro'
+
+SCHEMA_URI = 'http://raw.githubusercontent.com/cloudera-labs/edge2ai-workshop/master/sensor.avsc'
+
+
+def read_schema():
+    global SCHEMA_URI
+    resp = requests.get(SCHEMA_URI)
+    if resp.status_code == 200:
+        return resp.text
+    raise ValueError("Unable to retrieve schema from URI, response was %s", resp.status_code)
+
 
 class SqlStreamBuilderWorkshop(AbstractWorkshop):
 
@@ -37,7 +65,51 @@ class SqlStreamBuilderWorkshop(AbstractWorkshop):
         pass
 
     def teardown(self):
-        pass
+        ssb.delete_data_provider(SR_PROVIDER_NAME)
+        try:
+            schreg.delete_schema(IOT_ENRICHED_AVRO_TOPIC)
+        except RuntimeError:
+            pass # ignore if schema does not exist
+        ssb.delete_table(IOT_ENRICHED_TABLE)
+        ssb.delete_data_provider(KAFKA_PROVIDER_NAME)
 
-    def lab2_create_connection(self):
-        pass
+    def lab1_create_kafka_data_provider(self):
+        props = {
+            'brokers': KAFKA_PROVIDER_BROKERS,
+            'protocol': KAFKA_PROVIDER_PROTOCOL,
+            'username': None,
+            'password': None,
+            'mechanism': 'KERBEROS',
+            'ssl.truststore.location': None,
+        }
+        ssb.create_data_provider(KAFKA_PROVIDER_NAME, 'kafka', props)
+
+    def lab2_create_iot_enriched_table(self):
+        ssb.create_kafka_table(
+            IOT_ENRICHED_TABLE, 'JSON',
+            KAFKA_PROVIDER_NAME, IOT_ENRICHED_TOPIC,
+            transform_code=IOT_ENRICHED_TRANSFORM,
+            timestamp_column=IOT_ENRICHED_TS_COLUMN,
+            rowtime_column=IOT_ENRICHED_ROWTIME_COLUMN,
+            kafka_properties={
+                'group.id': IOT_ENRICHED_GROUP_ID,
+                'auto.offset.reset': IOT_ENRICHED_OFFSET,
+            })
+
+    def lab3_schema_registry_integration(self):
+        schreg.create_schema(
+            IOT_ENRICHED_AVRO_TOPIC, 'Schema for the data in the iot_enriched_avro topic', read_schema())
+
+        provider_id = ssb.get_data_providers(KAFKA_PROVIDER_NAME)[0]['provider_id']
+        props = {
+            'catalog_type': 'registry',
+            'kafka.provider.id': provider_id,
+            'registry.address': schreg.get_api_url(),
+            'table_filters': [
+                {
+                    'database_filter': SR_PROVIDER_DATABASE_FILTER,
+                    'table_filter': SR_PROVIDER_TABLE_FILTER,
+                }
+            ],
+        }
+        ssb.create_data_provider(SR_PROVIDER_NAME, 'catalog', props)

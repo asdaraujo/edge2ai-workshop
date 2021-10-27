@@ -4,8 +4,6 @@ from requests_gssapi import HTTPSPNEGOAuth
 
 from . import *
 
-_SCHEMA_URI = 'http://raw.githubusercontent.com/cloudera-labs/edge2ai-workshop/master/sensor.avsc'
-
 
 def _get_port():
     return '7790' if is_tls_enabled() else '7788'
@@ -50,10 +48,10 @@ def get_all_schemas():
 
 def delete_all_schemas():
     for schema in get_all_schemas():
-        _delete_schema(schema['schemaMetadata']['name'])
+        delete_schema(schema['schemaMetadata']['name'])
 
 
-def _delete_schema(name):
+def delete_schema(name):
     endpoint = '/schemaregistry/schemas/{name}'.format(name=name)
     _api_delete(endpoint, headers={'Content-Type': 'application/json'})
     LOG.debug('Schema %s deleted.', name)
@@ -82,13 +80,3 @@ def _create_schema_version(name, schema_text):
         'schemaText': schema_text
     }
     _api_post(endpoint, requests.codes.created, headers={'Content-Type': 'application/json'}, json=body)
-
-
-def read_in_schema(uri=_SCHEMA_URI):
-    if 'SCHEMA_FILE' in os.environ and os.path.exists(os.environ['SCHEMA_FILE']):
-        return open(os.environ['SCHEMA_FILE']).read()
-    else:
-        r = requests.get(uri)
-        if r.status_code == 200:
-            return r.text
-        raise ValueError("Unable to retrieve schema from URI, response was %s", r.status_code)

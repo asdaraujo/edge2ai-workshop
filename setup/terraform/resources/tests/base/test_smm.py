@@ -6,7 +6,7 @@ Testing SMM
 import pytest
 import requests
 from ...labs import exception_context, retry_test
-from ...labs.workshop_base import CONSUMER_GROUP_ID, PRODUCER_CLIENT_ID
+from ...labs.workshop_nifi import CONSUMER_GROUP_ID, PRODUCER_CLIENT_ID
 from ...labs.utils import smm
 
 EXPECTED_KAFKA_CONNECT_SINK_PLUGINS = {

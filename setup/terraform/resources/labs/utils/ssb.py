@@ -3,73 +3,128 @@
 import json
 from . import *
 
-_DATAVIZ_SESSION = None
-_DATAVIZ_CSRF_TOKEN = None
-_DATAVIZ_USER = 'admin'
-
+_SSB_USER = 'admin'
+_SSB_SESSION = None
+_SSB_CSRF_TOKEN = None
 
 def _get_api_url():
-    return get_url_scheme() + '://viz.cdsw.{}.nip.io/arc'.format(get_public_ip())
+    return get_url_scheme() + '://cdp.{}.nip.io:8000/api/v1'.format(get_public_ip())
 
 
-def _api_call(func, path, data=None, files=None, headers=None):
-    global _DATAVIZ_CSRF_TOKEN
+def _get_ui_url():
+    return get_url_scheme() + '://cdp.{}.nip.io:8000/ui'.format(get_public_ip())
+
+
+def _api_call(func, path, data=None, files=None, headers=None, ui=False, token=False):
+    global _SSB_CSRF_TOKEN
     if not headers:
         headers = {}
-        headers.update({
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'X-CSRFToken': _DATAVIZ_CSRF_TOKEN,
-        })
-    url = _get_api_url() + path
+    if not ui:
+        headers['Content-Type'] = 'application/json'
+        data = json.dumps(data)
+    if token:
+        headers['X-CSRF-TOKEN'] = _SSB_CSRF_TOKEN
+    url = (_get_ui_url() if ui else _get_api_url()) + path
     resp = func(url, data=data, headers=headers, files=files)
     if resp.status_code != requests.codes.ok:
-        raise RuntimeError("Call to {} returned status {}. Text: {}".format(
-            url, resp.status_code, resp.text))
+        raise RuntimeError("Call to {} returned status {}. \nData: {}\nResponse: {}".format(
+            url, resp.status_code, json.dumps(data), resp.text))
 
-    m = re.match(r'.*name="csrfmiddlewaretoken" type="hidden" value="([^"]*)"', resp.text, flags=re.DOTALL)
+    m = re.match(r'.*name="csrf_token" type="hidden" value="([^"]*)"', resp.text, flags=re.DOTALL)
     if m:
-        _DATAVIZ_CSRF_TOKEN = m.groups()[0]
-    else:
-        m = re.match(r'.*"csrfmiddlewaretoken": "([^"]*)"', resp.text, flags=re.DOTALL)
-        if m:
-            _DATAVIZ_CSRF_TOKEN = m.groups()[0]
+        _SSB_CSRF_TOKEN = m.groups()[0]
 
     return resp
 
 
-def _api_get(path, data=None):
-    return _api_call(_get_session().get, path, data=data)
+def _api_get(path, data=None, ui=False, token=False):
+    return _api_call(_get_session().get, path, data=data, ui=ui, token=token)
 
 
-def _api_post(path, data=None, files=None, headers=None):
-    return _api_call(_get_session().post, path, data=data, files=files, headers=headers)
+def _api_post(path, data=None, files=None, headers=None, ui=False, token=False):
+    return _api_call(_get_session().post, path, data=data, files=files, headers=headers, ui=ui, token=token)
 
 
-def _api_delete(path, data=None):
-    return _api_call(_get_session().delete, path, data=data)
+def _api_delete(path, data=None, ui=False, token=False):
+    return _api_call(_get_session().delete, path, data=data, ui=ui, token=token)
 
 
 def _get_session():
-    global _DATAVIZ_SESSION
-    if not _DATAVIZ_SESSION:
-        _DATAVIZ_SESSION = requests.Session()
+    global _SSB_SESSION
+    if not _SSB_SESSION:
+        _SSB_SESSION = requests.Session()
         if is_tls_enabled():
-            _DATAVIZ_SESSION.verify = get_truststore_path()
+            _SSB_SESSION.verify = get_truststore_path()
 
-        _api_get('/apps/login')
-        _api_post('/apps/login?', {'next': '', 'username': _DATAVIZ_USER, 'password': get_the_pwd()})
-    return _DATAVIZ_SESSION
+        _api_get('/login', ui=True)
+        _api_post('/login', {'next': '', 'login': _SSB_USER, 'password': get_the_pwd()}, ui=True, token=True)
+    return _SSB_SESSION
 
 
-def create_api_key():
+def create_data_provider(provider_name, provider_type, properties):
     data = {
-        'username': 'admin',
-        'apikey': 'New key will be generated on save',
-        'active': 'true',
-        'expires': 'Invalid date',
+        'name': provider_name,
+        'provider_type': provider_type,
+        'properties': properties,
     }
-    resp = _api_post('/apps/apikey_api', data)
-    return resp.json()['apikey'], resp.json()['secret_apikey']
+    return _api_post('/external-providers', data)
+
+
+def get_data_providers(provider_name=None):
+    resp = _api_get('/external-providers')
+    providers = resp.json()['data']['providers']
+    return [p for p in providers if provider_name is None or p['name'] == provider_name]
+
+
+def delete_data_provider(provider_name):
+    assert provider_name is not None
+    for provider in get_data_providers(provider_name):
+        _api_delete('/external-providers/{}'.format(provider['provider_id']))
+
+
+def detect_schema(provider_name, topic_name):
+    provider_id = get_data_providers(provider_name)[0]['provider_id']
+    return json.dumps(_api_get('/dataprovider-endpoints/kafkaSample/{}/{}'.format(provider_id, topic_name)).json()['data'], indent=2)
+
+
+def create_kafka_table(table_name, table_format, provider_name, topic_name, schema=None, transform_code=None,
+                       timestamp_column=None, rowtime_column=None, watermark_seconds=None,
+                       kafka_properties=None):
+    assert table_format in ['JSON', 'AVRO']
+    assert table_format == 'JSON' or schema is not None
+    provider_id = get_data_providers(provider_name)[0]['provider_id']
+    if table_format == 'JSON' and schema is None:
+        schema = detect_schema(provider_name, topic_name)
+    data = {
+        'type': 'kafka',
+        'table_name': table_name,
+        'transform_code': transform_code,
+        'metadata': {
+            'topic': topic_name,
+            'format': table_format,
+            'endpoint': provider_id,
+            'watermark_spec': {
+                'timestamp_column': timestamp_column,
+                'rowtime_column': rowtime_column,
+                'watermark_seconds': watermark_seconds,
+            },
+            'properties': kafka_properties or {},
+            "schema": schema,
+        }
+    }
+    return _api_post('/sb-source', data, token=True)
+
+
+def get_tables(table_name=None):
+    resp = _api_get('/sb-source')
+    tables = resp.json()['data']
+    return [t for t in tables if table_name is None or t['table_name'] == table_name]
+
+
+def delete_table(table_name):
+    assert table_name is not None
+    for table in get_tables(table_name):
+        _api_delete('/sb-source/{}'.format(table['id']), token=True)
 
 
 def delete_api_key(apikey):

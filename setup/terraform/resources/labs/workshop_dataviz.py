@@ -3,11 +3,7 @@
 """
 Common utilities for Python scripts
 """
-import json
 import os.path
-
-from nipyapi import canvas, versioning, nifi
-from nipyapi.nifi.rest import ApiException
 
 from . import *
 from .utils import dataviz

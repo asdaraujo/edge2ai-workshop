@@ -17,9 +17,16 @@ def _get_api_url():
     return '%s://%s:%s/nifi-api' % (get_url_scheme(), get_hostname(), _get_port())
 
 
-def create_processor(pg, name, processor_type, position, cfg):
-    proc_type = canvas.get_processor_type(processor_type, identifier_type='name')
-    return canvas.create_processor(pg, proc_type, position, name, cfg)
+def create_processor(pg, name, processor_types, position, cfg):
+    if isinstance(processor_types, str):
+        processor_types = [processor_types]
+    all_proc_types = canvas.list_all_processor_types().processor_types
+    for processor_type in processor_types:
+        choosen_type = [p for p in all_proc_types if p.type == processor_type]
+        if choosen_type:
+            return canvas.create_processor(pg, choosen_type[0], position, name, cfg)
+    raise RuntimeError("Processor types {} not found in available list: {}",
+                       processor_types, [p.type for p in all_proc_types])
 
 
 def create_funnel(pg_id, position):

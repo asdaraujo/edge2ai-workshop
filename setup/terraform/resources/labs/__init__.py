@@ -147,7 +147,7 @@ class AbstractWorkshop(metaclass=AbstractWorkshopMeta):
     def teardown(self):
         pass
 
-    def _execute_prereqs(self):
+    def _setup_prereqs(self):
         global WORKSHOPS
         for prereq in self.prereqs():
             if isinstance(prereq, str):
@@ -157,10 +157,21 @@ class AbstractWorkshop(metaclass=AbstractWorkshopMeta):
                 workshop, lab = prereq
 
             LOG.info('Executing prereqs setup: Workshop {}, Lab < {}'.format(workshop, lab))
-            WORKSHOPS[workshop](self.run_id, self.context).setup(lab)
+            WORKSHOPS[workshop](self.run_id, self.context).execute_setup(lab)
 
-    def setup(self, target_lab=99):
-        self._execute_prereqs()
+    def _teardown_prereqs(self):
+        global WORKSHOPS
+        for prereq in self.prereqs():
+            if isinstance(prereq, str):
+                workshop = prereq
+            else:
+                workshop, _ = prereq
+
+            LOG.info('Executing prereqs teardown: Workshop {}'.format(workshop))
+            WORKSHOPS[workshop](self.run_id, self.context).execute_teardown()
+
+    def execute_setup(self, target_lab=99):
+        self._setup_prereqs()
         self.before_setup()
         lab_setup_functions = [(n, f, _get_step_number(n)) for n, f in
                                getmembers(self.__class__) if _get_step_number(n) is not None]
@@ -173,6 +184,10 @@ class AbstractWorkshop(metaclass=AbstractWorkshopMeta):
                 LOG.debug("[{0}] is numbered higher than target [lab{1}], skipping".format(func_name, target_lab))
         self.after_setup()
         return self.context
+
+    def execute_teardown(self):
+        self.teardown()
+        self._teardown_prereqs()
 
     def get_artifacts_dir(self):
         return os.path.join(os.path.dirname(__file__), 'artifacts', self.workshop_id())
@@ -189,21 +204,21 @@ def global_setup(target_workshop='base', target_lab=99, run_id=None):
     _load_workshops()
     if target_workshop in WORKSHOPS:
         LOG.info('Executing setup for Lab {} in Workshop {}'.format(target_workshop, target_lab))
-        WORKSHOPS[target_workshop](run_id).setup(target_lab)
+        WORKSHOPS[target_workshop](run_id).execute_setup(target_lab)
     else:
         raise RuntimeError("Workshop [{}] not found. Known workshops are: {}".format(target_workshop, WORKSHOPS))
     LOG.info('Global setup completed successfully!')
 
 
-def global_teardown(target_workshop=None, run_id=None):
+def global_teardown(target_workshop='base', run_id=None):
     _load_workshops()
     if target_workshop is not None:
         LOG.info('Executing teardown for Workshop {}'.format(target_workshop))
-        WORKSHOPS[target_workshop](run_id).teardown()
+        WORKSHOPS[target_workshop](run_id).execute_teardown()
     else:
         for target_workshop in WORKSHOPS:
             LOG.info('Executing teardown for Workshop {}'.format(target_workshop))
-            WORKSHOPS[target_workshop](run_id).teardown()
+            WORKSHOPS[target_workshop](run_id).execute_teardown()
     LOG.info('Global teardown completed successfully!')
 
 
