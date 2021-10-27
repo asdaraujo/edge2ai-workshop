@@ -74,8 +74,12 @@
           "roleType": "KAFKA_BROKER",
           "base": true,
           "configs": [
-{% if ENABLE_TLS == 'yes' %}
             {
+              "name": "broker_max_heap_size",
+              "value": "512"
+            }
+{% if ENABLE_TLS == 'yes' %}
+            ,{
               "name": "jmx.ssl.enabled",
               "value": "true"
             },
@@ -102,16 +106,18 @@
             {
               "name": "ssl_server_keystore_password",
               "value": "{{THE_PWD}}"
-            },
-{% endif %}
-            {
-              "name": "broker_max_heap_size",
-              "value": "512"
             }
+{% endif %}
 {% if CDH_MAJOR_VERSION == '6' %}
             ,{
               "name" : "kafka.properties_role_safety_valve",
               "value" : "transaction.state.log.min.isr=1\ntransaction.state.log.replication.factor=1"
+            }
+{% endif %}
+{% if HAS_ATLAS and CDH_VERSION is ge('7.1.7') %}
+            ,{
+              "name" : "atlas.audit.enabled",
+              "value" : "true"
             }
 {% endif %}
           ]
