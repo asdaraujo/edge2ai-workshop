@@ -122,10 +122,9 @@ The workshop's PostgreSQL `cdc_test` database has already been set up with the f
 
 == Labs summary
 
-* *Lab 1* - Creating a Data Provider
 * *Lab 1* - Creating a database table
 * *Lab 2* - Creating a PostgreSQL CDC table in SSB
-* *Lab 3* - Capturing changes to a table
+* *Lab 3* - Capturing table changes
 * *Lab 4* - Replicating table changes
 * *Lab 5* - Capturing changelog events
 
@@ -280,7 +279,7 @@ CREATE TABLE transactions_cdc (
 image::images/cdc/transactions-cdc-details.png[width=600]
 
 [[lab_3, Lab 3]]
-== Lab 3 - Capturing changes to a table
+== Lab 3 - Capturing table changes
 
 The table that you created above receives the stream of changes for the `transactions` table.
 
