@@ -808,11 +808,13 @@ function tighten_keystores_permissions() {
   sudo setfacl -m user:yarn:r--,group:hadoop:r-- $KEYSTORE_JKS
   sudo setfacl -m user:zeppelin:r--,group:zeppelin:r-- $KEYSTORE_JKS
   sudo setfacl -m user:zookeeper:r--,group:zookeeper:r-- $KEYSTORE_JKS
+  sudo setfacl -m user:ssb:r--,group:ssb:r-- $KEYSTORE_JKS
 
   sudo setfacl -m user:hue:r--,group:hue:r-- $KEY_PEM
   sudo setfacl -m user:impala:r--,group:impala:r-- $KEY_PEM
   sudo setfacl -m user:kudu:r--,group:kudu:r-- $KEY_PEM
   sudo setfacl -m user:streamsmsgmgr:r--,group:streamsmsgmgr:r-- $KEY_PEM
+  sudo setfacl -m user:ssb:r--,group:ssb:r-- $KEY_PEM
   set -e
 }
 
