@@ -570,6 +570,14 @@ wal_buffers = 8MB
 checkpoint_completion_target = 0.9
 EOF
 
+# Configure postgresql for Debezium use
+sed -i '/^[ #]*\(wal_level\|max_wal_senders\|max_replication_slots\) *=.*/ d' /var/lib/pgsql/10/data/postgresql.conf
+cat >> /var/lib/pgsql/10/data/postgresql.conf <<EOF
+wal_level = logical
+max_wal_senders = 10
+max_replication_slots = 10
+EOF
+
 echo "-- Start PostgreSQL"
 systemctl enable postgresql-10
 systemctl start postgresql-10

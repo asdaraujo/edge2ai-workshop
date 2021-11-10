@@ -51,3 +51,14 @@ CREATE DATABASE eventador_admin OWNER eventador_admin ENCODING 'UTF8';
 
 CREATE USER eventador_snapper WITH PASSWORD :'the_pwd';
 CREATE DATABASE eventador_snapper OWNER eventador_snapper ENCODING 'UTF8';
+
+-- Configuration for Flink Debezium connector
+CREATE DATABASE cdc_test;
+CREATE ROLE cdc_user WITH REPLICATION LOGIN PASSWORD :'the_pwd';
+GRANT CONNECT ON DATABASE cdc_test TO cdc_user;
+\c cdc_test
+SELECT * FROM pg_create_logical_replication_slot('flink', 'pgoutput',  false);
+CREATE PUBLICATION dbz_publication FOR ALL TABLES;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO cdc_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO cdc_user;
+
