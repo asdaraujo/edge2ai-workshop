@@ -22,7 +22,7 @@ NOTE: The command below will undo everything done in the cluster in previous wor
 * *Lab 1* - Create a Data Provider
 * *Lab 2* - Create a Table for a topic with JSON messages
 * *Lab 3* - Integrate SQL Stream Builder with Schema Registry
-* *Lab 4* - Computing and storing agregation results
+* *Lab 4* - Computing and storing aggregation results
 * *Lab 5* - Materialized Views
 
 [[lab_1, Lab 1]]
@@ -481,6 +481,6 @@ image::images/ssb/mv-parameters.png[width=400]
 == Conclusion
 
 You have now taken data from one topic, calculated aggregated results and written these to another topic.
-IIn order to validate that this was successful you have selected the result with an independent select query.
+In order to validate that this was successful you have selected the result with an independent select query.
 Finally, you created Materialized Views for one of your jobs and queried those views through their REST endpoints.
 
