@@ -2,9 +2,22 @@
 set -e
 set -u
 
+ENABLE_TLS=$1
+
 CURL=(curl -Lsku admin:${THE_PWD} -H "Accept: application/json" -H "Content-Type: application/json")
-RANGER_API_URL="https://$(hostname -f):6182/service"
-NIFI_API_URL="https://$(hostname -f):8443/nifi-api"
+
+if [[ $ENABLE_TLS == "yes" ]]; then
+  HTTP_SCHEME="https"
+  NIFI_PORT="8443"
+  RANGER_PORT="6182"
+else
+  HTTP_SCHEME="http"
+  NIFI_PORT="8080"
+  RANGER_PORT="6080"
+fi
+
+RANGER_API_URL="${HTTP_SCHEME}://$(hostname -f):${RANGER_PORT}/service"
+NIFI_API_URL="${HTTP_SCHEME}://$(hostname -f):${NIFI_PORT}/nifi-api"
 
 NIFI_SERVICE="OneNodeCluster_nifi"
 NIFI_REGISTRY_SERVICE="OneNodeCluster_nifiregistry"
