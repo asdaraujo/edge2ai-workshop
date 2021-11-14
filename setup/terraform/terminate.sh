@@ -18,9 +18,10 @@ NAMESPACE=$1
 load_env $NAMESPACE
 
 if [[ ${2:-you-are-wise} != "destroy-without-confirmation-do-not-try-this-at-home" ]]; then
-  echo "WARNING: if you continue all the instances for the bootcamp environment will be destroyed!!"
+  echo "${C_YELLOW}WARNING: if you continue all the instances for the [$NAMESPACE] environment will be destroyed!!"
   echo -en "\nIf you are certain that you want to destroy the environment, type YES: "
   read confirm
+  echo "${C_NORMAL}"
   if [ "$confirm" != "YES" ]; then
     echo "${C_RED}WARNING: Skipping termination. If you really want to destroy, run it again and answer"
     echo "         the prompt with YES (all caps)."
@@ -30,8 +31,7 @@ if [[ ${2:-you-are-wise} != "destroy-without-confirmation-do-not-try-this-at-hom
 fi
 
 log "Destroying instances"
-(cd $BASE_DIR && run_terraform init)
-(cd $BASE_DIR && run_terraform destroy -parallelism=1000 -auto-approve -state=$TF_STATE)
+run_terraform destroy -parallelism=1000 -auto-approve -state=$TF_STATE
 
 log "Cleaning up"
 rm -f $NAMESPACE_DIR/{.instance.list,.instance.web}

@@ -87,14 +87,13 @@ check_for_orphaned_keys
 ensure_key_pairs
 
 log "Launching Terraform"
-(cd $BASE_DIR && run_terraform init -upgrade)
 # Sets the var below to prevent managed SGs from being added to the SGs we create
 if [ -s $TF_STATE ]; then
-  export TF_VAR_managed_security_group_ids="[$(cd $BASE_DIR && run_terraform show -json $TF_STATE | \
+  export TF_VAR_managed_security_group_ids="[$(run_terraform show -json $TF_STATE | \
     jq -r '.values[]?.resources[]? | select(.type == "aws_security_group").values.id | "\"\(.)\""' | \
     tr "\n" "," | sed 's/,$//')]"
 fi
-(cd $BASE_DIR && run_terraform apply -auto-approve -parallelism="${TF_VAR_parallelism}" -refresh=true -state=$TF_STATE)
+run_terraform apply -auto-approve -parallelism="${TF_VAR_parallelism}" -refresh=true -state=$TF_STATE
 
 log "Deployment completed successfully"
 

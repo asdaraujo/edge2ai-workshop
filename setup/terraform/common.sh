@@ -17,6 +17,8 @@ STACK_BUILD_FILE=.stack.build
 LAST_STACK_CHECK_FILE=$BASE_DIR/.last.stack.build.check
 PUBLIC_IPS_FILE=$BASE_DIR/.hosts.$$
 
+TERRAFORM_DIR=$BASE_DIR/tf
+
 THE_PWD=supersecret1
 
 # Color codes
@@ -377,7 +379,12 @@ function load_env() {
 function run_terraform() {
   local args=("$@")
   check_terraform_version
-  $TERRAFORM "${args[@]}"
+  set +e
+  (set -e; cd $TERRAFORM_DIR && $TERRAFORM validate) > /dev/null 2>&1
+  if [[ $? -ne 0 ]]; then
+    (set -e; cd $TERRAFORM_DIR && $TERRAFORM init -upgrade) > /dev/null 2>&1
+  fi
+  (set -e; cd $TERRAFORM_DIR && $TERRAFORM "${args[@]}")
 }
 
 function check_terraform_version() {

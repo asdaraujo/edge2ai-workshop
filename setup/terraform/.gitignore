@@ -19,6 +19,7 @@
 .schreg
 .smm
 .terraform/
+.terraform.lock.hcl
 .test.env.template
 .tf.json*
 .web.key.file.name
