@@ -351,6 +351,21 @@ EOF
 
   chown -R cloudera-scm:cloudera-scm /opt/cloudera
 
+  # Change Yarn QM Config Service port to avoid conflict with NiFi - see DOCS-9707
+  [[ -f /opt/cloudera/parcels/CDH/lib/queuemanager/lib/conf.yml ]] && sed -i.bak 's/8080/8079/' /opt/cloudera/parcels/CDH/lib/queuemanager/lib/conf.yml || true
+  [[ -f /opt/cloudera/parcels/CDH/lib/queuemanager/lib/cpx-server.jar ]] && (
+    set -e
+    rm -rf /tmp/cpx
+    mkdir /tmp/cpx
+    cd /tmp/cpx
+    jar xf /opt/cloudera/parcels/CDH/lib/queuemanager/lib/cpx-server.jar
+    if [[ -f /tmp/cpx/cpx.properties ]]; then
+      sed -i 's/8080/8079/' /tmp/cpx/cpx.properties
+      jar cf /opt/cloudera/parcels/CDH/lib/queuemanager/lib/cpx-server.jar *
+    fi
+    rm -rf /tmp/cpx
+  )
+
   # Disable EPEL repo to avoid issues during agent deployment
   sed -i 's/enabled=1/enabled=0/' /etc/yum.repos.d/epel*
 
@@ -735,7 +750,7 @@ if [[ ${HAS_RANGER:-0} == 1 && ${HAS_NIFI:-0} == 1 ]]; then
     echo "Waiting for Ranger to restart"
     sleep 1
   done
-  $BASE_DIR/ranger_policies.sh
+  $BASE_DIR/ranger_policies.sh "$ENABLE_TLS"
 fi
 
 echo "-- Configure and start EFM"
