@@ -26,4 +26,4 @@ def test_schema_registry_versions():
     assert version['name'] == 'SensorReading'
     assert version['version'] == 1
     assert version['stateId'] == 5
-    assert len(version['schemaText']) == 1847
+    assert len(version['schemaText']) == 1865
