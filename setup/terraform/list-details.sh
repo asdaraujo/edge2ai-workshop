@@ -55,7 +55,17 @@ function show_details() {
   local namespace=$1
   local summary_only=${2:-no}
 
-  load_env $namespace
+  local warning=""
+  if [[ $summary_only == "no" ]]; then
+    load_env $namespace
+  else
+    local tmp_file=/tmp/.${namespace}.$$
+    NO_AWS_SSO_LOGIN=1 load_env $namespace > $tmp_file 2>&1
+    if [[ -s $tmp_file ]]; then
+      warning="$(cat $tmp_file | sed 's/\.$//'). "
+    fi
+    rm -f $tmp_file
+  fi
 
   ensure_tf_json_file
 
@@ -79,11 +89,10 @@ function show_details() {
 
   local enddate=$(enddate)
   local remaining_days=""
-  local warning=""
   if [ "$enddate" != "" ]; then
     remaining_days=$(remaining_days "$enddate")
     if [ "$remaining_days" -lt 2 ]; then
-      warning=$(echo -e "${C_RED}==> ATTENTION: Your instances will expire and be destroyed in $remaining_days days${C_NORMAL}")
+      warning="${warning}$(echo -e "${C_RED}==> ATTENTION: Your instances will expire and be destroyed in $remaining_days days${C_NORMAL}")"
     fi
   fi
 

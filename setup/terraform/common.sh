@@ -1135,15 +1135,19 @@ function reset_traps() {
 
 function check_aws_credentials() {
   if [[ $(get_awscli_version) == "2"* ]]; then
-    local tmp_file=/tmp/check_aws.$$
+    local tmp_file=/tmp/check_aws.${NAMESPACE}.$$
     set +e
     aws sts get-caller-identity > $tmp_file 2>&1
     local ret=$?
     set -e
     if [[ $ret -ne 0 ]]; then
       if grep 'SSO.*invalid' $tmp_file > /dev/null 2>&1; then
-        echo "This is an AWS SSO account and the previous session has expired. Issuing a new login request..."
-        aws sso login
+        if [[ ${NO_AWS_SSO_LOGIN:-} == "" ]]; then
+          echo "This is an AWS SSO account and the previous session has expired. Issuing a new login request..."
+          aws sso login
+        else
+          echo "This is an AWS SSO account and the previous session has expired."
+        fi
       else
         echo "${C_RED}ERROR: AWS credentials seem to be invalid. Please review the configuration in your .env file."
         cat $tmp_file
