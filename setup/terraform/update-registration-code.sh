@@ -25,6 +25,11 @@ if [ "$WEB_IP_ADDRESS" == "" ]; then
   WEB_IP_ADDRESS=$( web_instance | web_attr public_ip )
 fi
 
+if [[ ${WEB_IP_ADDRESS} == "" ]]; then
+  echo "There's no web server. Skipping update."
+  exit
+fi
+
 ensure_registration_code "$CODE"
 update_web_server registration.code "$TF_VAR_registration_code" true
 

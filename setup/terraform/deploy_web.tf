@@ -1,6 +1,8 @@
 resource "null_resource" "deploy_web" {
+  count = (var.launch_web_server ? 1 : 0)
+
   connection {
-    host        = (var.use_elastic_ip ? aws_eip.eip_web.0.public_ip : aws_instance.web.public_ip)
+    host        = (var.use_elastic_ip ? aws_eip.eip_web.0.public_ip : aws_instance.web.0.public_ip)
     type        = "ssh"
     user        = var.ssh_username
     private_key = file(var.web_ssh_private_key)

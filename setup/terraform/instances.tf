@@ -68,6 +68,7 @@ resource "aws_eip" "eip_cluster" {
 }
 
 resource "aws_instance" "web" {
+  count             = (var.launch_web_server ? 1 : 0)
   ami               = var.base_ami
   instance_type     = "t2.medium"
   availability_zone = aws_subnet.subnet1.availability_zone
@@ -110,8 +111,8 @@ resource "aws_network_interface" "eni_web" {
 }
 
 resource "aws_eip" "eip_web" {
-  count    = (var.use_elastic_ip ? 1 : 0)
-  instance = aws_instance.web.id
+  count    = (var.launch_web_server ? (var.use_elastic_ip ? 1 : 0) : 0)
+  instance = aws_instance.web[count.index].id
   vpc      = true
 
   tags = {

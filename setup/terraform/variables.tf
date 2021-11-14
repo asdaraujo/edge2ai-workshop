@@ -2,6 +2,11 @@ variable "cluster_count" {
   description = "Number of clusters to create"
 }
 
+variable "launch_web_server" {
+  description = "Whether or not to launch the web server"
+  default     = true
+}
+
 variable "deploy_cdsw_model" {
   description = "Whether to deploy the CDSW model during launch or not"
   type        = bool

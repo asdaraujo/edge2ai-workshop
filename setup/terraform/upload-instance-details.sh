@@ -36,6 +36,11 @@ if [ "$WEB_IP_ADDRESS" == "" ]; then
   WEB_IP_ADDRESS=$( web_instance | web_attr public_ip )
 fi
 
+if [[ ${WEB_IP_ADDRESS} == "" ]]; then
+  echo "There's no web server. Skipping upload."
+  exit
+fi
+
 wait_for_web
 
 echo "Registering admin user"

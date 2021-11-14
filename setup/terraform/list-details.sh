@@ -29,6 +29,7 @@ function show_costs() {
     local web_instance_type=$(web_instance | web_attr instance_type)
     local ipa_instance_type=$(ipa_instance | web_attr instance_type)
     local web_price=$(jq -r '.prices[] | select(.attributes["aws:ec2:instanceType"] == "'"$web_instance_type"'").price.USD' $tmp_file)
+    web_price=${web_price:-0}
     local ipa_price=$(jq -r '.prices[] | select(.attributes["aws:ec2:instanceType"] == "'"$ipa_instance_type"'").price.USD' $tmp_file)
     ipa_price=${ipa_price:-0}
     local cluster_price=$(jq -r '.prices[] | select(.attributes["aws:ec2:instanceType"] == "'"$TF_VAR_cluster_instance_type"'").price.USD' $tmp_file)
