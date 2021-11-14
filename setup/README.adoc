@@ -219,8 +219,9 @@ Ensure you set these variables:
 '''
 
 * `TF_VAR_aws_region`: AWS region to use
-* `TF_VAR_aws_access_key_id`: Your AWS Access Key Id
-* `TF_VAR_aws_secret_access_key`: Your AWS Secret Access Key
+* `TF_VAR_aws_profile`: Your AWS profile name
+* `TF_VAR_aws_access_key_id`: (DEPRECATED) Leave blank if profile is specified. Your AWS Access Key Id
+* `TF_VAR_aws_secret_access_key`: (DEPRECATED) Leave blank if profile is specified. Your AWS Secret Access Key
 
 '''
 

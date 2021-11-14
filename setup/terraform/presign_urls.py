@@ -7,10 +7,14 @@ from subprocess import Popen, PIPE
 from tempfile import mkstemp
 from botocore.exceptions import ClientError
 
-S3_CLIENT = boto3.client("s3",
-                         aws_access_key_id=os.environ.get("TF_VAR_aws_access_key_id", ""),
-                         aws_secret_access_key=os.environ.get("TF_VAR_aws_secret_access_key", ""),
-                         region_name="us-west-2")
+profile_name = os.environ.get("TF_VAR_aws_profile", "")
+session = boto3.session.Session(
+    profile_name=profile_name if profile_name else None,
+    aws_access_key_id=os.environ.get("TF_VAR_aws_access_key_id", "") if not profile_name else None,
+    aws_secret_access_key=os.environ.get("TF_VAR_aws_secret_access_key", "") if not profile_name else None,
+    region_name="us-west-2")
+S3_CLIENT = session.client("s3")
+
 
 def create_presigned_url(bucket_name, object_name, expiration=7200):
     global S3_CLIENT
@@ -20,22 +24,26 @@ def create_presigned_url(bucket_name, object_name, expiration=7200):
                                                 ExpiresIn=expiration)
     return response
 
+
 def get_file(bucket, key):
     s3 = boto3.resource('s3')
     _, tempfile_path = mkstemp()
     try:
         S3_CLIENT.download_file(bucket, key, tempfile_path)
     except ClientError as exc:
-        if key.endswith("/manifest.json") and "Error" in exc.response and "Code" in exc.response["Error"] and exc.response["Error"]["Code"] in ["404", "403"]:
+        if key.endswith("/manifest.json") and "Error" in exc.response and "Code" in exc.response["Error"] and \
+                exc.response["Error"]["Code"] in ["404", "403"]:
             return None
         raise
     return open(tempfile_path, 'r').read()
+
 
 def remove_file(file_path):
     try:
         os.remove(file_path)
     except OSError:
         pass
+
 
 def compute_env(file_path):
     command = "bash -c 'source %s && set'" % (file_path,)
@@ -47,8 +55,9 @@ def compute_env(file_path):
         m = re.match(r"^([A-Za-z0-9_]*)=(s3://([^/]*)/(.*))", line)
         if m:
             var_name, value, bucket, key = m.groups()
-            env[var_name] = {"value":value, "bucket":bucket, "key":key}
+            env[var_name] = {"value": value, "bucket": bucket, "key": key}
     return env
+
 
 def convert_stack_file(file_path):
     env = compute_env(file_path)
@@ -81,7 +90,7 @@ def convert_stack_file(file_path):
                         parcel_url = main_presigned_url + "/" + parcel["parcelName"]
                         parcel_presigned_url = create_presigned_url(bucket, parcel_key)
                         url_map[parcel_url] = parcel_presigned_url
-                        
+
         output_stack_file.write(line + "\n")
     output_stack_file.close()
 
@@ -94,5 +103,6 @@ def convert_stack_file(file_path):
         for key in url_map:
             output_map.write("%s-->%s\n" % (key, url_map[key]))
         output_map.close()
+
 
 convert_stack_file(sys.argv[1])

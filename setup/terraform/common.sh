@@ -30,7 +30,7 @@ C_WHITE="$(echo -e "\033[97m")"
 C_BG_RED="$(echo -e "\033[101m")"
 C_BG_MAGENTA="$(echo -e "\033[105m")"
 
-OPTIONAL_VARS="TF_VAR_registration_code"
+OPTIONAL_VARS="TF_VAR_registration_code|TF_VAR_aws_profile|TF_VAR_aws_access_key_id|TF_VAR_aws_secret_access_key"
 
 function log() {
   echo "[$(date)] [$(basename $0): $BASH_LINENO] : $*"
@@ -208,11 +208,16 @@ function check_docker_launch() {
       fi
     fi
 
+    if [[ ! -d $HOME/.aws ]]; then
+      mkdir -p $HOME/.aws
+      chmod 755 $HOME/.aws
+    fi
     local cmd=./$(basename $0)
     exec docker run -ti --rm \
       --detach-keys="ctrl-@" \
       --entrypoint="" \
       -v $BASE_DIR/../..:/edge2ai-workshop \
+      -v $HOME/.aws:/root/.aws \
       -e HOSTS_ADD=$(basename $PUBLIC_IPS_FILE) \
       $docker_img \
       $cmd $*
@@ -338,9 +343,26 @@ function load_env() {
   export TF_VAR_web_ssh_public_key=$NAMESPACE_DIR/${TF_VAR_web_key_name}.pem.pub
   export TF_VAR_my_public_ip=$(curl -sL ifconfig.me || curl -sL ipapi.co/ip || curl -sL icanhazip.com)
 
-  export AWS_ACCESS_KEY_ID=$TF_VAR_aws_access_key_id
-  export AWS_SECRET_ACCESS_KEY=$TF_VAR_aws_secret_access_key
-  export AWS_DEFAULT_REGION=$TF_VAR_aws_region
+  if [[ ${TF_VAR_aws_profile:-} == "" && (${TF_VAR_aws_access_key_id:-} == "" || ${TF_VAR_aws_secret_access_key:-} == "") ]]; then
+    echo "${C_RED}ERROR: Only one of the following must be set in the .env.<namespace> file:"
+    echo "         - TF_VAR_aws_profile"
+    echo "         - TF_VAR_aws_access_key_id and TF_VAR_aws_secret_access_key"
+    echo "${C_NORMAL}"
+    echo "P: ${TF_VAR_aws_profile:-}, K: ${TF_VAR_aws_access_key_id:-}, S: ${TF_VAR_aws_secret_access_key:-}"
+    exit 1
+  fi
+  if [[ ${TF_VAR_aws_profile:-} != "" && (${TF_VAR_aws_access_key_id:-} != "" || ${TF_VAR_aws_secret_access_key:-} != "") ]]; then
+    echo "${C_RED}ERROR: If TF_VAR_aws_profile is set, the following must be blank/unset: TF_VAR_aws_access_key_id and TF_VAR_aws_secret_access_key"
+    echo "${C_NORMAL}"
+    exit 1
+  fi
+  if [[ ${TF_VAR_aws_profile:-} ]]; then
+    export AWS_PROFILE=${TF_VAR_aws_profile}
+  else
+    export AWS_ACCESS_KEY_ID=${TF_VAR_aws_access_key_id:-}
+    export AWS_SECRET_ACCESS_KEY=${TF_VAR_aws_secret_access_key:-}
+  fi
+  check_aws_credentials
 
   TF_VAR_use_elastic_ip=$(echo "${TF_VAR_use_elastic_ip:-FALSE}" | tr A-Z a-z)
   if [ "$TF_VAR_use_elastic_ip" == "yes" -o "$TF_VAR_use_elastic_ip" == "true" -o "$TF_VAR_use_elastic_ip" == "1" ]; then
@@ -435,22 +457,32 @@ function ensure_key_pair() {
 }
 
 function aws_list_key_pairs() {
-      AWS_DEFAULT_REGION=$TF_VAR_aws_region \
-      AWS_ACCESS_KEY_ID=$TF_VAR_aws_access_key_id \
-      AWS_SECRET_ACCESS_KEY=$TF_VAR_aws_secret_access_key \
-        aws ec2 describe-key-pairs \
-          --filters '[{"Name": "key-name","Values":["'"${TF_VAR_key_name}"'","'"${TF_VAR_web_key_name}"'"]}]' | \
-        jq -r '.KeyPairs[].KeyName' | tr '\n' ',' | sed 's/,$//'
+  if [[ $TF_VAR_aws_profile != "" ]]; then
+    options="--profile $TF_VAR_aws_profile"
+  else
+    options=""
+  fi
+  aws \
+    --region $TF_VAR_aws_region \
+    $options \
+    ec2 describe-key-pairs \
+      --filters '[{"Name": "key-name","Values":["'"${TF_VAR_key_name}"'","'"${TF_VAR_web_key_name}"'"]}]' | \
+  jq -r '.KeyPairs[].KeyName' | tr '\n' ',' | sed 's/,$//'
 }
 
 function aws_delete_key_pairs() {
   local keys=$1
+  if [[ $TF_VAR_aws_profile != "" ]]; then
+    options="--profile $TF_VAR_aws_profile"
+  else
+    options=""
+  fi
   for key_name in $(echo "$keys" | sed 's/,/ /g'); do
     echo "Deleting key pair [$key_name]"
-    AWS_DEFAULT_REGION=$TF_VAR_aws_region \
-    AWS_ACCESS_KEY_ID=$TF_VAR_aws_access_key_id \
-    AWS_SECRET_ACCESS_KEY=$TF_VAR_aws_secret_access_key \
-      aws ec2 delete-key-pair --key-name "$key_name"
+    aws \
+      --region $TF_VAR_aws_region \
+      $options \
+      ec2 delete-key-pair --key-name "$key_name"
   done
 }
 
@@ -663,6 +695,7 @@ function wait_for_web() {
     retries=$((retries - 1))
     if [[ $retries -gt 0 ]]; then
       echo "Waiting for web server to be ready... ($retries retries left)"
+      sleep 1
     fi
   done
   if [ "$ret" == "200" ]; then
@@ -1091,6 +1124,41 @@ function reset_traps() {
   for sig in {0..16} {18..27} {29..31}; do
     trap - $sig
   done
+}
+
+function check_aws_credentials() {
+  if [[ $(get_awscli_version) == "2"* ]]; then
+    local tmp_file=/tmp/check_aws.$$
+    set +e
+    aws sts get-caller-identity > $tmp_file 2>&1
+    local ret=$?
+    set -e
+    if [[ $ret -ne 0 ]]; then
+      if grep 'SSO.*invalid' $tmp_file > /dev/null 2>&1; then
+        echo "This is an AWS SSO account and the previous session has expired. Issuing a new login request..."
+        aws sso login
+      else
+        echo "${C_RED}ERROR: AWS credentials seem to be invalid. Please review the configuration in your .env file."
+        cat $tmp_file
+        rm -f $tmp_file
+        echo "${C_NORMAL}"
+      fi
+    fi
+    rm -f $tmp_file
+  else
+    if [[ ${SKIP_IF_MISSING_AWSCLI:-} == "" ]]; then
+      echo "${C_RED}ERROR: AWS CLI v2 is not installed."
+      echo ""
+      echo "       Please following installation instructions here: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html"
+      echo '       Run "aws --version" to check the AWS CLI version. Ensure you are using version 2 or later.'
+      echo "${C_NORMAL}"
+      exit 1
+    fi
+  fi
+}
+
+function get_awscli_version() {
+  aws --version 2>/dev/null | egrep -o '[0-9.][0-9.]*' | head -1 || true
 }
 
 ARGS=("$@")

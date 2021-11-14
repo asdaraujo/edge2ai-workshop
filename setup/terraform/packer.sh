@@ -16,6 +16,7 @@ NAMESPACE=$1
 load_env $NAMESPACE
 
 packer build \
+  -var "aws_profile=$TF_VAR_aws_profile" \
   -var "aws_access_key=$TF_VAR_aws_access_key_id" \
   -var "aws_secret_key=$TF_VAR_aws_secret_access_key" \
   -var "aws_region=$TF_VAR_aws_region" \

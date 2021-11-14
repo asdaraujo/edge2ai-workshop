@@ -3,6 +3,11 @@ BASE_DIR=$(cd $(dirname $0); pwd -L)
 CAFFEINATE_ME=1
 unset SSH_AUTH_SOCK SSH_AGENT_PID
 
+# If running on Docker check for a SSO session before invoking the docker container
+if [[ $NO_DOCKER == "" ]]; then
+  NO_DOCKER_MSG=1 $BASE_DIR/check-credentials.sh "$@" || exit 1
+fi
+
 source ${BASE_DIR}/common.sh
 check_version
 check_stack_version
@@ -82,7 +87,7 @@ check_for_orphaned_keys
 ensure_key_pairs
 
 log "Launching Terraform"
-(cd $BASE_DIR && run_terraform init)
+(cd $BASE_DIR && run_terraform init -upgrade)
 # Sets the var below to prevent managed SGs from being added to the SGs we create
 if [ -s $TF_STATE ]; then
   export TF_VAR_managed_security_group_ids="[$(cd $BASE_DIR && run_terraform show -json $TF_STATE | \
