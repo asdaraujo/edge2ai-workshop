@@ -208,13 +208,14 @@ Ensure you set these variables:
 +
 --
 * `TF_VAR_cluster_count`: number of one-node clusters to be created
+* `TF_VAR_launch_web_server`: whether to launch the web server (`true`) or not (`false`).
 * `TF_VAR_use_elastic_ip`: enable elastic IPs for the environment VMs. This is required if you need to stop/start VMs.
 
 '''
 
 * `TF_VAR_owner`: your user id. This will be used to tag your cloud resources.
-* `TF_VAR_enddate`: value for the `enddate` tag to be added to your cloude resources.
-* `TF_VAR_project`: value for the `project` tag to be added to your cloude resources.
+* `TF_VAR_enddate`: value for the `enddate` tag to be added to your cloud resources.
+* `TF_VAR_project`: value for the `project` tag to be added to your cloud resources.
 
 '''
 
