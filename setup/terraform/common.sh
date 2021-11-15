@@ -1176,7 +1176,7 @@ function get_awscli_version() {
 
 # If running on Docker check for a SSO session before invoking the docker container
 if [[ ${NO_DOCKER:-} == "" ]]; then
-  NO_DOCKER_MSG=1 $BASE_DIR/check-credentials.sh "$@" || exit 1
+  NO_DOCKER_MSG=1 $BASE_DIR/check-credentials.sh "$1" || exit 1
 fi
 
 ARGS=("$@")
