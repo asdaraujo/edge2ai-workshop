@@ -381,7 +381,9 @@ function run_terraform() {
   check_terraform_version
   set +e
   (set -e; cd $TERRAFORM_DIR && $TERRAFORM validate) > /dev/null 2>&1
-  if [[ $? -ne 0 ]]; then
+  local ret=$?
+  set -e
+  if [[ $ret -ne 0 ]]; then
     (set -e; cd $TERRAFORM_DIR && $TERRAFORM init -upgrade) > /dev/null 2>&1
   fi
   (set -e; cd $TERRAFORM_DIR && $TERRAFORM "${args[@]}")
@@ -1171,6 +1173,11 @@ function check_aws_credentials() {
 function get_awscli_version() {
   aws --version 2>/dev/null | egrep -o '[0-9.][0-9.]*' | head -1 || true
 }
+
+# If running on Docker check for a SSO session before invoking the docker container
+if [[ ${NO_DOCKER:-} == "" ]]; then
+  NO_DOCKER_MSG=1 $BASE_DIR/check-credentials.sh "$@" || exit 1
+fi
 
 ARGS=("$@")
 # Caffeine check must be first
