@@ -9,7 +9,7 @@ resource "null_resource" "deploy_ipa" {
   }
 
   provisioner "file" {
-    source      = "ipa"
+    source      = "../ipa"
     destination = "/home/${var.ssh_username}/ipa"
   }
 

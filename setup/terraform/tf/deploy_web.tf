@@ -9,7 +9,7 @@ resource "null_resource" "deploy_web" {
   }
 
   provisioner "file" {
-    source      = "web"
+    source      = "../web"
     destination = "/home/${var.ssh_username}/web"
   }
 

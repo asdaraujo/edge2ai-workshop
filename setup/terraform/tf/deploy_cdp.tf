@@ -10,12 +10,7 @@ resource "null_resource" "deploy_cdp" {
   }
 
   provisioner "file" {
-    source      = "resources"
-    destination = "/tmp/"
-  }
-
-  provisioner "file" {
-    source      = "smm"
+    source      = "../resources"
     destination = "/tmp/"
   }
 
@@ -32,9 +27,6 @@ resource "null_resource" "deploy_cdp" {
       "set -o xtrace",
       "trap 'echo Return code: $?' 0",
       "# Prepare resources",
-      "sudo mkdir -p /opt/dataloader/",
-      "sudo cp /tmp/smm/* /opt/dataloader/",
-      "sudo chmod 755 /opt/dataloader/*.sh",
       "chmod +x /tmp/resources/*sh",
       "# Deploy workshop",
       "sudo bash -x /tmp/resources/setup.sh aws \"${var.ssh_username}\" \"${var.ssh_password}\" \"${var.namespace}\" \"\" \"${(var.use_ipa ? aws_instance.ipa[0].private_dns : "")}\" 2>&1 | tee /tmp/resources/setup.log",
