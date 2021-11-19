@@ -59,10 +59,18 @@ function get_kafka_port() {
 }
 
 function get_kafka_security_protocol() {
-  if [ "$(is_tls_enabled)" == "yes" ]; then
-    echo "SASL_SSL"
+  if [ "$(is_kerberos_enabled)" == "yes" ]; then
+    if [ "$(is_tls_enabled)" == "yes" ]; then
+      echo "SASL_SSL"
+    else
+      echo "SASL_PLAINTEXT"
+    fi
   else
-    echo "SASL_PLAINTEXT"
+    if [ "$(is_tls_enabled)" == "yes" ]; then
+      echo "SSL"
+    else
+      echo "PLAINTEXT"
+    fi
   fi
 }
 
@@ -78,7 +86,7 @@ function get_create_cluster_tls_option() {
 # We explicitly retry a few times to make sure the build continues when these timeouts happen.
 function yum_install() {
   local packages=$@
-  local retries=10
+  local retries=60
   while true; do
     set +e
     yum install -d1 -y ${packages}
@@ -92,6 +100,7 @@ function yum_install() {
       echo 'YUM install failed!'
       exit 1
     else
+      sleep 1
       echo 'Retrying YUM...'
     fi
   done
@@ -1018,6 +1027,13 @@ function create_peer_kafka_external_account() {
         "name" : "kafka_bootstrap_servers",
         "value" : "${PEER_PUBLIC_DNS}:$(get_kafka_port)"
       }, {
+        "name" : "kafka_security_protocol",
+        "value" : "$(get_kafka_security_protocol)"
+      }
+$(
+  if [[ $(is_kerberos_enabled) == "yes" ]]; then
+    cat <<EOF2
+      , {
         "name" : "kafka_jaas_secret1",
         "value" : "${THE_PWD}"
       }, {
@@ -1026,13 +1042,13 @@ function create_peer_kafka_external_account() {
       }, {
         "name" : "kafka_sasl_mechanism",
         "value" : "PLAIN"
-      }, {
-        "name" : "kafka_security_protocol",
-        "value" : "$(get_kafka_security_protocol)"
       }
+EOF2
+  fi
+)
 $(
-  if [[ $ENABLE_TLS == "yes" ]]; then
-    cat <<EOF2
+  if [[ $(is_tls_enabled) == "yes" ]]; then
+    cat <<EOF3
       , {
         "name" : "kafka_truststore_password",
         "value" : "${THE_PWD}"
@@ -1043,7 +1059,7 @@ $(
         "name" : "kafka_truststore_type",
         "value" : "JKS"
       }
-EOF2
+EOF3
   fi
 )
     ]
