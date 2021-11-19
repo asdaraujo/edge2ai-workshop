@@ -91,6 +91,9 @@ run_terraform apply -auto-approve -parallelism="${TF_VAR_parallelism}" -refresh=
 
 log "Deployment completed successfully"
 
+# Clean up
+rm -f ${STACK_FILE}.{signed,urls}
+
 echo ""
 echo "Instances:"
 "${BASE_DIR}/list-details.sh" "${NAMESPACE}"
