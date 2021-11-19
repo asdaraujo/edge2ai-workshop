@@ -1,6 +1,16 @@
 #!/bin/bash
+set -o errexit
 set -o nounset
 BASE_DIR=$(cd $(dirname $0); pwd -L)
+source $BASE_DIR/common-basics.sh
+
+if [ $# != 1 ]; then
+  echo "Syntax: $0 <namespace>"
+  show_namespaces
+  exit 1
+fi
+NAMESPACE=$1
+
 source $BASE_DIR/common.sh
 
 CURL=(curl -L -k --connect-timeout 5)
@@ -36,12 +46,6 @@ function get_viz_status() {
   echo -n $status
 }
 
-if [ $# != 1 ]; then
-  echo "Syntax: $0 <namespace>"
-  show_namespaces
-  exit 1
-fi
-NAMESPACE=$1
 load_env $NAMESPACE
 
 printf "%-30s %-20s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-14s %s\n" "instance" "ip address" "WEB" "CM" "CEM" "NIFI" "NREG" "SREG" "SMM" "HUE" "CDSW" "Model Status" "Viz Status" 

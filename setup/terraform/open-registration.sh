@@ -2,20 +2,18 @@
 set -o errexit
 set -o nounset
 BASE_DIR=$(cd $(dirname $0); pwd -L)
-source $BASE_DIR/common.sh
-
-function syntax() {
-  echo "Syntax: $0 <namespace>"
-  show_namespaces
-}
+source $BASE_DIR/common-basics.sh
 
 if [ $# -lt 1 ]; then
-  syntax
+  echo "Syntax: $0 <namespace>"
+  show_namespaces
   exit 1
 fi
 NAMESPACE=$1
-load_env $NAMESPACE
 
+source $BASE_DIR/common.sh
+
+load_env $NAMESPACE
 refresh_tf
 
 echo "Opening public access to web server"

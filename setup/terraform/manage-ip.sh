@@ -2,12 +2,18 @@
 set -o errexit
 set -o nounset
 BASE_DIR=$(cd $(dirname $0); pwd -L)
-source $BASE_DIR/common.sh
+source $BASE_DIR/common-basics.sh
 
-function syntax() {
+if [[ $# -lt 3 || ( ${2:-} != "add" && ${2:-} != "remove" ) ]]; then
   echo "Syntax: $0 <namespace> <"\""add"\""|"\""remove"\""> <ip_address>"
   show_namespaces
-}
+  exit 1
+fi
+NAMESPACE=$1
+ACTION=$2
+IP_ADDRESS=$3
+
+source $BASE_DIR/common.sh
 
 IP_FILE=/tmp/sync-ip-addresses.$$
 
@@ -15,13 +21,6 @@ function cleanup() {
   rm -f $IP_FILE
 }
 
-if [[ $# -lt 3 || ( ${2:-} != "add" && ${2:-} != "remove" ) ]]; then
-  syntax
-  exit 1
-fi
-NAMESPACE=$1
-ACTION=$2
-IP_ADDRESS=$3
 load_env $NAMESPACE
 
 if [[ $(echo "$IP_ADDRESS" | tr "a-z" "A-Z") == "MYIP" ]]; then

@@ -1,16 +1,8 @@
 #!/bin/bash
+set -o errexit
+set -o nounset
 BASE_DIR=$(cd $(dirname $0); pwd -L)
-CAFFEINATE_ME=1
-unset SSH_AUTH_SOCK SSH_AGENT_PID
-
-source ${BASE_DIR}/common.sh
-check_version
-check_stack_version
-
-function cleanup() {
-  collect_logs "${NAMESPACE:-}"
-  kdestroy > /dev/null 2>&1 || true
-}
+source $BASE_DIR/common-basics.sh
 
 if [ $# != 1 ]; then
   echo "Syntax: $0 <namespace>"
@@ -20,15 +12,22 @@ fi
 NAMESPACE=$1
 LOG_NAME=$BASE_DIR/logs/setup.log.${NAMESPACE}.$(date +%Y%m%d%H%M%S)
 
+CAFFEINATE_ME=1
+source $BASE_DIR/common.sh
+
 mkdir -p "${BASE_DIR}"/logs
 (
 set -o errexit
 set -o nounset
 set -o pipefail
 
-if [[ ${DEBUG:-} != "" ]]; then
-  set -x
-fi
+check_version
+check_stack_version
+
+function cleanup() {
+  collect_logs "${NAMESPACE:-}"
+  kdestroy > /dev/null 2>&1 || true
+}
 
 validate_env
 load_env $NAMESPACE

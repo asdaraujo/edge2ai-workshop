@@ -2,7 +2,7 @@
 set -o errexit
 set -o nounset
 BASE_DIR=$(cd $(dirname $0); pwd -L)
-source $BASE_DIR/common.sh
+source $BASE_DIR/common-basics.sh
 
 if [ $# -lt 2 ]; then
   echo "Syntax: $0 <namespace> command"
@@ -11,6 +11,9 @@ if [ $# -lt 2 ]; then
 fi
 NAMESPACE=$1
 CLUSTER_ID=$2
+
+source $BASE_DIR/common.sh
+
 load_env $NAMESPACE
 
 LOG_DIR=$BASE_DIR/logs

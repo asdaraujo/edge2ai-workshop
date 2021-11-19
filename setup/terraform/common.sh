@@ -1,16 +1,12 @@
 #!/bin/bash
 
-export PS4='+ [${BASH_SOURCE#'"$BASE_DIR"/'}:${LINENO}]: ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
-
-if [[ ${DEBUG:-} != "" ]]; then
-  set -x
-fi
+source $BASE_DIR/common-basics.sh
 
 DOCKER_REPO=asdaraujo/edge2ai-workshop
 DEFAULT_DOCKER_IMAGE=${DOCKER_REPO}:latest
 GITHUB_FQDN="github.com"
 GITHUB_REPO=cloudera-labs/edge2ai-workshop
-GITHUB_BRANCH=master
+GITHUB_BRANCH=trunk
 
 BUILD_FILE=.build
 STACK_BUILD_FILE=.stack.build
@@ -21,27 +17,9 @@ TERRAFORM_DIR=$BASE_DIR/tf
 
 THE_PWD=supersecret1
 
-# Color codes
-C_NORMAL="$(echo -e "\033[0m")"
-C_BOLD="$(echo -e "\033[1m")"
-C_DIM="$(echo -e "\033[2m")"
-C_RED="$(echo -e "\033[31m")"
-C_YELLOW="$(echo -e "\033[33m")"
-C_BLUE="$(echo -e "\033[34m")"
-C_WHITE="$(echo -e "\033[97m")"
-C_BG_RED="$(echo -e "\033[101m")"
-C_BG_MAGENTA="$(echo -e "\033[105m")"
-
 OPTIONAL_VARS="TF_VAR_registration_code|TF_VAR_aws_profile|TF_VAR_aws_access_key_id|TF_VAR_aws_secret_access_key"
 
-function log() {
-  echo "[$(date)] [$(basename $0): $BASH_LINENO] : $*"
-}
-
-function abort() {
-  echo "Aborting."
-  exit 1
-}
+unset SSH_AUTH_SOCK SSH_AGENT_PID
 
 function check_version() {
   if [[ ! -f $BASE_DIR/NO_VERSION_CHECK ]]; then
@@ -65,9 +43,9 @@ function check_version() {
         uri=$(git remote -v | egrep "^ *$remote\s.*\(fetch\)" | awk '{print $2}')
         if [[ $uri =~ "$GITHUB_REPO" ]]; then
           # remote repo is the official repo
-          git fetch > /dev/null 2>&1 || true
+          GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no" git fetch > /dev/null 2>&1 || true
           if [[ $(git status) =~ "Your branch is up to date" ]]; then
-            echo "edge2ai-workshop repo is up to date."
+            echo "Your edge2ai-workshop repo seems to be up to date."
             return
           elif [[ $(git status) =~ "can be fast-forwarded" ]]; then
             echo "$C_RED"
@@ -195,7 +173,7 @@ function is_docker_image_stale() {
   fi
 }
 
-function check_docker_launch() {
+function maybe_launch_docker() {
   if [[ "${NO_DOCKER:-}" == "" && "${NO_DOCKER_EXEC:-}" == "" && "$(is_docker_running)" == "yes" ]]; then
     create_ips_file
 
@@ -220,6 +198,7 @@ function check_docker_launch() {
       --entrypoint="" \
       -v $BASE_DIR/../..:/edge2ai-workshop \
       -v $HOME/.aws:/root/.aws \
+      -e DEBUG=${DEBUG:-} \
       -e HOSTS_ADD=$(basename $PUBLIC_IPS_FILE) \
       $docker_img \
       $cmd $*
@@ -259,19 +238,16 @@ function try_in_docker() {
   if [[ "${NO_DOCKER:-}" == "" && "$(is_docker_running)" == "yes" ]]; then
     local docker_img=${EDGE2AI_DOCKER_IMAGE:-$DEFAULT_DOCKER_IMAGE}
     exec docker run --rm \
+      --detach-keys="ctrl-@" \
       --entrypoint="" \
       -v $BASE_DIR/../..:/edge2ai-workshop \
+      -v $HOME/.aws:/root/.aws \
+      -e DEBUG=${DEBUG:-} \
+      -e HOSTS_ADD=$(basename $PUBLIC_IPS_FILE) \
       $docker_img \
       /bin/bash -c "cd /edge2ai-workshop/setup/terraform; export BASE_DIR=\$PWD; source common.sh; load_env $namespace; ${cmd[@]}"
   else
     (load_env $namespace; "${cmd[@]}")
-  fi
-}
-
-function check_env_files() {
-  if [[ -f $BASE_DIR/.env.default ]]; then
-    echo 'ERROR: An enviroment file cannot be called ".env.default". Please renamed it to ".env".'
-    abort
   fi
 }
 
@@ -417,25 +393,6 @@ function check_terraform_version() {
   echo "       Please install Terraform v${state_version} and set/export the TERRAFORM environment variable with its path.${C_NORMAL}" >&2
   echo "       If you are using a Docker container, please ensure that Docker is running." >&2
   exit 1
-}
-
-function get_namespaces() {
-    ls -1d $BASE_DIR/.env* | egrep "/\.env($|\.)" | fgrep -v .env.template | \
-    sed 's/\.env\.//;s/\/\.env$/\/default/' | xargs -I{} basename {}
-}
-
-function show_namespaces() {
-  check_env_files
-
-  local namespaces=$(get_namespaces)
-  if [ "$namespaces" == "" ]; then
-    echo -e "\n  No namespaces are currently defined!\n"
-  else
-    echo -e "\nNamespaces:"
-    for namespace in $namespaces; do
-      echo "  - $namespace"
-    done
-  fi
 }
 
 function ensure_ulimit() {
@@ -1174,15 +1131,19 @@ function get_awscli_version() {
   aws --version 2>/dev/null | egrep -o '[0-9.][0-9.]*' | head -1 || true
 }
 
+if [[ ${DEBUG:-} != "" ]]; then
+  set -x
+fi
+
 # If running on Docker check for a SSO session before invoking the docker container
-if [[ ${NO_DOCKER:-} == "" ]]; then
-  NO_DOCKER_MSG=1 $BASE_DIR/check-credentials.sh "$1" || exit 1
+if [[ ${NO_DOCKER:-} == "" && ${NAMESPACE:-} != "" ]]; then
+  NO_DOCKER_MSG=1 $BASE_DIR/check-credentials.sh "$NAMESPACE" || exit 1
 fi
 
 ARGS=("$@")
 # Caffeine check must be first
 check_for_caffeine "$@"
 ensure_ulimit
-check_docker_launch "${ARGS[@]:-}"
+maybe_launch_docker "${ARGS[@]:-}"
 check_for_jq
 set_traps

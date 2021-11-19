@@ -2,7 +2,7 @@
 set -o errexit
 set -o nounset
 BASE_DIR=$(cd $(dirname $0); pwd -L)
-source $BASE_DIR/common.sh
+source $BASE_DIR/common-basics.sh
 
 function syntax() {
   echo "Syntax: $0 <namespace> [new_registration_code] [web_ip_adress] [admin_email] [admin_password]"
@@ -14,6 +14,9 @@ if [ $# -lt 1 ]; then
   exit 1
 fi
 NAMESPACE=$1
+
+source $BASE_DIR/common.sh
+
 load_env $NAMESPACE
 
 CODE=${2:-}

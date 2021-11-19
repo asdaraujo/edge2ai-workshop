@@ -1,11 +1,8 @@
 #!/bin/bash
-BASE_DIR=$(cd $(dirname $0); pwd -L)
-source $BASE_DIR/common.sh
-mkdir -p $BASE_DIR/logs
-(
 set -o errexit
 set -o nounset
-set -o pipefail
+BASE_DIR=$(cd $(dirname $0); pwd -L)
+source $BASE_DIR/common-basics.sh
 
 if [ $# != 1 ]; then
   echo "Syntax: $0 <namespace>"
@@ -13,6 +10,15 @@ if [ $# != 1 ]; then
   exit 1
 fi
 NAMESPACE=$1
+
+source $BASE_DIR/common.sh
+
+mkdir -p $BASE_DIR/logs
+(
+set -o errexit
+set -o nounset
+set -o pipefail
+
 load_env $NAMESPACE
 
 packer build \
@@ -31,4 +37,4 @@ packer build \
   packer.json
 
 log "AMI created successfully"
-) 2>&1 | tee $BASE_DIR/logs/packer.log.${1:-unknown}.$(date +%Y%m%d%H%M%S)
+) 2>&1 | tee $BASE_DIR/logs/packer.log.${NAMESPACE:-unknown}.$(date +%Y%m%d%H%M%S)

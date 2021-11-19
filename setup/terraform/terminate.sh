@@ -1,5 +1,16 @@
 #!/bin/bash
+set -o errexit
+set -o nounset
 BASE_DIR=$(cd $(dirname $0); pwd -L)
+source $BASE_DIR/common-basics.sh
+
+if [ $# -lt 1 ]; then
+  echo "Syntax: $0 <namespace>"
+  show_namespaces
+  exit 1
+fi
+NAMESPACE=$1
+
 CAFFEINATE_ME=1
 source $BASE_DIR/common.sh
 
@@ -9,12 +20,6 @@ set -e
 set -u
 set -o pipefail
 
-if [ $# -lt 1 ]; then
-  echo "Syntax: $0 <namespace>"
-  show_namespaces
-  exit 1
-fi
-NAMESPACE=$1
 load_env $NAMESPACE
 
 if [[ ${2:-you-are-wise} != "destroy-without-confirmation-do-not-try-this-at-home" ]]; then

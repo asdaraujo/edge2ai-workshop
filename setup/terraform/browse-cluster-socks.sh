@@ -3,12 +3,7 @@
 set -o errexit
 set -o nounset
 BASE_DIR=$(cd $(dirname $0); pwd -L)
-export NO_DOCKER_EXEC=1
-source $BASE_DIR/common.sh
-
-function cleanup() {
-  kill $CHILD_PID
-}
+source $BASE_DIR/common-basics.sh
 
 if [ $# != 2 ]; then
   echo "Syntax: $0 <namespace> <cluster_number>"
@@ -17,6 +12,14 @@ if [ $# != 2 ]; then
 fi
 NAMESPACE=$1
 CLUSTER_ID=$2
+
+export NO_DOCKER_EXEC=1
+source $BASE_DIR/common.sh
+
+function cleanup() {
+  kill $CHILD_PID
+}
+
 load_env $NAMESPACE
 
 PROXY_PORT=8157

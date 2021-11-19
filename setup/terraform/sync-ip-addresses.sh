@@ -2,12 +2,17 @@
 set -o errexit
 set -o nounset
 BASE_DIR=$(cd $(dirname $0); pwd -L)
-source $BASE_DIR/common.sh
+source $BASE_DIR/common-basics.sh
 
-function syntax() {
+if [ $# -lt 1 ]; then
   echo "Syntax: $0 <namespace> ["\""no_refresh"\""]"
   show_namespaces
-}
+  exit 1
+fi
+NAMESPACE=$1
+NO_REFRESH=${2:-}
+
+source $BASE_DIR/common.sh
 
 IP_FILE=/tmp/sync-ip-addresses.$$
 
@@ -15,12 +20,6 @@ function cleanup() {
   rm -f $IP_FILE
 }
 
-if [ $# -lt 1 ]; then
-  syntax
-  exit 1
-fi
-NAMESPACE=$1
-NO_REFRESH=${2:-}
 load_env $NAMESPACE
 
 cluster_sg=$(security_groups cluster)

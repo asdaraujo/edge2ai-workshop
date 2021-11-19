@@ -2,6 +2,15 @@
 set -o errexit
 set -o nounset
 BASE_DIR=$(cd $(dirname $0); pwd -L)
+source $BASE_DIR/common-basics.sh
+
+if [ $# -gt 1 ]; then
+  echo "Syntax: $0 [namespace]"
+  show_namespaces
+  exit 1
+fi
+NAMESPACE=${1:-}
+
 source $BASE_DIR/common.sh
 
 function cleanup() {
@@ -12,13 +21,6 @@ EC2_PRICES_URL_TEMPLATE=https://raw.githubusercontent.com/yeo/ec2.shop/master/da
 INSTANCE_LIST_FILE=/tmp/.instance.list.$$
 WEB_INSTANCE_LIST_FILE=/tmp/.instance.web.$$
 IPA_INSTANCE_LIST_FILE=/tmp/.instance.ipa.$$
-
-if [ $# -gt 1 ]; then
-  echo "Syntax: $0 [namespace]"
-  show_namespaces
-  exit 1
-fi
-NAMESPACE=${1:-}
 
 function show_costs() {
   local ec2_prices_url=$(echo "$EC2_PRICES_URL_TEMPLATE" | sed "s/REGION/$TF_VAR_aws_region/")

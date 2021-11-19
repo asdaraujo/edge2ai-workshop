@@ -2,18 +2,17 @@
 set -o errexit
 set -o nounset
 BASE_DIR=$(cd $(dirname $0); pwd -L)
-source $BASE_DIR/common.sh
-
-function syntax() {
-  echo "Syntax: $0 <namespace> [web_ip_adress] [admin_email] [admin_password] [admin_full_name]"
-  show_namespaces
-}
+source $BASE_DIR/common-basics.sh
 
 if [ $# -lt 1 ]; then
-  syntax
+  echo "Syntax: $0 <namespace> [web_ip_adress] [admin_email] [admin_password] [admin_full_name]"
+  show_namespaces
   exit 1
 fi
 NAMESPACE=$1
+
+source $BASE_DIR/common.sh
+
 load_env $NAMESPACE
 # need to load the stack for calling get_service_urls
 source $BASE_DIR/resources/common.sh
