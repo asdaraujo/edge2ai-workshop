@@ -19,6 +19,7 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 OPT_PARSER = None
+HEADER_COLORS = ['BLUE', 'DARKBLUE', 'GREEN', 'TEAL', 'PURPLE', 'PINK', 'GRAY', 'RED', 'YELLOW', 'BROWN']
 
 def print_cmd(cmd, indent=0):
     cmd_id = int(cmd.id)
@@ -90,6 +91,15 @@ def cm_version():
 def the_pwd():
     return os.environ['THE_PWD']
     
+def cluster_id():
+    try:
+        if 'CLUSTER_ID' in os.environ:
+            return int(os.environ['CLUSTER_ID'])
+    except:
+        pass
+
+    return 0
+
 class ClusterCreator:
     def __init__(self, host, krb_princ='scm/admin@WORKSHOP.COM', tls_ca_cert=None):
         self.host = host
@@ -255,14 +265,24 @@ class ClusterCreator:
                 cm_client.ApiRole(type='HOSTMONITOR'),
                 cm_client.ApiRole(type='EVENTSERVER'),
                 cm_client.ApiRole(type='ALERTPUBLISHER')]
-            #self.mgmt_api.auto_assign_roles()  # needed?
-            #self.mgmt_api.auto_configure()    # needed?
             self.mgmt_api.setup_cms(body=api_service)
             cmd = self.mgmt_api.start_command()
             cmd = self.wait(cmd)
             if not cmd.success:
                 raise RuntimeError('Failed to start Management Services')
         
+        # Update cluster banner
+        c_id = cluster_id()
+        banner = 'CLUSTER_{}'.format(c_id)
+        header_color = HEADER_COLORS[c_id % len(HEADER_COLORS)]
+        self.cm_api.update_config(
+            message='Customizing CM header and banner',
+            body=cm_client.ApiConfigList([
+                cm_client.ApiConfig(name='CUSTOM_BANNER_HTML', value=banner),
+                cm_client.ApiConfig(name='CUSTOM_HEADER_COLOR', value=header_color),
+            ])
+        )
+
         # Update host-level parameter required by SMM
         self.all_hosts_api.update_config(
             message='Updating parameter for SMM',
