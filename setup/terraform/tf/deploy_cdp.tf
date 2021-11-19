@@ -15,7 +15,7 @@ resource "null_resource" "deploy_cdp" {
   }
 
   provisioner "file" {
-    content     = "CLUSTER_ID=${count.index}\nCLUSTERS_PUBLIC_DNS=${join(",", var.use_elastic_ip ? aws_eip.eip_cluster.*.public_dns : aws_instance.cluster.*.public_dns)}\n"
+    content     = "CLUSTER_ID=${count.index}\nCLUSTERS_PUBLIC_DNS=${join(",", formatlist("cdp.%s.nip.io", var.use_elastic_ip ? aws_eip.eip_cluster.*.public_ip : aws_instance.cluster.*.public_ip))}\n"
     destination = "/tmp/resources/clusters_metadata.sh"
   }
 
