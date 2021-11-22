@@ -623,7 +623,7 @@ function create_certs() {
 
   # Create CSR
   local public_ip=$(curl -s http://ifconfig.me || curl -s http://api.ipify.org/)
-  export ALT_NAMES="DNS:edge2ai-1.dim.local,DNS:$(hostname -f),DNS:*.${public_ip}.nip.io"
+  export ALT_NAMES="DNS:edge2ai-1.dim.local,DNS:$(hostname -f),DNS:*.${public_ip}.nip.io,DNS:*.cdsw.${public_ip}.nip.io"
   openssl req\
     -new\
     -key ${KEY_PEM} \
@@ -664,6 +664,7 @@ EOF
     kinit -kt $KEYTABS_DIR/admin.keytab admin
     ipa host-add-principal $(hostname -f) "host/edge2ai-1.dim.local"
     ipa host-add-principal $(hostname -f) "host/*.${public_ip}.nip.io"
+    ipa host-add-principal $(hostname -f) "host/*.cdsw.${public_ip}.nip.io"
     ipa cert-request ${CSR_PEM} --principal=host/$(hostname -f)
     echo -e "-----BEGIN CERTIFICATE-----\n$(ipa host-find $(hostname -f) | grep Certificate: | tail -1 | awk '{print $NF}')\n-----END CERTIFICATE-----" | openssl x509 > ${HOST_PEM}
 
