@@ -4,8 +4,8 @@
 # Common components to CDH and CDP: CDSW, FLINK, HBASE HDFS, HIVE, HUE, IMPALA, KAFKA, KUDU,
 #                                   NIFI, OOZIE, SCHEMAREGISTRY, SMM, SRM, SOLR, SPARK_ON_YARN, YARN,
 #                                   ZOOKEEPER
-# CDP-only components:              ATLAS, LIVY, RANGER, ZEPPELIN, KNOX
-CM_SERVICES=BASE,ZOOKEEPER,HDFS,YARN,HIVE,HUE,IMPALA,KAFKA,KUDU,NIFI,OOZIE,SCHEMAREGISTRY,SPARK_ON_YARN,SMM,CDSW,FLINK,SOLR,HBASE,ATLAS,LIVY,ZEPPELIN
+# CDP-only components:              ATLAS, KNOX, LIVY, OZONE, RANGER, ZEPPELIN
+CM_SERVICES=BASE,ZOOKEEPER,HDFS,YARN,HIVE,HUE,IMPALA,KAFKA,KUDU,NIFI,OOZIE,OZONE,SCHEMAREGISTRY,SPARK_ON_YARN,SMM,CDSW,FLINK,SOLR,HBASE,ATLAS,LIVY,ZEPPELIN
 ENABLE_KERBEROS=no
 ENABLE_TLS=no
 
@@ -20,23 +20,23 @@ JAVA_PACKAGE_NAME=java-1.8.0-openjdk-devel
 MAVEN_BINARY_URL=https://downloads.apache.org/maven/maven-3/3.8.4/binaries/apache-maven-3.8.4-bin.tar.gz
 
 #####  CM
-CM_VERSION=7.3.1
+CM_VERSION=7.4.4
 CM_MAJOR_VERSION=${CM_VERSION%%.*}
-CM_REPO_AS_TARBALL_URL=https://archive.cloudera.com/p/cm7/7.3.1/repo-as-tarball/cm7.3.1-redhat7.tar.gz
+CM_REPO_AS_TARBALL_URL=https://archive.cloudera.com/p/cm7/7.4.4/repo-as-tarball/cm7.4.4-redhat7.tar.gz
 CM_BASE_URL=
 CM_REPO_FILE_URL=
 
 #####  CDH
-CDH_VERSION=7.1.6
-CDH_BUILD=7.1.6-1.cdh7.1.6.p0.10506313
+CDH_VERSION=7.1.7
+CDH_BUILD=7.1.7-1.cdh7.1.7.p0.15945976
 CDH_MAJOR_VERSION=${CDH_VERSION%%.*}
-CDH_PARCEL_REPO=https://archive.cloudera.com/p/cdh7/7.1.6.0/parcels/
+CDH_PARCEL_REPO=https://archive.cloudera.com/p/cdh7/7.1.7.0/parcels/
 
 #####  CFM
 CFM_VERSION=2.0.4.0
 CFM_BUILD=2.0.4.0-80
 CFM_MAJOR_VERSION=${CFM_VERSION%%.*}
-NIFI_VERSION=1.11.0
+NIFI_VERSION=1.11.4
 NIFI_REGISTRY_VERSION=0.6.0
 CFM_PARCEL_REPO=https://archive.cloudera.com/p/CFM/2.x/redhat7/yum/tars/parcel/
 CFM_NIFI_CSD_URL=https://archive.cloudera.com/p/CFM/2.x/redhat7/yum/tars/parcel/NIFI-1.11.4.2.0.4.0-80.jar
@@ -48,10 +48,10 @@ ANACONDA_PARCEL_REPO=https://repo.anaconda.com/pkgs/misc/parcels/
 
 #####  CDSW
 # If version is set, install will be attempted
-CDSW_VERSION=1.9.1
-CDSW_BUILD=1.9.1.p1.10118148
-CDSW_PARCEL_REPO=https://archive.cloudera.com/p/cdsw1/1.9.1/parcels/
-CDSW_CSD_URL=https://archive.cloudera.com/p/cdsw1/1.9.1/csd/CLOUDERA_DATA_SCIENCE_WORKBENCH-CDPDC-1.9.1.jar
+CDSW_VERSION=1.9.2
+CDSW_BUILD=1.9.2.p1.14556745
+CDSW_PARCEL_REPO=https://archive.cloudera.com/p/cdsw1/1.9.2/parcels/
+CDSW_CSD_URL=https://archive.cloudera.com/p/cdsw1/1.9.2/csd/CLOUDERA_DATA_SCIENCE_WORKBENCH-CDPDC-1.9.2.jar
 
 #####  CEM
 CEM_VERSION=1.2.1.0
