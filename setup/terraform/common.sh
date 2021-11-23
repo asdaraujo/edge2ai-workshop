@@ -111,11 +111,13 @@ function check_version() {
 function check_stack_version() {
   if [[ ! -f $BASE_DIR/NO_VERSION_CHECK ]]; then
     # Get last check timestamp
-    last_stack_check=$(head -1 $LAST_STACK_CHECK_FILE 2>/dev/null | grep -o "^[0-9]\{14\}" | head -1)
-    latest_stack=$(curl "https://raw.githubusercontent.com/$GITHUB_REPO/$GITHUB_BRANCH/$STACK_BUILD_FILE" 2>/dev/null | head -1 | grep -o "^[0-9]\{14\}" | head -1)
-    echo "$latest_stack" > $LAST_STACK_CHECK_FILE
-    if [[ $latest_stack != "" ]]; then
-      if [[ $last_stack_check == "" || $last_stack_check < $latest_stack ]]; then
+    local last_stack_check=$(head -1 $LAST_STACK_CHECK_FILE 2>/dev/null | grep -o "^[0-9]\{14\}" | head -1 || true)
+    local latest_stack_in_repo=$(curl "https://raw.githubusercontent.com/$GITHUB_REPO/$GITHUB_BRANCH/$STACK_BUILD_FILE" 2>/dev/null | head -1 | grep -o "^[0-9]\{14\}" | head -1 || true)
+    local latest_stack_in_use=$(grep -h STACK_VERSION $BASE_DIR/resources/stack*.sh 2>/dev/null | egrep -o "\b[0-9]{14}\b" | sort -u | tail -1 || true)
+    echo "$latest_stack_in_repo" > $LAST_STACK_CHECK_FILE
+    if [[ $latest_stack_in_repo != "" ]]; then
+      if [[ ($latest_stack_in_use == "" || $latest_stack_in_use < $latest_stack_in_repo) && \
+            ($last_stack_check == "" || $last_stack_check < $latest_stack_in_repo) ]]; then
         echo "$C_YELLOW"
         echo "There are new STACK definitions available at the URL below (VPN required):"
         echo ""
