@@ -26,6 +26,7 @@ resource "null_resource" "deploy_cdp" {
       "set -o pipefail",
       "set -o xtrace",
       "trap 'echo Return code: $?' 0",
+      "sudo bash -c 'cat /tmp/resources/clusters_metadata.sh >> /etc/profile'",
       "# Prepare resources",
       "chmod +x /tmp/resources/*sh",
       "# Deploy workshop",

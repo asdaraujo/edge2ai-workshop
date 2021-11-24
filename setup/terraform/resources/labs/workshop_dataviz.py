@@ -9,9 +9,9 @@ from . import *
 from .utils import dataviz
 
 CONNECTION_TYPE = 'impyla'
-CONNECTION_NAME = 'Local Impala1'
+CONNECTION_NAME = 'Local Impala'
 CONNECTION_PARAMS = {
-    "HOST": "cdp.52.26.198.174.nip.io",
+    "HOST": get_hostname(),
     "PORT": "21050",
     "MODE": "binary",
     "AUTH": "nosasl",

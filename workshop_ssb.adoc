@@ -50,7 +50,7 @@ image::images/ssb/register-kafka-provider.png[width=800]
 [source,yaml]
 ----
 Name:                           edge2ai-kafka
-Brokers:                        edge2ai-1.dim.local:9092
+Brokers:                        <CLUSTER_HOSTNAME>:9092
 Connection protocol:            PLAINTEXT
 ----
 +
@@ -198,7 +198,7 @@ image::images/ssb/add-catalog-sr.png[width=800]
 Name:                sr
 Catalog Type:        Schema Registry
 Kafka Cluster:       edge2ai-kafka
-Schema Registry URL: http://edge2ai-1.dim.local:7788/api/v1
+Schema Registry URL: http://<CLUSTER_HOSTNAME>:7788/api/v1
 Enable TLS:          No
 ----
 

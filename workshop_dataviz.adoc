@@ -74,7 +74,7 @@ Connection name: Local Impala
 +
 [source,yaml]
 ----
-Hostname: <YOUR_CLUSTER_HOSTNAME> (something like: cdp.x.x.x.x.nip.io)
+Hostname: <CLUSTER_HOSTNAME> (something like: cdp.x.x.x.x.nip.io)
 Port #:   21050
 Username: [leave blank]
 Password: [leave blank]

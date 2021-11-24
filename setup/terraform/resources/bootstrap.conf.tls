@@ -36,8 +36,8 @@ nifi.minifi.config=./conf/config.yml
 
 # MiNiFi Command & Control Configuration
 nifi.c2.enable=true
-nifi.c2.rest.url=http://edge2ai-1.dim.local:10088/efm/api/c2-protocol/heartbeat
-nifi.c2.rest.url.ack=http://edge2ai-1.dim.local:10088/efm/api/c2-protocol/acknowledge
+nifi.c2.rest.url=http://LOCAL_HOSTNAME:10088/efm/api/c2-protocol/heartbeat
+nifi.c2.rest.url.ack=http://LOCAL_HOSTNAME:10088/efm/api/c2-protocol/acknowledge
 nifi.c2.agent.heartbeat.period=10000
 nifi.c2.agent.class=iot-1
 nifi.c2.agent.identifier=agent-iot-1

@@ -141,7 +141,7 @@ Let's start by connecting to PostgreSQL and creating the table.
 +
 [source,shell]
 ----
-psql --host edge2ai-1.dim.local --port 5432 --username cdc_user cdc_test
+psql --host localhost --port 5432 --username cdc_user cdc_test
 ----
 +
 When connected you should see the `psql` prompt, with the database name, as shown below:
@@ -231,7 +231,7 @@ Set the following required properties in your statement:
 [source,yaml]
 ----
 connector:     postgres-cdc
-hostname:      edge2ai-1.dim.local
+hostname:      <CLUSTER_HOSTNAME>
 username:      cdc_user
 password:      supersecret1
 database-name: cdc_test
@@ -259,7 +259,7 @@ CREATE TABLE transactions_cdc (
   name STRING
 ) WITH (
   'connector' = 'postgres-cdc',
-  'hostname' = 'edge2ai-1.dim.local',
+  'hostname' = '<CLUSTER_HOSTNAME>',
   'username' = 'cdc_user',
   'password' = 'supersecret1',
   'database-name' = 'cdc_test',
@@ -339,7 +339,7 @@ image:images/cdc/job-status-running.png[width=400]
 +
 [source,shell]
 ----
-psql --host edge2ai-1.dim.local --port 5432 --username cdc_user cdc_test
+psql --host localhost --port 5432 --username cdc_user cdc_test
 ----
 +
 In the `psql` prompt, execute the following commands to insert one more record in the `transactions` table and update the record with id `101`:
@@ -373,7 +373,7 @@ Nevertheless, you can replicate the data to any other database accessible via JD
 +
 [source,shell]
 ----
-psql --host edge2ai-1.dim.local --port 5432 --username cdc_user cdc_test
+psql --host localhost --port 5432 --username cdc_user cdc_test
 ----
 +
 [source,sql]
@@ -411,7 +411,7 @@ image::images/cdc/primary-key-clause.png[width=400]
 [source,yaml]
 ----
 connector:  jdbc
-url:        jdbc:postgresql://edge2ai-1.dim.local:5432/cdc_test
+url:        jdbc:postgresql://<CLUSTER_HOSTNAME>:5432/cdc_test
 table-name: trans_replica
 username:   cdc_user
 password:   supersecret1
@@ -472,7 +472,7 @@ image:images/cdc/kafka-json-template.png[width=300]
 [source,yaml]
 ----
 connector:                    kafka
-properties.bootstrap.servers: edge2ai-1.dim.local:9092
+properties.bootstrap.servers: <CLUSTER_HOSTNAME>:9092
 topic:                        trans_changelog
 key.format:                   json
 key.fields:                   id

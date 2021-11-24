@@ -30,7 +30,7 @@ image::images/edge/simulate1.png[width=800]
 
 . Right-click the processor, select *Configure* (or, alternatively, just double-click the processor). On the *PROPERTIES* tab, set the properties shown below to run our Python simulate script.
 +
-[source]
+[source,yaml]
 ----
 Command:           python3
 Command Arguments: /opt/demo/simulate.py
@@ -76,9 +76,9 @@ image::images/edge/cem_heartbeats.png[width=800]
 
 . Add a _ConsumeMQTT_ Processor to the canvas, by dragging the processor icon to the canvas, selecting the _ConsumeMQTT_ processor type and clicking on the *Add* button. Once the processor is on the canvas, double-click it and configure it with below settings:
 +
-[source]
+[source,yaml]
 ----
-Broker URI:     tcp://edge2ai-1.dim.local:1883
+Broker URI:     tcp://<CLUSTER_HOSTNAME>:1883
 Client ID:      minifi-iot
 Topic Filter:   iot/#
 Max Queue Size: 60
@@ -92,9 +92,9 @@ image::images/edge/add_consumer_mqtt_2.png[width=800]
 
 . Add a _Remote Process Group_ (RPG) to the canvas and configure it as follows:
 +
-[source]
+[source,yaml]
 ----
-URL:                http://edge2ai-1.dim.local:8080/nifi
+URL:                http://<CLUSTER_HOSTNAME>:8080/nifi
 Transport Protocol: HTTP
 ----
 +
@@ -129,7 +129,7 @@ image::images/edge/connect_to_rpg.png[width=800]
 +
 . Double-click the connection and update the following configuration:
 +
-[source]
+[source,yaml]
 ----
 Flowfile Expiration:            60 seconds
 Back Pressure Object Threshold: 10000
@@ -147,7 +147,6 @@ image::images/edge/create_bucket.png[width=800]
 image::images/edge/publish_flow.png[width=800]
 +
 image::images/edge/cem_first_version.png[width=800]
-
 
 . Go back to the *NiFi Registry* Web UI and click on the *NiFi Registry* name, next to the Cloudera logo. If the flow publishing was successful, you should see the flow's version details in the NiFi Registry.
 +
@@ -191,7 +190,7 @@ If both of these temperatures are in the normal range (< 500) we can guarantee t
 
 . Double-click on the new processor and configure it with the following properties:
 +
-[source,python]
+[source,yaml]
 ----
 Processor Name: Extract sensor_0 and sensor1 values
 Destination:    flowfile-attribute
@@ -218,7 +217,7 @@ image::images/edge/route_on_attribute.png[width=800]
 
 . Double-click on the new processor and configure it with the following properties:
 +
-[source,python]
+[source,yaml]
 ----
 Processor Name: Filter Errors
 Route Strategy: Route to Property name
@@ -250,7 +249,7 @@ image::images/edge/create_connection.png[width=500]
 
 . Double-click the connection, update the following configuration and *Apply* the changes:
 +
-[source]
+[source,yaml]
 ----
 Flowfile Expiration:            60 seconds
 Back Pressure Object Threshold: 10000
@@ -281,7 +280,7 @@ image::images/edge/create_last_connection.png[width=500]
 
 . Double-click the connection, update the following configuration and *Apply* the changes:
 +
-[source]
+[source,yaml]
 ----
 Flowfile Expiration:            60 seconds
 Back Pressure Object Threshold: 10000

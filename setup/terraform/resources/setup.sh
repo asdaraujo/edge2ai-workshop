@@ -229,15 +229,15 @@ EOF
   chown -R root:root /opt/cloudera/cem/${EFM_BASE_NAME}
   sed -i.bak 's#APP_EXT_LIB_DIR=.*#APP_EXT_LIB_DIR=/usr/share/java#' /opt/cloudera/cem/efm/conf/efm.conf
   sed -i.bak \
-'s#^efm.server.address=.*#efm.server.address=edge2ai-1.dim.local#;'\
+'s#^efm.server.address=.*#efm.server.address='"${LOCAL_HOSTNAME}"'#;'\
 's#^efm.server.port=.*#efm.server.port=10088#;'\
 's#^efm.security.user.certificate.enabled=.*#efm.security.user.certificate.enabled=false#;'\
 's#^efm.nifi.registry.enabled=.*#efm.nifi.registry.enabled=true#;'\
-'s#^efm.nifi.registry.url=.*#efm.nifi.registry.url=http://edge2ai-1.dim.local:18080#;'\
+'s#^efm.nifi.registry.url=.*#efm.nifi.registry.url=http://'"${LOCAL_HOSTNAME}"':18080#;'\
 's#^efm.nifi.registry.bucketName=.*#efm.nifi.registry.bucketName=IoT#;'\
 's#^efm.heartbeat.maxAgeToKeep=.*#efm.heartbeat.maxAgeToKeep=1h#;'\
 's#^efm.event.maxAgeToKeep.debug=.*#efm.event.maxAgeToKeep.debug=5m#;'\
-'s#^efm.db.url=.*#efm.db.url=jdbc:postgresql://edge2ai-1.dim.local:5432/efm#;'\
+'s#^efm.db.url=.*#efm.db.url=jdbc:postgresql://'"${LOCAL_HOSTNAME}"':5432/efm#;'\
 's#^efm.db.driverClass=.*#efm.db.driverClass=org.postgresql.Driver#;'\
 's#^efm.db.password=.*#efm.db.password='"${THE_PWD}"'#' /opt/cloudera/cem/efm/conf/efm.properties
   if [[ $ENABLE_TLS == yes ]]; then
@@ -251,7 +251,7 @@ EOF
 's#^efm.server.ssl.trustStoreType=.*#efm.server.ssl.trustStoreType=jks#;'\
 's#^efm.server.ssl.trustStorePassword=.*#efm.server.ssl.trustStorePassword='"$THE_PWD"'#;'\
 's#^efm.security.user.certificate.enabled=.*#efm.security.user.certificate.enabled=true#;'\
-'s#^efm.nifi.registry.url=.*#efm.nifi.registry.url=https://edge2ai-1.dim.local:18433#' /opt/cloudera/cem/efm/conf/efm.properties
+'s#^efm.nifi.registry.url=.*#efm.nifi.registry.url=https://'"${LOCAL_HOSTNAME}"':18433#' /opt/cloudera/cem/efm/conf/efm.properties
   fi
   echo -e "\nefm.encryption.password=${THE_PWD}${THE_PWD}" >> /opt/cloudera/cem/efm/conf/efm.properties
 
@@ -268,10 +268,11 @@ EOF
   chown -R root:root /opt/cloudera/cem/${MINIFITK_BASE_NAME}
   rm -f /opt/cloudera/cem/minifi/conf/bootstrap.conf
   if [[ $ENABLE_TLS == yes ]]; then
-    sed "s/THE_PWD/$THE_PWD/" $BASE_DIR/bootstrap.conf.tls > /opt/cloudera/cem/minifi/conf/bootstrap.conf
+    SOURCE_BOOTSTRAP_CONF=$BASE_DIR/bootstrap.conf.tls
   else
-    cp $BASE_DIR/bootstrap.conf /opt/cloudera/cem/minifi/conf/bootstrap.conf
+    SOURCE_BOOTSTRAP_CONF=$BASE_DIR/bootstrap.conf
   fi
+  sed "s/THE_PWD/$THE_PWD/;s/LOCAL_HOSTNAME/$LOCAL_HOSTNAME/" $SOURCE_BOOTSTRAP_CONF > /opt/cloudera/cem/minifi/conf/bootstrap.conf
   /opt/cloudera/cem/minifi/bin/minifi.sh install
 
   echo "-- Disable services here for packer images - will reenable later"
@@ -475,23 +476,10 @@ fi
 export CLUSTER_HOST=$PUBLIC_DNS
 export CDSW_DOMAIN=cdsw.${PUBLIC_IP}.nip.io
 
-echo "-- Load cluster metadata"
-if [[ -f $BASE_DIR/clusters_metadata.sh ]]; then
-  source $BASE_DIR/clusters_metadata.sh
-  PEER_CLUSTER_ID=$(( (CLUSTER_ID/2)*2 + (CLUSTER_ID+1)%2 ))
-  PEER_PUBLIC_DNS=$(echo "$CLUSTERS_PUBLIC_DNS" | awk -F, -v pos=$(( PEER_CLUSTER_ID + 1 )) '{print $pos}')
-  PEER_PUBLIC_DNS=${PEER_PUBLIC_DNS:-$PUBLIC_DNS}
-else
-  CLUSTER_ID=0
-  PEER_CLUSTER_ID=0
-  PEER_PUBLIC_DNS=$PUBLIC_DNS
-fi
-export CLUSTER_ID PEER_CLUSTER_ID PEER_PUBLIC_DNS
-
 echo "-- Set /etc/hosts - Public DNS must come first"
-sed -i.bak '/edge2ai-1.dim.local/ d' /etc/hosts
+sed -i.bak "/${LOCAL_HOSTNAME}/ d" /etc/hosts
 sed -i '/^::1/d' /etc/hosts
-echo "$PRIVATE_IP $PUBLIC_DNS $PRIVATE_DNS edge2ai-1.dim.local" >> /etc/hosts
+echo "$PRIVATE_IP $PUBLIC_DNS $PRIVATE_DNS $LOCAL_HOSTNAME" >> /etc/hosts
 
 echo "-- Configure networking"
 hostnamectl set-hostname ${CLUSTER_HOST}

@@ -7,7 +7,7 @@ from . import *
 from .utils import ssb, schreg
 
 KAFKA_PROVIDER_NAME = 'edge2ai-kafka'
-KAFKA_PROVIDER_BROKERS = 'edge2ai-1.dim.local:9092'
+KAFKA_PROVIDER_BROKERS = '{}:9092'.format(get_hostname())
 KAFKA_PROVIDER_PROTOCOL = 'plaintext'
 
 SR_PROVIDER_NAME = 'sr'

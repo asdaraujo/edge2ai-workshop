@@ -95,7 +95,7 @@ class EdgeWorkshop(AbstractWorkshop):
             'org.apache.nifi.processors.mqtt.ConsumeMQTT',
             (100, 100),
             {
-                'Broker URI': 'tcp://edge2ai-1.dim.local:1883',
+                'Broker URI': 'tcp://{hostname}:1883'.format(hostname=get_hostname()),
                 'Client ID': 'minifi-iot',
                 'Topic Filter': 'iot/#',
                 'Max Queue Size': '60',

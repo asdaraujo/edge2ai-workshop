@@ -8,11 +8,10 @@ from collections import namedtuple
 from datetime import datetime
 from optparse import OptionParser
 import cm_client
-import json
 import os
 import re
 import requests
-import sys
+import socket
 import time
 import urllib3
 
@@ -90,7 +89,7 @@ def cm_version():
 
 def the_pwd():
     return os.environ['THE_PWD']
-    
+
 def cluster_id():
     try:
         if 'CLUSTER_ID' in os.environ:
@@ -99,6 +98,9 @@ def cluster_id():
         pass
 
     return 0
+
+def local_hostname():
+    return os.environ.get('LOCAL_HOSTNAME', 'edge2ai-1.local.dim')
 
 class ClusterCreator:
     def __init__(self, host, krb_princ='scm/admin@WORKSHOP.COM', tls_ca_cert=None):
@@ -273,7 +275,7 @@ class ClusterCreator:
         
         # Update cluster banner
         c_id = cluster_id()
-        banner = 'CLUSTER_{}'.format(c_id)
+        banner = 'Cluster ID: {}, Host: {}'.format(c_id, socket.gethostname())
         header_color = HEADER_COLORS[c_id % len(HEADER_COLORS)]
         self.cm_api.update_config(
             message='Customizing CM header and banner',
@@ -339,8 +341,8 @@ class ClusterCreator:
         ]
         if kerberos_type == 'MIT':
             config += [
-                cm_client.ApiConfig(name='KDC_ADMIN_HOST', value='edge2ai-1.dim.local'),
-                cm_client.ApiConfig(name='KDC_HOST', value='edge2ai-1.dim.local'),
+                cm_client.ApiConfig(name='KDC_ADMIN_HOST', value=local_hostname()),
+                cm_client.ApiConfig(name='KDC_HOST', value=local_hostname()),
                 cm_client.ApiConfig(name='KDC_TYPE', value='MIT KDC'),
             ]
         else:

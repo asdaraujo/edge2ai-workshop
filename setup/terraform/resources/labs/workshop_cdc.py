@@ -38,7 +38,7 @@ CREATE TABLE transactions_cdc (
   name STRING
 ) WITH (
   'connector' = 'postgres-cdc',
-  'hostname' = 'edge2ai-1.dim.local',
+  'hostname' = '{hostname}',
   'username' = 'cdc_user',
   'password' = 'supersecret1',
   'database-name' = 'cdc_test',
@@ -49,7 +49,7 @@ CREATE TABLE transactions_cdc (
   'debezium.slot.name' = 'flink',
   'debezium.snapshot.mode' = 'initial'
 );
-'''
+'''.format(hostname=get_hostname())
 
 LAB3_TRANSACTIONS = '''
 INSERT INTO transactions
@@ -75,13 +75,13 @@ CREATE TABLE `ssb`.`ssb_default`.`trans_replica` (
   PRIMARY KEY (id) NOT ENFORCED
 ) WITH (
   'connector' = 'jdbc',
-  'url' = 'jdbc:postgresql://edge2ai-1.dim.local:5432/cdc_test',
+  'url' = 'jdbc:postgresql://{hostname}:5432/cdc_test',
   'table-name' = 'trans_replica',
   'password' = '{pwd}',
   'username' = 'cdc_user',
   'driver' = 'org.postgresql.Driver'
 );
-'''.format(pwd=get_the_pwd())
+'''.format(pwd=get_the_pwd(), hostname=get_hostname())
 
 LAB4_INSERT_INTO_REPLICA = '''
 INSERT INTO trans_replica
@@ -95,13 +95,13 @@ CREATE TABLE  `ssb`.`ssb_default`.`trans_changelog` (
   `name` VARCHAR(2147483647)
 ) WITH (
   'connector' = 'kafka',
-  'properties.bootstrap.servers' = 'edge2ai-1.dim.local:9092',
+  'properties.bootstrap.servers' = '{hostname}:9092',
   'topic' = 'trans_changelog',
   'key.format' = 'json',
   'key.fields' = 'id',
   'value.format' = 'debezium-json'
 );
-'''
+'''.format(hostname=get_hostname())
 
 LAB5_INSERT_CHANGELOG = '''
 INSERT INTO trans_changelog

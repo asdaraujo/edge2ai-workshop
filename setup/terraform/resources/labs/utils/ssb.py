@@ -13,6 +13,7 @@ _API_INTERNAL = 'internal'
 _API_EXTERNAL = 'external'
 _API_UI = 'ui'
 
+
 def _get_api_url():
     return get_url_scheme() + '://cdp.{}.nip.io:8000/api/v1'.format(get_public_ip())
 
@@ -41,6 +42,8 @@ def _api_call(func, path, data=None, files=None, headers=None, api_type=_API_INT
     if api_type != _API_UI:
         headers['Content-Type'] = 'application/json'
         data = json.dumps(data)
+    if api_type == _API_EXTERNAL:
+        headers['Username'] = 'admin'
     if token:
         headers['X-CSRF-TOKEN'] = _SSB_CSRF_TOKEN
     url = _get_url(api_type) + path
@@ -171,7 +174,6 @@ def execute_sql(stmt, job_name=None, parallelism=None, sample_interval_millis=No
     }
     headers = {
         'Accept': 'application/json',
-        'Username': 'admin',
         'Content-Type': 'application/json',
     }
     return _api_post('/ssb/sql/execute', data, headers=headers, api_type=_API_EXTERNAL)

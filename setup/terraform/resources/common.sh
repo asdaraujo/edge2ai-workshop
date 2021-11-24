@@ -33,6 +33,20 @@ export TRUSTSTORE_PEM=${SEC_BASE}/x509/truststore.pem
 export KEYSTORE_JKS=${SEC_BASE}/jks/keystore.jks
 export TRUSTSTORE_JKS=${SEC_BASE}/jks/truststore.jks
 
+# Load cluster metadata
+PUBLIC_DNS=${PUBLIC_DNS:-dummy}
+if [[ -f $BASE_DIR/clusters_metadata.sh ]]; then
+  source $BASE_DIR/clusters_metadata.sh
+  PEER_CLUSTER_ID=$(( (CLUSTER_ID/2)*2 + (CLUSTER_ID+1)%2 ))
+  PEER_PUBLIC_DNS=$(echo "$CLUSTERS_PUBLIC_DNS" | awk -F, -v pos=$(( PEER_CLUSTER_ID + 1 )) '{print $pos}')
+  PEER_PUBLIC_DNS=${PEER_PUBLIC_DNS:-$PUBLIC_DNS}
+else
+  CLUSTER_ID=0
+  PEER_CLUSTER_ID=0
+  PEER_PUBLIC_DNS=$PUBLIC_DNS
+fi
+LOCAL_HOSTNAME=edge2ai-${CLUSTER_ID}.dim.local
+export CLUSTER_ID PEER_CLUSTER_ID PEER_PUBLIC_DNS LOCAL_HOSTNAME
 
 function is_kerberos_enabled() {
   echo $ENABLE_KERBEROS
@@ -623,7 +637,7 @@ function create_certs() {
 
   # Create CSR
   local public_ip=$(curl -s http://ifconfig.me || curl -s http://api.ipify.org/)
-  export ALT_NAMES="DNS:edge2ai-1.dim.local,DNS:$(hostname -f),DNS:*.${public_ip}.nip.io,DNS:*.cdsw.${public_ip}.nip.io"
+  export ALT_NAMES="DNS:${LOCAL_HOSTNAME},DNS:$(hostname -f),DNS:*.${public_ip}.nip.io,DNS:*.cdsw.${public_ip}.nip.io"
   openssl req\
     -new\
     -key ${KEY_PEM} \
@@ -662,7 +676,7 @@ EOF
   # Sign cert
   if [[ $ipa_host != "" ]]; then
     kinit -kt $KEYTABS_DIR/admin.keytab admin
-    ipa host-add-principal $(hostname -f) "host/edge2ai-1.dim.local"
+    ipa host-add-principal $(hostname -f) "host/${LOCAL_HOSTNAME}"
     ipa host-add-principal $(hostname -f) "host/*.${public_ip}.nip.io"
     ipa host-add-principal $(hostname -f) "host/*.cdsw.${public_ip}.nip.io"
     ipa cert-request ${CSR_PEM} --principal=host/$(hostname -f)
@@ -778,9 +792,9 @@ EOF
   cat $CERT_PEM $ROOT_PEM >> $sib_cert
   chown shellinabox:shellinabox $sib_cert
   chmod 400 $sib_cert
-  rm -f ${sib_dir}/certificate-{localhost,edge2ai-1.dim.local,${CLUSTER_HOST}}.pem
+  rm -f ${sib_dir}/certificate-{localhost,${LOCAL_HOSTNAME},${CLUSTER_HOST}}.pem
   ln -s $sib_cert ${sib_dir}/certificate-localhost.pem
-  ln -s $sib_cert ${sib_dir}/certificate-edge2ai-1.dim.local.pem
+  ln -s $sib_cert ${sib_dir}/certificate-${LOCAL_HOSTNAME}.pem
   ln -s $sib_cert ${sib_dir}/certificate-${CLUSTER_HOST}.pem
 
 }
