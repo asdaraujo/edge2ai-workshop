@@ -66,11 +66,12 @@ MINIFI_TARBALL_URL=https://archive.cloudera.com/p/CEM/centos7/1.x/updates/1.2.2.
 MINIFITK_TARBALL_URL=https://archive.cloudera.com/p/CEM/centos7/1.x/updates/1.2.2.0/tars/minifi/minifi-toolkit-0.6.0.1.2.2.0-14-bin.tar.gz
 
 #####   CSA
-CSA_VERSION=1.2.1.0
-FLINK_VERSION=1.10
-FLINK_BUILD=1.10.0-csa1.2.1.0-cdh7.2.1.0-327-7398223
-CSA_PARCEL_REPO=https://archive.cloudera.com/p/csa/1.2.1.0/parcels/
-FLINK_CSD_URL=https://archive.cloudera.com/p/csa/1.2.1.0/csd/FLINK-1.10.0-csa1.2.1.0-cdh7.2.1.0-327-7398223.jar
+CSA_VERSION=1.5.0.1
+FLINK_VERSION=1.13.2
+FLINK_BUILD=1.13.2-csa1.5.0.1-cdh7.1.7.0-551-17559653
+CSA_PARCEL_REPO=https://archive.cloudera.com/p/csa/1.5.0.1/parcels/
+FLINK_CSD_URL=https://archive.cloudera.com/p/csa/1.5.0.1/csd/FLINK-1.13.2-csa1.5.0.1-cdh7.1.7.0-551-17559653.jar
+SSB_CSD_URL=https://archive.cloudera.com/p/csa/1.5.0.1/csd/SQL_STREAM_BUILDER-1.13.2-csa1.5.0.1-cdh7.1.7.0-551-17559653.jar
 
 # Parcels to be pre-downloaded during install.
 # Cloudera Manager will download any parcels that are not already downloaded previously.
@@ -87,4 +88,5 @@ CSD_URLS=(
   $CFM_NIFIREG_CSD_URL
   $CDSW_CSD_URL
   $FLINK_CSD_URL
+  $SSB_CSD_URL
 )
