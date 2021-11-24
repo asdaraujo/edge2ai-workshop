@@ -32,7 +32,7 @@
           "name" : "taskmanager_number_of_task_slots",
           "value" : "5"
         }
-{% if CDH_VERSION is gt('7.0.3') and CM_VERSION is lt('7.5.1') %}
+{% if CDH_VERSION is gt('7.0.3') and CM_VERSION is lt('7.4.4') %}
         ,{
           "name": "enable_hive_catalog",
           "value": "true"
