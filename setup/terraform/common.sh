@@ -912,7 +912,12 @@ function is_stoppable() {
 function enddate() {
   ensure_tf_json_file
   if [ -s $TF_JSON_FILE ]; then
-    cat $TF_JSON_FILE | jq -r '.values.root_module.resources[0].values.tags.enddate' | sed 's/null//'
+    jq -r '.values.root_module.resources[] | select(.type == "aws_instance").values.tags.enddate' $TF_JSON_FILE | \
+      grep -v null | \
+      sed -E 's/^(....)(....)$/\2\1/' | \
+      sort -u | \
+      head -1 | \
+      sed -E 's/^(....)(....)$/\2\1/'
   fi
 }
 
