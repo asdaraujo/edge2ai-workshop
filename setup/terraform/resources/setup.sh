@@ -184,7 +184,19 @@ EOF
   retry_if_needed 5 5 "npm install --quiet forever -g"
   enable_py3
   pip install --quiet --upgrade pip
-  pip install --progress-bar off cm_client paho-mqtt pytest nipyapi psycopg2-binary pyyaml jinja2 impyla requests-gssapi thrift_sasl kerberos
+  pip install --progress-bar off \
+    cm-client==44.0.3 \
+    impyla==0.17.0 \
+    Jinja2==3.0.3 \
+    kerberos==1.3.1 \
+    nipyapi==0.17.1 \
+    paho-mqtt==1.6.1 \
+    psycopg2-binary==2.9.2 \
+    pytest==6.2.5 \
+    PyYAML==6.0 \
+    requests-gssapi==1.2.3 \
+    thrift-sasl==0.4.3
+
   rm -f /usr/bin/python3 /usr/bin/pip3
   ln -s /opt/rh/rh-python36/root/bin/python3 /usr/bin/python3
   ln -s /opt/rh/rh-python36/root/bin/pip3 /usr/bin/pip3
