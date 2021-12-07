@@ -43,7 +43,7 @@ CFM_NIFI_CSD_URL=https://archive.cloudera.com/p/CFM/2.x/redhat7/yum/tars/parcel/
 CFM_NIFIREG_CSD_URL=https://archive.cloudera.com/p/CFM/2.x/redhat7/yum/tars/parcel/NIFIREGISTRY-0.6.0.2.0.4.0-80.jar
 
 #####  Anaconda
-ANACONDA_VERSION=2020.11
+ANACONDA_VERSION=2021.04
 ANACONDA_PARCEL_REPO=https://repo.anaconda.com/pkgs/misc/parcels/
 
 #####  CDSW
