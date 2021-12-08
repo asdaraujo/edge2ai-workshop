@@ -250,6 +250,43 @@ In this lab, you will use NiFi to consume the Kafka messages containing the IoT 
 
 In preparation for the workshop we trained and deployed a Machine Learning model on the Cloudera Data Science Workbench (CDSW) running on your cluster. The model API can take a feature vector with the reading for the 12 temperature readings provided by the sensor and predict, based on that vector, if the machine is likely to break or not.
 
+=== CDSW Model API and Access Key
+
+In the flow that you will build in this lab, you will use variables that will be referenced by some processors/controller services:
+
+* The `request.body` property of the *Predict machine health* processor references a variable called `cdsw.access.key`
+* The `Authorization` property of the *RestLookupService* controller service references a variable called `cdsw.model.api.key`
+
+These variables specify keys that are necessary to access the Machine learning model running in CDSW.
+Follow the steps below to retrieve the keys from CDSW and set variables in NiFi with their values.
+
+. To get the *Access Key*, go to the CDSW Web UI and click on *Models > Iot Prediction Model > Settings*. Copy the Access Key.
++
+image::images/nifi/model_access_key.png[width=800]
+
+. Go back to the NiFi Web UI, right-click on an empty area of the *Process Sensor Data* canvas, and click on *Variables*.
+
+. Click on the _plus_ button (image:images/nifi/plus_button.png[width=25]) and add the following variable:
+
+. To get the *Model API Key*, click on the Cloudera Data Science Workbench icon (top left) to go to the home page and then click on *Settings > API Keys > Create Model API Key*.
+Copy the Model API Key.
++
+image::images/nifi/model_api_key.png[width=800]
+
+. Go back to the NiFi Web UI, right-click on an empty area of the *Process Sensor Data* canvas, and click on *Variables*.
+
+. Click on the _plus_ button (image:images/nifi/plus_button.png[width=25]) and add the following variable:
++
+[source,yaml]
+----
+Variable Name:  cdsw.model.api.key
+Variable Value: <key copied from CDSW>
+----
++
+image::images/nifi/access_key_variable.png[width=800]
+
+. Click *Apply*
+
 === Add new Controller Services
 
 When the sensor data was sent to Kafka using the _PublishKafkaRecord_ processor, we chose to attach the schema information in the header of Kafka messages. Now, instead of hard-coding which schema we should use to read the message, we can leverage that metadata to dynamically load the correct schema for each message.
@@ -287,14 +324,19 @@ On the *PROPERTIES* tab:
 +
 [source,yaml]
 ----
-URL:
-  - CDH 7.1 or later:  http://modelservice.cdsw.<YOUR_CLUSTER_PUBLIC_IP>.nip.io/model
-  - CDH 7.0 or ealier: http://cdsw.<YOUR_CLUSTER_PUBLIC_IP>.nip.io/api/altus-ds-1/models/call-model
-Record Reader:         JsonTreeReader
-Record Path:           /response
+URL:           http://modelservice.cdsw.<YOUR_CLUSTER_PUBLIC_IP>.nip.io/model
+Record Reader: JsonTreeReader
+Record Path:   /response
 ----
 +
 NOTE: `<YOUR_CLUSTER_PUBLIC_IP>` above must be replaced with your cluster's public IP, *not* DNS name. The final URL should look something like this: `\http://modelservice.cdsw.12.34.56.78.nip.io/model`
+
+. Add one more user-defined property by clicking on the _plus_ button (image:images/nifi/plus_button.png[width=25]):
++
+[source,yaml]
+----
+Authorization: Bearer ${cdsw.model.api.key}
+----
 
 . Click on the _lightning bolt_ icon (image:images/nifi/enable_icon.png[width=20]) to *enable* the *RestLookupService* controller service.
 +
@@ -491,28 +533,6 @@ Record Reader: JsonTreeReader - With schema identifier
 . Connect the *Write to Kudu* to the same _Funnel_ you had created above. When prompted, check the *failure* relationship for this connection.
 
 . Double-click on the *Write to Kudu* processor, go to the *SETTINGS* tab, check the "*success*" relationship in the *AUTOMATICALLY TERMINATED RELATIONSHIPS* section. Click *Apply*.
-
-==== CDSW Access Key
-
-When we added the *Predict machine health* above, you may have noticed that one of the properties (`request.body`) makes a reference to a variable called `cdsw.access.key`. This is an application key required to authenticate with the CDSW Model API when requesting predictions. So, we need to provide the key to the _LookupRecord_ processor by setting a variable with its value.
-
-. To get the Access Key, go to the CDSW Web UI and click on *Models > Iot Prediction Model > Settings*. Copy the Access Key.
-+
-image::images/nifi/model_access_key.png[width=800]
-
-. Go back to the NiFi Web UI, right-click on an empty area of the *Process Sensor Data* canvas, and click on *Variables*.
-
-. Click on the _plus_ button (image:images/nifi/plus_button.png[width=25]) and add the following variable:
-+
-[source,yaml]
-----
-Variable Name:  cdsw.access.key
-Variable Value: <key copied from CDSW>
-----
-+
-image::images/nifi/access_key_variable.png[width=800]
-
-. Click *Apply*
 
 ==== Running the flow
 

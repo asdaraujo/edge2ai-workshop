@@ -82,6 +82,7 @@ class NiFiWorkshop(AbstractWorkshop):
             versioning.delete_registry_client(reg_client)
         nifireg.delete_flows('SensorFlows')
         kudu.drop_table()
+        cdsw.delete_all_model_api_keys()
 
     def lab1_register_schema(self):
         # Create Schema
@@ -232,6 +233,13 @@ class NiFiWorkshop(AbstractWorkshop):
         kudu.create_table()
         kudu_table_name = kudu.get_kudu_table_name('default', 'sensors')
 
+        # Set required variables
+        if not self.context.skip_cdsw:
+            # Set the variable with the CDSW access key
+            canvas.update_variable_registry(self.context.sensor_pg, [('cdsw.access.key', cdsw.get_model_access_key())])
+            # Set the variable with the CDSW model API key
+            canvas.update_variable_registry(self.context.sensor_pg, [('cdsw.model.api.key', cdsw.create_model_api_key())])
+
         # Create controllers
         self.context.json_reader_with_schema_svc = nf.create_controller(
             self.context.sensor_pg,
@@ -243,9 +251,10 @@ class NiFiWorkshop(AbstractWorkshop):
             True,
             name='JsonTreeReader - With schema identifier')
         props = {
-            'rest-lookup-url': cdsw.get_altus_api_url() + '/models/call-model',
+            'rest-lookup-url': cdsw.get_model_endpoint_url(),
             'rest-lookup-record-reader': self.context.json_reader_svc.id,
-            'rest-lookup-record-path': '/response'
+            'rest-lookup-record-path': '/response',
+            'Authorization': 'Bearer ${cdsw.model.api.key}',
         }
         if is_tls_enabled():
             props.update({
@@ -382,10 +391,6 @@ class NiFiWorkshop(AbstractWorkshop):
         nifireg.save_flow_ver(self.context.sensor_pg, self.context.reg_client, self.context.sensor_bucket,
                               flow_id=self.context.sensor_flow.version_control_information.flow_id,
                               comment='Second version - {}'.format(self.run_id))
-
-        # Set the variable with the CDSW access key
-        if not self.context.skip_cdsw:
-            canvas.update_variable_registry(self.context.sensor_pg, [('cdsw.access.key', cdsw.get_model_access_key())])
 
         # Start everything
         canvas.schedule_process_group(self.context.root_pg.id, True)

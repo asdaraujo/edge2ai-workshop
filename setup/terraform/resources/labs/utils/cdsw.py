@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+from datetime import datetime, timedelta
 from . import *
 
 _CDSW_MODEL_NAME = 'IoT Prediction Model'
@@ -17,7 +18,7 @@ def get_altus_api_url():
     return get_url_scheme() + '://cdsw.%s.nip.io/api/altus-ds-1' % (get_public_ip(),)
 
 
-def _get_model_endpoint_url():
+def get_model_endpoint_url():
     return get_url_scheme() + '://modelservice.cdsw.%s.nip.io/model' % (get_public_ip(),)
 
 
@@ -52,6 +53,30 @@ def _deploy_model(model):
         'memoryMb': 4096,
         'cpuMillicores': 1000,
     })
+
+
+def _get_model_api_keys():
+    resp = _get_session().get(_get_api_url() + '/users/{}/modelapikey'.format(_CDSW_USERNAME))
+    if resp.status_code == requests.codes.ok:
+        return resp.json()
+    return None
+
+
+def _delete_model_api_key(keyid):
+    return _get_session().delete(_get_api_url() + '/users/{}/modelapikey/{}'.format(_CDSW_USERNAME, keyid))
+
+
+def delete_all_model_api_keys():
+    for key in _get_model_api_keys():
+        _delete_model_api_key(key['keyid'])
+
+
+def create_model_api_key():
+    resp = _get_session().post(_get_api_url() + '/users/{}/modelapikey'.format(_CDSW_USERNAME),
+                               json={'expiryDate': (datetime.utcnow() + timedelta(days=365)).isoformat()[:23] + 'Z'})
+    if resp.status_code == requests.codes.ok:
+        return resp.json()['modelapikey']
+    return None
 
 
 def get_model_access_key():
