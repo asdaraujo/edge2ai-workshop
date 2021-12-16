@@ -336,6 +336,7 @@ function load_env() {
     echo "${C_NORMAL}"
     exit 1
   fi
+  export AWS_DEFAULT_REGION=${TF_VAR_aws_region}
   if [[ ${TF_VAR_aws_profile:-} ]]; then
     export AWS_PROFILE=${TF_VAR_aws_profile}
   else
