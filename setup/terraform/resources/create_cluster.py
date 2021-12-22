@@ -19,15 +19,18 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 OPT_PARSER = None
 HEADER_COLORS = ['BLUE', 'DARKBLUE', 'GREEN', 'TEAL', 'PURPLE', 'PINK', 'GRAY', 'RED', 'YELLOW', 'BROWN']
+LOG_FILE_PATH = '/var/log/cloudera-scm-server/cloudera-scm-server.log'
+
 
 def print_cmd(cmd, indent=0):
     cmd_id = int(cmd.id)
     cmd_name = cmd.name
     cmd_status = 'Running' if cmd.active else 'Succeeded' if cmd.success else 'FAILED'
     cmd_msg = (' (' + cmd.result_message + ')') if cmd.result_message else ''
-    indent_str = ' '*(indent-2) + ' +- ' if indent > 1 else ''
+    indent_str = ' ' * (indent - 2) + ' +- ' if indent > 1 else ''
     details = [
-        'Cluster: ' + (cmd.cluster_ref.display_name if cmd.cluster_ref.display_name else cmd.cluster_ref.cluster_name) if cmd.cluster_ref else '',
+        'Cluster: ' + (
+            cmd.cluster_ref.display_name if cmd.cluster_ref.display_name else cmd.cluster_ref.cluster_name) if cmd.cluster_ref else '',
         'Service: ' + cmd.service_ref.service_name if cmd.service_ref else '',
         'Role: ' + cmd.role_ref.role_name if cmd.role_ref else '',
         'Host: ' + cmd.host_ref.hostname if cmd.host_ref else '',
@@ -41,7 +44,8 @@ def print_cmd(cmd, indent=0):
     print(msg)
     if cmd.children and cmd.children.items:
         for child in sorted(cmd.children.items, key=lambda x: x.id):
-            print_cmd(child, indent+2)
+            print_cmd(child, indent + 2)
+
 
 def _get_parser():
     global OPT_PARSER
@@ -71,24 +75,30 @@ def _get_parser():
                               help='TLS truststore.')
     return OPT_PARSER
 
+
 def parse_args():
     return _get_parser().parse_args()
 
+
 def to_int(x):
     try:
-        return(int(x))
+        return (int(x))
     except:
         return 999
 
+
 def cm_major_version():
     return int(os.environ.get('CM_MAJOR_VERSION', '7'))
+
 
 def cm_version():
     cm_version = os.environ.get('CM_VERSION', '999.999.999')
     return [to_int(x) for x in re.split('[-.]', cm_version)]
 
+
 def the_pwd():
     return os.environ['THE_PWD']
+
 
 def cluster_id():
     try:
@@ -99,14 +109,39 @@ def cluster_id():
 
     return 0
 
+
 def local_hostname():
     return os.environ.get('LOCAL_HOSTNAME', 'edge2ai-1.local.dim')
+
+
+def get_log_messages():
+    if os.path.isfile(LOG_FILE_PATH):
+        log_file = open(LOG_FILE_PATH, 'r')
+        message = []
+        for line in log_file:
+            if not line.startswith(' ') and not line.startswith('\t'):
+                if message:
+                    yield ''.join(message).rstrip()
+                    message = []
+            message.append(line)
+
+        if message:
+            yield ''.join(message).rstrip()
+            message = []
+
+
+def print_errors(tail_size):
+    messages = [msg for msg in get_log_messages() if
+                re.match(r'.*(ERROR|Caused by|Exception)', msg) and not re.match(r'.*(PeriodicJmx)', msg)]
+    for msg in messages[-tail_size:]:
+        print(msg)
+
 
 class ClusterCreator:
     def __init__(self, host, krb_princ='scm/admin@WORKSHOP.COM', tls_ca_cert=None):
         self.host = host
         self.krb_princ = krb_princ
-        
+
         self._api_client = None
         self._cm_api = None
         self._mgmt_api = None
@@ -139,10 +174,10 @@ class ClusterCreator:
             try:
                 self.cm_api.update_config(message='Importing paywall credentials',
                                           body=cm_client.ApiConfigList([
-                                                   cm_client.ApiConfig(name='REMOTE_REPO_OVERRIDE_USER', value=None),
-                                                   cm_client.ApiConfig(name='REMOTE_REPO_OVERRIDE_PASSWORD', value=None)
-                                               ])
-                                         )
+                                              cm_client.ApiConfig(name='REMOTE_REPO_OVERRIDE_USER', value=None),
+                                              cm_client.ApiConfig(name='REMOTE_REPO_OVERRIDE_PASSWORD', value=None)
+                                          ])
+                                          )
             except ApiException:
                 pass
 
@@ -196,13 +231,13 @@ class ClusterCreator:
         SYNCHRONOUS_COMMAND_ID = -1
         if cmd.id == SYNCHRONOUS_COMMAND_ID:
             return cmd
-    
+
         SLEEP_SECS = 5
         if timeout is None:
             deadline = None
         else:
             deadline = time.time() + timeout
-    
+
         try:
             cmd_api_instance = cm_client.CommandsResourceApi(self.api_client)
             while True:
@@ -211,7 +246,7 @@ class ClusterCreator:
                 print_cmd(cmd)
                 if not cmd.active:
                     return cmd
-    
+
                 if deadline is not None:
                     now = time.time()
                     if deadline < now:
@@ -230,7 +265,7 @@ class ClusterCreator:
             self.cm_api.begin_trial()
         except ApiException as exc:
             if exc.status == 400 and 'Trial has been used' in exc.body:
-                pass # This can be ignored
+                pass  # This can be ignored
             else:
                 raise
 
@@ -251,7 +286,7 @@ class ClusterCreator:
             cmd = self.wait(cmd)
             if not cmd.success:
                 raise RuntimeError('Failed to add host to the cluster')
-        
+
         # Create MGMT/CMS
         try:
             self.mgmt_api.read_service()
@@ -264,15 +299,15 @@ class ClusterCreator:
             print("Installing Cloudera Management Services")
             api_service = cm_client.ApiService()
             api_service.roles = [cm_client.ApiRole(type='SERVICEMONITOR'),
-                cm_client.ApiRole(type='HOSTMONITOR'),
-                cm_client.ApiRole(type='EVENTSERVER'),
-                cm_client.ApiRole(type='ALERTPUBLISHER')]
+                                 cm_client.ApiRole(type='HOSTMONITOR'),
+                                 cm_client.ApiRole(type='EVENTSERVER'),
+                                 cm_client.ApiRole(type='ALERTPUBLISHER')]
             self.mgmt_api.setup_cms(body=api_service)
             cmd = self.mgmt_api.start_command()
             cmd = self.wait(cmd)
             if not cmd.success:
                 raise RuntimeError('Failed to start Management Services')
-        
+
         # Update cluster banner
         c_id = cluster_id()
         banner = 'Cluster ID: {}, Host: {}'.format(c_id, socket.gethostname())
@@ -308,7 +343,6 @@ class ClusterCreator:
         cmd = self.mgmt_api.restart_command()
         cmd = self.wait(cmd)
 
-
     def create_cluster(self, template):
 
         self._import_paywall_credentials()
@@ -316,9 +350,10 @@ class ClusterCreator:
         # Create the cluster using the template
         with open(template) as f:
             json_str = f.read()
-        
+
         Response = namedtuple("Response", "data")
-        dst_cluster_template = self.api_client.deserialize(response=Response(json_str),response_type=cm_client.ApiClusterTemplate)
+        dst_cluster_template = self.api_client.deserialize(response=Response(json_str),
+                                                           response_type=cm_client.ApiClusterTemplate)
         cmd = self.cm_api.import_cluster_template(add_repositories=True, body=dst_cluster_template)
         cmd = self.wait(cmd)
         if not cmd.success:
@@ -351,7 +386,8 @@ class ClusterCreator:
                 cm_client.ApiConfig(name='KDC_HOST', value=ipa_host),
                 cm_client.ApiConfig(name='KDC_TYPE', value='Red Hat IPA'),
                 cm_client.ApiConfig(name='AUTH_BACKEND_ORDER', value='LDAP_THEN_DB'),
-                cm_client.ApiConfig(name='LDAP_BIND_DN', value='uid=ldap_bind_user,cn=users,cn=accounts,dc=workshop,dc=com'),
+                cm_client.ApiConfig(name='LDAP_BIND_DN',
+                                    value='uid=ldap_bind_user,cn=users,cn=accounts,dc=workshop,dc=com'),
                 cm_client.ApiConfig(name='LDAP_BIND_PW', value=the_pwd()),
                 cm_client.ApiConfig(name='LDAP_GROUP_SEARCH_BASE', value='cn=groups,cn=accounts,dc=workshop,dc=com'),
                 cm_client.ApiConfig(name='LDAP_GROUP_SEARCH_FILTER', value='(member={0})'),
@@ -363,7 +399,8 @@ class ClusterCreator:
             if cm_version() < [7, 5, 3]:
                 # These properties were removed in OPSAPS-61384 (CM 7.5.3)
                 config += [
-                    cm_client.ApiConfig(name='LDAP_BIND_DN_MONITORING', value='uid=ldap_bind_user,cn=users,cn=accounts,dc=workshop,dc=com'),
+                    cm_client.ApiConfig(name='LDAP_BIND_DN_MONITORING',
+                                        value='uid=ldap_bind_user,cn=users,cn=accounts,dc=workshop,dc=com'),
                     cm_client.ApiConfig(name='LDAP_BIND_PW_MONITORING', value=the_pwd()),
                 ]
         self.cm_api.update_config(message='Updating Kerberos config', body=cm_client.ApiConfigList(config))
@@ -391,9 +428,11 @@ class ClusterCreator:
         self.mgmt_api.update_service_config(
             message='Updating TLS config for Mgmt Services',
             body=cm_client.ApiServiceConfig([
-                cm_client.ApiConfig(name='ssl_client_truststore_location', value='/opt/cloudera/security/jks/truststore.jks'),
+                cm_client.ApiConfig(name='ssl_client_truststore_location',
+                                    value='/opt/cloudera/security/jks/truststore.jks'),
                 cm_client.ApiConfig(name='ssl_client_truststore_password', value=the_pwd()),
             ]))
+
 
 if __name__ == '__main__':
     (options, args) = parse_args()
@@ -408,8 +447,12 @@ if __name__ == '__main__':
     else:
         krb_princ = 'scm/admin@WORKSHOP.COM'
     CLUSTER_CREATOR = ClusterCreator(HOST, krb_princ=krb_princ, tls_ca_cert=options.tls_ca_cert)
-    if (options.setup_cm):
-        CLUSTER_CREATOR.setup_cm(options.key_file, options.cm_repo_url, options.use_kerberos, options.use_tls,
-            options.kerberos_type, options.ipa_host)
-    if (options.create_cluster):
-        CLUSTER_CREATOR.create_cluster(options.template)
+    try:
+        if (options.setup_cm):
+            CLUSTER_CREATOR.setup_cm(options.key_file, options.cm_repo_url, options.use_kerberos, options.use_tls,
+                                     options.kerberos_type, options.ipa_host)
+        if (options.create_cluster):
+            CLUSTER_CREATOR.create_cluster(options.template)
+    except:
+        print_errors(3)
+        raise
