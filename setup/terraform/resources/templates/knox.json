@@ -93,6 +93,10 @@
               "value" : "^/.*$;^http.*$"
             },
             {
+              "name" : "conf/gateway-site.xml_role_safety_valve",
+              "value" : "<property><name>knox.homepage.logout.enabled</name><value>true</value></property>"
+            },
+            {
               "name" : "gateway_knox_admin_groups",
               "value" : "cdp-admins"
             },

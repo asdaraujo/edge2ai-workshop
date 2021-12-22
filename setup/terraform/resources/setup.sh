@@ -161,20 +161,6 @@ EOF
   systemctl disable cloudera-scm-agent
   systemctl disable cloudera-scm-server
 
-  echo "-- Hack KNOX CSD to include [knoxsso.cookie.domain.suffix] property"
-  rm -rf /tmp/knoxcsd
-  for KNOX_CSD in $(ls -1 /opt/cloudera/cm/csd/KNOX*.jar 2>/dev/null || true); do
-    mkdir -p /tmp/knoxcsd
-    pushd /tmp/knoxcsd
-    jar xvf $KNOX_CSD
-    if [[ -f aux/descriptors/knoxsso.json ]]; then
-      sed -i.bak 's/knoxsso.token.ttl/knoxsso.cookie.domain.suffix": "*", "knoxsso.token.ttl/' aux/descriptors/knoxsso.json
-    fi
-    jar cvf $KNOX_CSD *
-    popd
-    rm -rf /tmp/knoxcsd
-  done
-
   echo "-- Install and disable PostgreSQL"
   yum_install postgresql10-server postgresql10 postgresql10-contrib postgresql-jdbc
   systemctl disable postgresql-10
