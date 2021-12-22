@@ -186,7 +186,7 @@ function maybe_launch_docker() {
     fi
     if [[ "${NO_DOCKER_PULL:-}" == "" && $docker_img == $DEFAULT_DOCKER_IMAGE ]]; then
       if [[ $(is_docker_image_stale) == "yes" ]]; then
-        docker pull $docker_img || true
+        docker pull --platform linux/amd64 $docker_img || true
       fi
     fi
 
@@ -196,6 +196,7 @@ function maybe_launch_docker() {
     fi
     local cmd=./$(basename $0)
     exec docker run -ti --rm \
+      --platform linux/amd64 \
       --detach-keys="ctrl-@" \
       --entrypoint="" \
       -v $BASE_DIR/../..:/edge2ai-workshop \
@@ -240,6 +241,7 @@ function try_in_docker() {
   if [[ "${NO_DOCKER:-}" == "" && "$(is_docker_running)" == "yes" ]]; then
     local docker_img=${EDGE2AI_DOCKER_IMAGE:-$DEFAULT_DOCKER_IMAGE}
     exec docker run --rm \
+      --platform linux/amd64 \
       --detach-keys="ctrl-@" \
       --entrypoint="" \
       -v $BASE_DIR/../..:/edge2ai-workshop \
@@ -247,7 +249,7 @@ function try_in_docker() {
       -e DEBUG=${DEBUG:-} \
       -e HOSTS_ADD=$(basename $PUBLIC_IPS_FILE) \
       $docker_img \
-      /bin/bash -c "cd /edge2ai-workshop/setup/terraform; export BASE_DIR=\$PWD; source common.sh; load_env $namespace; ${cmd[@]}"
+      /bin/bash -c "cd /edge2ai-workshop/setup/terraform; export BASE_DIR=\$PWD; export NO_DOCKER_MSG=1; source common.sh; load_env $namespace; ${cmd[@]}"
   else
     (load_env $namespace; "${cmd[@]}")
   fi
