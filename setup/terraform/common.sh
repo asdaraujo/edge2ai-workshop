@@ -206,8 +206,7 @@ function maybe_launch_docker() {
       $docker_img \
       $cmd $*
   fi
-  local is_inside_docker=$(egrep "/(lxc|docker)/" /proc/1/cgroup > /dev/null 2>&1 && echo yes || echo no)
-  if [[ "$is_inside_docker" == "no" ]]; then
+  if [[ "${INSIDE_DOCKER_CONTAINER:-0}" == "0" ]]; then
     if [[ ${NO_DOCKER_MSG:-} == "" ]]; then
       echo -e "${C_DIM}Running locally (no docker)${C_NORMAL}"
       export NO_DOCKER_MSG=1

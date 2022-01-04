@@ -3,10 +3,8 @@ FROM golang:alpine
 LABEL maintainer="Andre Araujo <araujo@cloudera.com>"
 LABEL site="https://github.com/asdaraujo/edge2ai-workshop/tree/master/setup"
 
+ENV INSIDE_DOCKER_CONTAINER=1
 ENV PYTHONUNBUFFERED=0
-ENV TZ=${TZ:-"Europe/London"}
-ENV ENV=${ENV:-'/setup/terraform/.env'}
-ENV STACK=${STACK:-'/setup/terraform/resources/stack.sh'}
 ENV TERRAFORM12VERSION=${TERRAFORM12VERSION:-0.12.30}
 ENV TERRAFORM12=/usr/local/bin/terraform12
 ENV TERRAFORM14VERSION=${TERRAFORM14VERSION:-0.14.8}
@@ -17,7 +15,7 @@ ENV GLIBC_VER=2.31-r0
 RUN apk update && apk upgrade \
     && apk add --no-cache git python3-dev py-pip git linux-headers wget unzip bash openssh jq curl tzdata
 
-RUN cp /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+RUN cp /usr/share/zoneinfo/Europe/London /etc/localtime && echo Europe/London > /etc/timezone
 
 RUN pip install --upgrade pip \
     && pip install --no-cache jinja2 pyyaml boto3
