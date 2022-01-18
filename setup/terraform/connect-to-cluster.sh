@@ -4,13 +4,14 @@ set -o nounset
 BASE_DIR=$(cd $(dirname $0); pwd -L)
 source $BASE_DIR/common-basics.sh
 
-if [ $# != 2 ]; then
+if [ $# -lt 2 ]; then
   echo "Syntax: $0 <namespace> <cluster_number>"
   show_namespaces
   exit 1
 fi
 NAMESPACE=$1
 CLUSTER_ID=$2
+shift 2
 
 source $BASE_DIR/common.sh
 
@@ -26,4 +27,4 @@ if [ ! -s $PRIVATE_KEY ]; then
   exit 1
 fi
 
-ssh -o StrictHostKeyChecking=no -i $PRIVATE_KEY $TF_VAR_ssh_username@$(public_dns $CLUSTER_ID)
+ssh "$@" -o StrictHostKeyChecking=no -i $PRIVATE_KEY $TF_VAR_ssh_username@$(public_dns $CLUSTER_ID)
