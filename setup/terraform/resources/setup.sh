@@ -97,8 +97,10 @@ if [[ ! -f $CM_REPO_FILE ]]; then
   fi
 
   echo "-- Installing base dependencies"
+  # nodejs, npm and forever are SMM dependencies
+  curl -sL https://rpm.nodesource.com/setup_10.x | sed -E '/(script_deprecation_warning|node_deprecation_warning)$/d' | sudo bash -
   yum_install ${JAVA_PACKAGE_NAME} vim wget curl git bind-utils centos-release-scl figlet cowsay
-  yum_install npm gcc-c++ make shellinabox mosquitto jq transmission-cli rng-tools rh-python36 httpd
+  yum_install nodejs gcc-c++ make shellinabox mosquitto jq transmission-cli rng-tools rh-python36 httpd
   # Below is needed for secure clusters (required by Impyla)
   yum_install cyrus-sasl-md5 cyrus-sasl-plain cyrus-sasl-gssapi cyrus-sasl-devel
   # For troubleshooting purposes, when needed
