@@ -4,6 +4,7 @@ import json
 import uuid
 
 from . import *
+from . import cm
 
 _SSB_USER = 'admin'
 _SSB_SESSION = None
@@ -12,7 +13,13 @@ _SSB_CSRF_TOKEN = None
 _API_INTERNAL = 'internal'
 _API_EXTERNAL = 'external'
 _API_UI = 'ui'
+_FLINK_VERSION = None
 
+# _LEGACY_ENDPOINTS = {
+#     'csa1.5': {
+#         '/internal/external-provider': '/external-providers',
+#     },
+# }
 
 def _get_api_url():
     return get_url_scheme() + '://cdp.{}.nip.io:8000/api/v1'.format(get_public_ip())
@@ -37,6 +44,7 @@ def _get_url(api_type):
 
 def _api_call(func, path, data=None, files=None, headers=None, api_type=_API_INTERNAL, token=False):
     global _SSB_CSRF_TOKEN
+    # path = _adjust_api_endpoint_for_version(path)
     if not headers:
         headers = {}
     if api_type != _API_UI:
@@ -83,30 +91,69 @@ def _get_session():
     return _SSB_SESSION
 
 
+def _get_flink_version():
+    global _FLINK_VERSION
+    if not _FLINK_VERSION:
+        _FLINK_VERSION = cm.get_product_version('FLINK')
+    return _FLINK_VERSION
+
+
+def _is_csa16():
+    return 'csa1.6' in _get_flink_version()
+
+
+# def _adjust_api_endpoint_for_version(endpoint):
+#     global _LEGACY_ENDPOINTS
+#     for version_key in _LEGACY_ENDPOINTS.keys():
+#         if version_key in _get_flink_version():
+#             for current_endpoint, legacy_endpoint in _LEGACY_ENDPOINTS[version_key].items():
+#                 if endpoint.startswith(current_endpoint):
+#                     return endpoint.replace(current_endpoint, legacy_endpoint)
+#     return endpoint
+
+
 def create_data_provider(provider_name, provider_type, properties):
+    if _is_csa16():
+        provider_type_attr = 'type'
+    else:
+        provider_type_attr = 'provider_type'
     data = {
         'name': provider_name,
-        'provider_type': provider_type,
+        provider_type_attr: provider_type,
         'properties': properties,
     }
-    return _api_post('/external-providers', data)
+    if _is_csa16():
+        return _api_post('/internal/external-provider', data, api_type=_API_INTERNAL, token=True)
+    else:
+        return _api_post('/external-providers', data)
 
 
 def get_data_providers(provider_name=None):
-    resp = _api_get('/external-providers')
-    providers = resp.json()['data']['providers']
+    if _is_csa16():
+        resp = _api_get('/internal/external-provider', api_type=_API_INTERNAL)
+        providers = resp.json()
+    else:
+        resp = _api_get('/external-providers')
+        providers = resp.json()['data']['providers']
     return [p for p in providers if provider_name is None or p['name'] == provider_name]
 
 
 def delete_data_provider(provider_name):
     assert provider_name is not None
     for provider in get_data_providers(provider_name):
-        _api_delete('/external-providers/{}'.format(provider['provider_id']))
+        if _is_csa16():
+            _api_delete('/internal/external-provider/{}'.format(provider['provider_id']), api_type=_API_INTERNAL, token=True)
+        else:
+            _api_delete('/external-providers/{}'.format(provider['provider_id']))
 
 
 def detect_schema(provider_name, topic_name):
     provider_id = get_data_providers(provider_name)[0]['provider_id']
-    return json.dumps(_api_get('/dataprovider-endpoints/kafkaSample/{}/{}'.format(provider_id, topic_name)).json()['data'], indent=2)
+    if _is_csa16():
+        raw_json = _api_get('/internal/kafka/{}/schema?topic_name={}'.format(provider_id, topic_name)).text
+        return json.dumps(json.loads(raw_json), indent=2)
+    else:
+        return json.dumps(_api_get('/dataprovider-endpoints/kafkaSample/{}/{}'.format(provider_id, topic_name)).json()['data'], indent=2)
 
 
 def create_kafka_table(table_name, table_format, provider_name, topic_name, schema=None, transform_code=None,
@@ -134,19 +181,33 @@ def create_kafka_table(table_name, table_format, provider_name, topic_name, sche
             "schema": schema,
         }
     }
-    return _api_post('/sb-source', data, token=True)
+    if _is_csa16():
+        return _api_post('/internal/data-provider', data, api_type=_API_INTERNAL, token=True)
+    else:
+        return _api_post('/sb-source', data, token=True)
 
 
-def get_tables(table_name=None):
-    resp = _api_get('/sb-source')
-    tables = resp.json()['data']
+def get_tables(table_name=None, org='ssb_default'):
+    if _is_csa16():
+        data = _api_get('/internal/catalog/tables-tree').json()
+        assert 'tables' in data
+        if 'ssb' in data['tables'] and org in data['tables']['ssb']:
+            tables = data['tables']['ssb'][org]
+        else:
+            tables = []
+    else:
+        resp = _api_get('/sb-source')
+        tables = resp.json()['data']
     return [t for t in tables if table_name is None or t['table_name'] == table_name]
 
 
 def delete_table(table_name):
     assert table_name is not None
     for table in get_tables(table_name):
-        _api_delete('/sb-source/{}'.format(table['id']), token=True)
+        if _is_csa16():
+            _api_delete('/internal/data-provider/{}'.format(table['id']), token=True)
+        else:
+            _api_delete('/sb-source/{}'.format(table['id']), token=True)
 
 
 def execute_sql(stmt, job_name=None, parallelism=None, sample_interval_millis=None, savepoint_path=None,

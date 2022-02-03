@@ -89,6 +89,17 @@ def get_hostname():
     return socket.gethostname()
 
 
+def get_public_ip():
+    retries = 3
+    while retries > 0:
+        resp = requests.get('http://ifconfig.me')
+        if resp.status_code == requests.codes.ok:
+            return resp.text
+        retries -= 1
+        time.sleep(1)
+    raise RuntimeError('Failed to get the public IP address.')
+
+
 def get_url_scheme():
     return 'https' if is_tls_enabled() else 'http'
 

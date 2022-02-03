@@ -147,6 +147,15 @@
           "roleType": "STREAMING_SQL_ENGINE",
           "base": true,
           "configs": [
+{% if CSA_VERSION is ge('1.6') %}
+            {
+              "name": "default.admin.password",
+              "value": "{{THE_PWD}}"
+            }
+{% endif %}
+{% if CSA_VERSION is ge('1.6') and ENABLE_TLS == 'yes' %}
+            ,
+{% endif %}
 {% if ENABLE_TLS == 'yes' %}
             {
               "name": "ssl_client_truststore_location",
@@ -181,16 +190,16 @@
           "base": true,
           "configs": [
             {
-              "name": "ssb.mve.datasource.url",
-              "value": "jdbc:postgresql://{{CLUSTER_HOST}}:5432/eventador_snapper"
-            },
-            {
               "name": "ssb.mve.datasource.username",
               "value": "eventador_snapper"
             },
             {
               "name": "ssb.mve.datasource.password",
               "value": "{{THE_PWD}}"
+            },
+            {
+              "name": "ssb.mve.datasource.url",
+              "value": "jdbc:postgresql://{{CLUSTER_HOST}}:5432/eventador_snapper"
             }
 {% if ENABLE_TLS == 'yes' %}
             ,{
@@ -232,11 +241,13 @@
             {
               "name": "console.secure.port",
               "value": "8001"
-            },
-            {
+            }
+{% if CSA_VERSION is lt('1.6') %}
+            ,{
               "name": "cloudera_env.admin_password",
               "value": "{{THE_PWD}}"
             }
+{% endif %}
 {% if ENABLE_TLS == 'yes' %}
             ,{
               "name": "ssl_client_truststore_location",
