@@ -997,11 +997,11 @@ function clean_all() {
     kill -9 $pids
   fi
   while true; do
-    for dv in $(dmsetup ls | sort | awk '{print $1}'); do
+    for dv in $(dmsetup ls | sort | awk '{print $1}' | grep "docker"); do
       echo "Removing device $dv"
       [[ -h "/dev/mapper/$dv" ]] && dmsetup remove "$dv"
     done
-    [[ $(dmsetup ls | grep -v "No devices found" | wc -l) -eq 0 ]] && break
+    [[ $(dmsetup ls | grep "docker" | wc -l) -eq 0 ]] && break
     sleep 1
   done
   lvdisplay docker/thinpool >/dev/null 2>&1 && while true; do lvremove docker/thinpool && break; sleep 1; done

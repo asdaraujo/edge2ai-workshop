@@ -465,6 +465,7 @@ case "${CLOUD_PROVIDER}" in
           ;;
       *)
           export PRIVATE_DNS=$(hostname -f)
+          [[ "$PRIVATE_DNS" == *"."* ]] || PRIVATE_DNS="${PRIVATE_DNS}.local"
           export PUBLIC_DNS=$PRIVATE_DNS
           export PRIVATE_IP=$(hostname -I | awk '{print $1}')
 esac
@@ -477,12 +478,16 @@ export CLUSTER_HOST=$PUBLIC_DNS
 export CDSW_DOMAIN=cdsw.${PUBLIC_IP}.nip.io
 
 echo "-- Set /etc/hosts - Public DNS must come first"
-sed -i.bak "/${LOCAL_HOSTNAME}/ d" /etc/hosts
-sed -i '/^::1/d' /etc/hosts
+sed -i.bak "/${LOCAL_HOSTNAME}/d;/^${PRIVATE_IP}/d;/^::1/d" /etc/hosts
 echo "$PRIVATE_IP $PUBLIC_DNS $PRIVATE_DNS $LOCAL_HOSTNAME" >> /etc/hosts
 
+echo "-- Force domain name"
+sed -i.bak '/kernel.domainname/d' /etc/sysctl.conf
+echo "kernel.domainname=${PUBLIC_DNS#*.}" >> /etc/sysctl.conf
+sysctl -p
+
 echo "-- Configure networking"
-hostnamectl set-hostname ${CLUSTER_HOST}
+hostnamectl set-hostname $CLUSTER_HOST
 if [[ -f /etc/sysconfig/network ]]; then
   sed -i "/HOSTNAME=/ d" /etc/sysconfig/network
 fi
