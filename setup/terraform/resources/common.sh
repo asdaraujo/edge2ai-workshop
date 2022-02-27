@@ -992,7 +992,7 @@ function clean_all() {
   if [[ $mounts != "" ]]; then
     umount $mounts
   fi
-  pids=$(grep docker /proc/*/mountinfo | awk -F/ '{print $3}' | sort -u)
+  pids=$(grep /dev/mapper/docker /proc/[0-9]*/mountinfo | awk -F/ '{print $3}' | sort -u)
   if [[ $pids != "" ]]; then
     kill -9 $pids
   fi
@@ -1091,4 +1091,38 @@ EOF
     "$(get_cm_base_url)/api/v40/externalAccounts/create"
 
   rm -f /tmp/kafka_external.json
+}
+
+function compare_version() {
+  local v1=$1
+  local v2=$2
+  python -c '
+v1 = tuple(map(int, "'"$v1"'".split(".")))
+v2 = tuple(map(int, "'"$v2"'".split(".")))
+if v1 == v2:
+  print("=")
+elif v1 < v2:
+  print("<")
+else:
+  print(">")
+'
+}
+
+function nifi_reporting_task_state() {
+  local rt_name=$1
+  local state=$2
+
+  if [ "$(is_tls_enabled)" == "yes" ]; then
+    scheme=https
+    port=8443
+  else
+    scheme=http
+    port=8080
+  fi
+  local api_url="${scheme}://${CLUSTER_HOST}:${port}/nifi-api"
+  token=$(curl -s -X POST -d "username=admin&password=${THE_PWD}" -k "${api_url}/access/token")
+  rts="$(curl -s -k -H "Authorization: Bearer $token" "${api_url}/flow/reporting-tasks")"
+  rt_id=$(echo "$rts" | jq -r '.reportingTasks[] | . as $r | .component | select(.name == "'"$rt_name"'").id')
+  rt_revision=$(echo "$rts" | jq -rc '.reportingTasks[] | . as $r | .component | select(.name == "'"$rt_name"'") | $r.revision')
+  curl -s -k -H "Authorization: Bearer $token" "${api_url}/reporting-tasks/${rt_id}/run-status" -d '{"state": "'"$state"'", "revision": '"$rt_revision"'}' -H 'Content-Type: application/json' -X PUT
 }

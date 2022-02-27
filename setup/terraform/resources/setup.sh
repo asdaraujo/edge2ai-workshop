@@ -31,10 +31,10 @@ KEY_FILE=${BASE_DIR}/myRSAkey
 TEMPLATE_FILE=$BASE_DIR/cluster_template.${NAMESPACE}.json
 
 load_stack $NAMESPACE
-if [[ ${ENABLE_TLS:-} == "yes" ]]; then
+if [[ "$(is_tls_enabled)" == "yes" ]]; then
   touch $BASE_DIR/.enable-tls
 fi
-if [[ ${ENABLE_KERBEROS:-} == "yes" ]]; then
+if [[ "$(is_kerberos_enabled)" == "yes" ]]; then
   touch $BASE_DIR/.enable-kerberos
 fi
 if [[ ${USE_IPA:-0} -eq 1 ]]; then
@@ -228,32 +228,6 @@ EOF
   chkconfig --add efm
   chown -R root:root /opt/cloudera/cem/${EFM_BASE_NAME}
   sed -i.bak 's#APP_EXT_LIB_DIR=.*#APP_EXT_LIB_DIR=/usr/share/java#' /opt/cloudera/cem/efm/conf/efm.conf
-  sed -i.bak \
-'s#^efm.server.address=.*#efm.server.address='"${LOCAL_HOSTNAME}"'#;'\
-'s#^efm.server.port=.*#efm.server.port=10088#;'\
-'s#^efm.security.user.certificate.enabled=.*#efm.security.user.certificate.enabled=false#;'\
-'s#^efm.nifi.registry.enabled=.*#efm.nifi.registry.enabled=true#;'\
-'s#^efm.nifi.registry.url=.*#efm.nifi.registry.url=http://'"${LOCAL_HOSTNAME}"':18080#;'\
-'s#^efm.nifi.registry.bucketName=.*#efm.nifi.registry.bucketName=IoT#;'\
-'s#^efm.heartbeat.maxAgeToKeep=.*#efm.heartbeat.maxAgeToKeep=1h#;'\
-'s#^efm.event.maxAgeToKeep.debug=.*#efm.event.maxAgeToKeep.debug=5m#;'\
-'s#^efm.db.url=.*#efm.db.url=jdbc:postgresql://'"${LOCAL_HOSTNAME}"':5432/efm#;'\
-'s#^efm.db.driverClass=.*#efm.db.driverClass=org.postgresql.Driver#;'\
-'s#^efm.db.password=.*#efm.db.password='"${THE_PWD}"'#' /opt/cloudera/cem/efm/conf/efm.properties
-  if [[ $ENABLE_TLS == yes ]]; then
-    sed -i.bak \
-'s#^efm.server.ssl.enabled=.*#efm.server.ssl.enabled=false#;'\
-'s#^efm.server.ssl.keyStore=.*#efm.server.ssl.keyStore=/opt/cloudera/security/jks/keystore.jks#;'\
-'s#^efm.server.ssl.keyStoreType=.*#efm.server.ssl.keyStoreType=jks#;'\
-'s#^efm.server.ssl.keyStorePassword=.*#efm.server.ssl.keyStorePassword='"$THE_PWD"'#;'\
-'s#^efm.server.ssl.keyPassword=.*#efm.server.ssl.keyPassword='"$THE_PWD"'#;'\
-'s#^efm.server.ssl.trustStore=.*#efm.server.ssl.trustStore=/opt/cloudera/security/jks/truststore.jks#;'\
-'s#^efm.server.ssl.trustStoreType=.*#efm.server.ssl.trustStoreType=jks#;'\
-'s#^efm.server.ssl.trustStorePassword=.*#efm.server.ssl.trustStorePassword='"$THE_PWD"'#;'\
-'s#^efm.security.user.certificate.enabled=.*#efm.security.user.certificate.enabled=true#;'\
-'s#^efm.nifi.registry.url=.*#efm.nifi.registry.url=https://'"${LOCAL_HOSTNAME}"':18433#' /opt/cloudera/cem/efm/conf/efm.properties
-  fi
-  echo -e "\nefm.encryption.password=${THE_PWD}${THE_PWD}" >> /opt/cloudera/cem/efm/conf/efm.properties
 
   echo "-- Install and configure MiNiFi"
   MINIFI_TARBALL=$(find /opt/cloudera/cem/ -name "minifi-[0-9]*-bin.tar.gz")
@@ -266,13 +240,7 @@ EOF
   ln -s /opt/cloudera/cem/${MINIFI_BASE_NAME} /opt/cloudera/cem/minifi
   chown -R root:root /opt/cloudera/cem/${MINIFI_BASE_NAME}
   chown -R root:root /opt/cloudera/cem/${MINIFITK_BASE_NAME}
-  rm -f /opt/cloudera/cem/minifi/conf/bootstrap.conf
-  if [[ $ENABLE_TLS == yes ]]; then
-    SOURCE_BOOTSTRAP_CONF=$BASE_DIR/bootstrap.conf.tls
-  else
-    SOURCE_BOOTSTRAP_CONF=$BASE_DIR/bootstrap.conf
-  fi
-  sed "s/THE_PWD/$THE_PWD/;s/LOCAL_HOSTNAME/$LOCAL_HOSTNAME/" $SOURCE_BOOTSTRAP_CONF > /opt/cloudera/cem/minifi/conf/bootstrap.conf
+
   /opt/cloudera/cem/minifi/bin/minifi.sh install
 
   echo "-- Disable services here for packer images - will reenable later"
@@ -504,17 +472,16 @@ if [ "$(is_kerberos_enabled)" == "yes" ]; then
   fi
 fi
 
-# Add users - after Kerberos installation so that principals are also created correctly, if needed
-
+echo "-- Add users - after Kerberos installation so that principals are also created correctly, if needed"
 add_user workshop /home/workshop cdp-users
 add_user admin /home/admin cdp-admins,shadow,supergroup
 add_user alice /home/alice cdp-users
 add_user bob /home/bob cdp-users
 
-# Create certs. This is done even if ENABLE_TLS == no, since ShellInABox always needs a cert
+echo "-- Create certs. This is done even if ENABLE_TLS == no, since ShellInABox always needs a cert"
 create_certs "$IPA_HOST"
 
-# Enable and start ShelInABox
+echo "-- Enable and start ShelInABox"
 systemctl enable shellinaboxd
 systemctl restart shellinaboxd
 # Patch ShellInABox's JS to allow for multi-line pastes
@@ -578,7 +545,7 @@ wal_buffers = 8MB
 checkpoint_completion_target = 0.9
 EOF
 
-# Configure postgresql for Debezium use
+echo "-- Configure postgresql for Debezium use"
 sed -i '/^[ #]*\(wal_level\|max_wal_senders\|max_replication_slots\) *=.*/ d' /var/lib/pgsql/10/data/postgresql.conf
 cat >> /var/lib/pgsql/10/data/postgresql.conf <<EOF
 wal_level = logical
@@ -640,7 +607,7 @@ chmod +x ${BASE_DIR}/check-for-parcels.sh
 
 wait_for_cm
 
-echo "Reset CM admin password"
+echo "-- Reset CM admin password"
 sudo -u postgres psql -d scm -c "update users set password_hash = '${THE_PWD_HASH}', password_salt = ${THE_PWD_SALT} where user_name = 'admin'"
 
 enable_py3
@@ -672,6 +639,13 @@ else
 fi
 CM_REPO_URL=$(grep baseurl $CM_REPO_FILE | sed 's/.*=//;s/ //g')
 
+# This is a temporary debug collection for troubleshooting some issues with QueueManager failing to start
+# due to port 8081 being used.
+# TODO: remove this when no longer needed
+(set +e; set +x; while true; do echo "--"; date; netstat -anp | grep ":8081 .*LISTEN" > /tmp/.netstat; cat /tmp/.netstat; ps -ef | awk '$2~/('"$(grep LISTEN /tmp/.netstat | awk '{gsub(/\/.*/, "", $NF); print $NF}' | tr "\n" "|")"'dummy)/'; sleep 1; done) > /tmp/netstat.log &
+NETSTAT_PID=$!
+
+echo "-- Setup Cloudera Manager"
 python -u $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
   --setup-cm \
     --key-file $KEY_FILE \
@@ -680,10 +654,10 @@ python -u $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
     $KERBEROS_OPTION \
     $(get_create_cluster_tls_option)
 
-# Restart CM
+echo "-- Restart CM"
 systemctl restart cloudera-scm-server
 
-# Reconfigure agent
+echo "-- Reconfigure agent"
 if [[ ! -f /etc/cloudera-scm-agent/config.ini.original ]]; then
   cp /etc/cloudera-scm-agent/config.ini /etc/cloudera-scm-agent/config.ini.original
 fi
@@ -700,23 +674,27 @@ if [ "$(is_tls_enabled)" == "yes" ]; then
      /etc/cloudera-scm-agent/config.ini
 fi
 
-# Restart agent
+echo "-- Restart agent"
 systemctl restart cloudera-scm-agent
 
-# Wait for CM to be ready
+echo "-- Wait for CM to be ready"
 wait_for_cm
 
-# Create external accounts
+echo "-- Create external accounts"
 if [[ ${HAS_SRM:-0} == 1 ]]; then
   create_peer_kafka_external_account
 fi
 
+echo "-- Create cluster"
 python -u $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
   --create-cluster \
     --template $TEMPLATE_FILE \
     $(get_create_cluster_tls_option)
 
-echo "Set shadow permissions - needed by Knox when using PAM authentication"
+# TODO: remove this when no longer needed (see previous TODO)
+kill -9 $NETSTAT_PID || true
+
+echo "-- Set shadow permissions - needed by Knox when using PAM authentication"
 chgrp shadow /etc/shadow
 chmod g+r /etc/shadow
 id knox > /dev/null 2>&1 && usermod -G knox,hadoop,shadow knox || echo "User knox does not exist. Skipping usermod"
@@ -731,7 +709,7 @@ if [[ ${HAS_ZEPPELIN:-0} == 1 ]]; then
 fi
 
 echo "-- Tighten permissions"
-if [[ $ENABLE_TLS == yes ]]; then
+if [[ "$(is_tls_enabled)" == "yes" ]]; then
   tighten_keystores_permissions
 fi
 
@@ -743,10 +721,47 @@ if [[ ${HAS_RANGER:-0} == 1 && ${HAS_NIFI:-0} == 1 ]]; then
     echo "Waiting for Ranger to restart"
     sleep 1
   done
-  $BASE_DIR/ranger_policies.sh "$ENABLE_TLS"
+  $BASE_DIR/ranger_policies.sh "$(is_tls_enabled)"
 fi
 
 echo "-- Configure and start EFM"
+sed -i.bak \
+'s#^efm.server.address=.*#efm.server.address='"${CLUSTER_HOST}"'#;'\
+'s#^efm.server.port=.*#efm.server.port=10088#;'\
+'s#^efm.security.user.certificate.enabled=.*#efm.security.user.certificate.enabled=false#;'\
+'s#^efm.nifi.registry.enabled=.*#efm.nifi.registry.enabled=true#;'\
+'s#^efm.nifi.registry.url=.*#efm.nifi.registry.url=http://'"${CLUSTER_HOST}"':18080#;'\
+'s#^efm.nifi.registry.bucketName=.*#efm.nifi.registry.bucketName=IoT#;'\
+'s#^efm.heartbeat.maxAgeToKeep=.*#efm.heartbeat.maxAgeToKeep=1h#;'\
+'s#^efm.event.maxAgeToKeep.debug=.*#efm.event.maxAgeToKeep.debug=5m#;'\
+'s#^efm.db.url=.*#efm.db.url=jdbc:postgresql://'"${CLUSTER_HOST}"':5432/efm#;'\
+'s#^efm.db.driverClass=.*#efm.db.driverClass=org.postgresql.Driver#;'\
+'s#^efm.db.password=.*#efm.db.password='"${THE_PWD}"'#' /opt/cloudera/cem/efm/conf/efm.properties
+if [[ "$(is_tls_enabled)" == "yes" ]]; then
+  if [[ $(compare_version "$CEM_VERSION" "1.2.2.0") != "<" ]]; then
+    sed -i.bak 's#^efm.server.ssl.enabled=.*#efm.server.ssl.enabled=true#;' /opt/cloudera/cem/efm/conf/efm.properties
+  fi
+  sed -i.bak \
+'s#^efm.server.ssl.keyStore=.*#efm.server.ssl.keyStore=/opt/cloudera/security/jks/keystore.jks#;'\
+'s#^efm.server.ssl.keyStoreType=.*#efm.server.ssl.keyStoreType=jks#;'\
+'s#^efm.server.ssl.keyStorePassword=.*#efm.server.ssl.keyStorePassword='"$THE_PWD"'#;'\
+'s#^efm.server.ssl.keyPassword=.*#efm.server.ssl.keyPassword='"$THE_PWD"'#;'\
+'s#^efm.server.ssl.trustStore=.*#efm.server.ssl.trustStore=/opt/cloudera/security/jks/truststore.jks#;'\
+'s#^efm.server.ssl.trustStoreType=.*#efm.server.ssl.trustStoreType=jks#;'\
+'s#^efm.server.ssl.trustStorePassword=.*#efm.server.ssl.trustStorePassword='"$THE_PWD"'#;'\
+'s#^efm.security.user.certificate.enabled=.*#efm.security.user.certificate.enabled=true#;'\
+'s#^efm.nifi.registry.url=.*#efm.nifi.registry.url=https://'"${CLUSTER_HOST}"':18433#' /opt/cloudera/cem/efm/conf/efm.properties
+fi
+if [[ "$(is_kerberos_enabled)" == "yes" && $(compare_version "$CEM_VERSION" "1.2.2.0") != "<" ]]; then
+  sed -i.bak \
+'s#^efm.security.user.auth.enabled=.*#efm.security.user.auth.enabled=true#;'\
+'s#^efm.security.user.knox.enabled=.*#efm.security.user.knox.enabled=true#;'\
+'s#^efm.security.user.knox.url=.*#efm.security.user.knox.url=https://'"${CLUSTER_HOST}"':9443/gateway/knoxsso/api/v1/websso#;'\
+'s#^efm.security.user.knox.publicKey=.*#efm.security.user.knox.publicKey=/opt/cloudera/security/x509/cert.pem#;'\
+'s#^efm.security.user.knox.cookieName=.*#efm.security.user.knox.cookieName=hadoop-jwt#' /opt/cloudera/cem/efm/conf/efm.properties
+fi
+echo -e "\nefm.encryption.password=${THE_PWD}${THE_PWD}" >> /opt/cloudera/cem/efm/conf/efm.properties
+
 retries=0
 while true; do
   sudo -u postgres psql < <( echo -e "drop database efm;\nCREATE DATABASE efm OWNER efm ENCODING 'UTF8';" )
@@ -776,7 +791,41 @@ cp -f $BASE_DIR/simulate.py /opt/demo/
 cp -f $BASE_DIR/spark.iot.py /opt/demo/
 chmod -R 775 /opt/demo
 
-echo "-- Start MiNiFi"
+echo "-- Configure and start MiNiFi"
+sed -i.bak \
+'s%^[ #]*nifi.minifi.sensitive.props.key *=.*%nifi.minifi.sensitive.props.key=clouderaclouderacloudera%;'\
+'s%^[ #]*nifi.c2.enable *=.*%nifi.c2.enable=true%;'\
+'s%^[ #]*nifi.c2.agent.heartbeat.period *=.*%nifi.c2.agent.heartbeat.period=10000%;'\
+'s%^[ #]*nifi.c2.agent.class *=.*%nifi.c2.agent.class=iot-1%;'\
+'s%^[ #]*nifi.c2.agent.identifier *=.*%nifi.c2.agent.identifier=agent-iot-1%' /opt/cloudera/cem/minifi/conf/bootstrap.conf
+if [[ "$(is_tls_enabled)" == "yes" ]]; then
+  sed -i.bak \
+'s%^[ #]*nifi.minifi.security.keystore *=.*%nifi.minifi.security.keystore=/opt/cloudera/security/jks/keystore.jks%;'\
+'s%^[ #]*nifi.minifi.security.keystoreType *=.*%nifi.minifi.security.keystoreType=JKS%;'\
+'s%^[ #]*nifi.minifi.security.keystorePasswd *=.*%nifi.minifi.security.keystorePasswd='"${THE_PWD}"'%;'\
+'s%^[ #]*nifi.minifi.security.keyPasswd *=.*%nifi.minifi.security.keyPasswd='"${THE_PWD}"'%;'\
+'s%^[ #]*nifi.minifi.security.truststore *=.*%nifi.minifi.security.truststore=/opt/cloudera/security/jks/truststore.jks%;'\
+'s%^[ #]*nifi.minifi.security.truststoreType *=.*%nifi.minifi.security.truststoreType=JKS%;'\
+'s%^[ #]*nifi.minifi.security.truststorePasswd *=.*%nifi.minifi.security.truststorePasswd='"${THE_PWD}"'%;'\
+'s%^[ #]*nifi.minifi.security.ssl.protocol *=.*%nifi.minifi.security.ssl.protocol=TLS%' /opt/cloudera/cem/minifi/conf/bootstrap.conf
+fi
+if [[ "$(is_tls_enabled)" == "yes" && $(compare_version "$CEM_VERSION" "1.2.2.0") != "<" ]]; then
+  sed -i.bak \
+'s%^[ #]*nifi.c2.rest.url *=.*%nifi.c2.rest.url=https://'"${CLUSTER_HOST}"':10088/efm/api/c2-protocol/heartbeat%;'\
+'s%^[ #]*nifi.c2.rest.url.ack *=.*%nifi.c2.rest.url.ack=https://'"${CLUSTER_HOST}"':10088/efm/api/c2-protocol/acknowledge%;'\
+'s%^[ #]*nifi.c2.security.truststore.location *=.*%nifi.c2.security.truststore.location=/opt/cloudera/security/jks/truststore.jks%;'\
+'s%^[ #]*nifi.c2.security.truststore.password *=.*%nifi.c2.security.truststore.password='"${THE_PWD}"'%;'\
+'s%^[ #]*nifi.c2.security.truststore.type *=.*%nifi.c2.security.truststore.type=JKS%;'\
+'s%^[ #]*nifi.c2.security.keystore.location *=.*%nifi.c2.security.keystore.location=/opt/cloudera/security/jks/keystore.jks%;'\
+'s%^[ #]*nifi.c2.security.keystore.password *=.*%nifi.c2.security.keystore.password='"${THE_PWD}"'%;'\
+'s%^[ #]*nifi.c2.security.keystore.type *=.*%nifi.c2.security.keystore.type=JKS%;'\
+'s%^[ #]*nifi.c2.security.need.client.auth *=.*%nifi.c2.security.need.client.auth=true%' /opt/cloudera/cem/minifi/conf/bootstrap.conf
+else
+  sed -i.bak \
+'s%^[ #]*nifi.c2.rest.url *=.*%nifi.c2.rest.url=http://'"${CLUSTER_HOST}"':10088/efm/api/c2-protocol/heartbeat%;'\
+'s%^[ #]*nifi.c2.rest.url.ack *=.*%nifi.c2.rest.url.ack=http://'"${CLUSTER_HOST}"':10088/efm/api/c2-protocol/acknowledge%' /opt/cloudera/cem/minifi/conf/bootstrap.conf
+fi
+
 systemctl enable minifi
 systemctl start minifi
 
@@ -801,7 +850,7 @@ fi
 if [[ ${HAS_ATLAS:-0} == 1 ]]; then
   RETRIES=30
   ATLAS_OK=0
-  if [[ $ENABLE_TLS == yes ]]; then
+  if [[ "$(is_tls_enabled)" == "yes" ]]; then
     ATLAS_PROTO=https
     ATLAS_PORT=31443
   else
@@ -895,6 +944,11 @@ if [[ ${HAS_ATLAS:-0} == 1 ]]; then
       "relationshipDefs": []
   }'
   fi
+
+  echo "-- Restart NiFi Default Atlas Reporting Task"
+  nifi_reporting_task_state "Default Atlas Reporting Task" "STOPPED"
+  sleep 1
+  nifi_reporting_task_state "Default Atlas Reporting Task" "RUNNING"
 fi
 
 if [[ ${HAS_FLINK:-0} == 1 ]]; then

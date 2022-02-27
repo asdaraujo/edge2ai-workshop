@@ -33,13 +33,15 @@ class EdgeWorkshop(AbstractWorkshop):
         return []
 
     def before_setup(self):
-        self.context.root_pg, self.context.efm_pg_id, self.context.flow_id = nf.set_environment()
+        self.context.root_pg = nf.set_environment()
+        self.context.flow_id, self.context.efm_pg_id = efm.get_flow('iot-1')
 
     def after_setup(self):
         nf.wait_for_data(PG_NAME)
 
     def teardown(self):
-        root_pg, _, flow_id = nf.set_environment()
+        root_pg = nf.set_environment()
+        flow_id, _ = efm.get_flow('iot-1')
 
         canvas.schedule_process_group(root_pg.id, False)
         while True:
@@ -56,7 +58,7 @@ class EdgeWorkshop(AbstractWorkshop):
                 break
 
         nf.delete_all(root_pg)
-        efm.delete_all(flow_id)
+        # efm.delete_all(flow_id)
         schreg.delete_all_schemas()
         reg_client = versioning.get_registry_client('NiFi Registry')
         if reg_client:

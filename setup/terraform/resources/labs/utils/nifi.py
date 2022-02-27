@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 from nipyapi import nifi, canvas, config, security
 from . import *
-from . import efm, nifireg
+from . import nifireg
 
 
 def _get_port():
@@ -131,9 +131,4 @@ def set_environment():
         security.service_login(service='registry', username='admin@WORKSHOP.COM', password=get_the_pwd())
 
     # Get NiFi root PG
-    root_pg = canvas.get_process_group(canvas.get_root_pg_id(), 'id')
-
-    # Get EFM flow
-    flow_id, efm_pg_id = efm.get_flow('iot-1')
-
-    return root_pg, efm_pg_id, flow_id
+    return canvas.get_process_group(canvas.get_root_pg_id(), 'id')

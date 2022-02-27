@@ -23,6 +23,7 @@ RUN_ID_ENV_VAR = 'RUN_ID'
 THE_PWD_ENV_VAR = 'THE_PWD'
 THE_PWD_FILE_NAME = 'the_pwd.txt'
 ENABLE_TLS_FILE_NAME = '.enable-tls'
+ENABLE_KERBEROS_FILE_NAME = '.enable-kerberos'
 DEFAULT_TRUSTSTORE_PATH = '/opt/cloudera/security/x509/truststore.pem'
 WORKSHOPS = {}
 
@@ -85,6 +86,18 @@ def is_tls_enabled(path=None):
         return is_tls_enabled(_get_parent_dir(path))
 
 
+def is_kerberos_enabled(path=None):
+    if path is None:
+        path = get_base_dir()
+
+    if path == '/':
+        return False
+    elif os.path.exists(os.path.join(path, ENABLE_KERBEROS_FILE_NAME)):
+        return True
+    else:
+        return is_kerberos_enabled(_get_parent_dir(path))
+
+
 def get_hostname():
     return socket.gethostname()
 
@@ -104,11 +117,12 @@ def get_url_scheme():
     return 'https' if is_tls_enabled() else 'http'
 
 
-def api_request(method, url, expected_code=requests.codes.ok, auth=None, **kwargs):
+def api_request(method, url, expected_code=requests.codes.ok, auth=None, session=None, **kwargs):
     truststore = get_truststore_path() if is_tls_enabled() else None
     LOG.debug('Request: method: %s, url: %s, auth: %s, verify: %s, kwargs: %s',
               method, url, 'yes' if auth else 'no', truststore, kwargs)
-    resp = requests.request(method, url, auth=auth, verify=truststore, **kwargs)
+    req = session or requests
+    resp = req.request(method, url, auth=auth, verify=truststore, **kwargs)
     if resp.status_code != expected_code:
         raise RuntimeError('Request to URL %s returned code %s (expected was %s), Response: %s' % (
             resp.url, resp.status_code, expected_code, resp.text))

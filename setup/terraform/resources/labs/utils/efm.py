@@ -1,20 +1,64 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import re
+import json
 from . import *
 
 _AGENT_MANIFESTS = None
+_EFM_SESSION = None
+_XSRF_TOKEN = None
+_API_URL = None
+
+def _get_auth_url():
+    return ('{scheme}://{hostname}:9443/gateway/knoxsso/api/v1/websso?'
+            'originalUrl={scheme}://{hostname}:9443/gateway/homepage/home/').format(
+        scheme=get_url_scheme(),
+        hostname=get_hostname())
+
+
+def _get_session():
+    global _EFM_SESSION
+    global _XSRF_TOKEN
+    if not _EFM_SESSION:
+        _EFM_SESSION = requests.Session()
+        if is_tls_enabled():
+            _EFM_SESSION.verify = get_truststore_path()
+        if is_kerberos_enabled():
+            _EFM_SESSION.post(_get_auth_url(), auth=('admin', get_the_pwd()))
+            resp = _EFM_SESSION.get(_get_api_url() + '/access')
+            if 'XSRF-TOKEN' in resp.cookies:
+                _XSRF_TOKEN = resp.cookies['XSRF-TOKEN']
+    return _EFM_SESSION
 
 
 def _get_api_url():
-    return '%s://%s:10088/efm/api' % ('http', get_hostname(),)
+    global _API_URL
+    if not _API_URL:
+        for scheme in ['http', 'https']:
+            api_url = '{}://{}:10088/efm/api'.format(scheme, get_hostname())
+            try:
+                requests.get(api_url, verify=get_truststore_path())
+                _API_URL = api_url
+                break
+            except (requests.exceptions.ConnectionError, requests.exceptions.SSLError):
+                pass
+    assert _API_URL is not None, "Could not find a working URL for the EFM server"
+    return _API_URL
 
 
 def _api_request(method, endpoint, expected_code=requests.codes.ok, **kwargs):
+    global _XSRF_TOKEN
+    if _XSRF_TOKEN:
+        if 'headers' not in kwargs:
+            kwargs['headers'] = {}
+        kwargs['headers'].update({'X-XSRF-TOKEN': _XSRF_TOKEN})
     url = _get_api_url() + endpoint
-    return api_request(method, url, expected_code, **kwargs)
+    resp = api_request(method, url, expected_code, session=_get_session(), **kwargs)
+    if 'XSRF-TOKEN' in resp.cookies:
+        _XSRF_TOKEN = resp.cookies['XSRF-TOKEN']
+    return resp
 
-
+_CNT = 0
 def _api_get(endpoint, expected_code=requests.codes.ok, **kwargs):
     return _api_request('GET', endpoint, expected_code, **kwargs)
 
@@ -42,10 +86,11 @@ def _get_agent_manifests():
 
 def get_flow(agent_class):
     resp = _api_get('/designer/flows')
-    json = resp.json()
-    assert ('elements' in json)
-    assert (len(json['elements']) == 1)
-    flow = json['elements'][0]
+    resp_json = resp.json()
+    assert ('elements' in resp_json)
+    elements = [e for e in resp_json['elements'] if 'agentClass' in e and e['agentClass'] == agent_class]
+    assert (len(elements) == 1)
+    flow = elements[0]
     return flow['identifier'], flow['rootProcessGroupIdentifier']
 
 

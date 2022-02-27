@@ -39,6 +39,7 @@ cluster_sg=$(security_groups cluster)
 web_sg=$(security_groups web)
 
 if [[ $ACTION == "add" ]]; then
+  add_ingress "$web_sg" "$cidr" -1 0 "MANUAL" force
   add_ingress "$web_sg" "$cidr" tcp 80 "MANUAL" force
   add_ingress "$cluster_sg" "$cidr" tcp 0-65535 "MANUAL" force
 elif [[ $ACTION == "remove" ]]; then
