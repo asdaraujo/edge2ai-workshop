@@ -200,6 +200,11 @@ add_perms_to_policy ":cdp-admins:publish"                                       
 add_perms_to_policy "ssb::consume;describe"                                                                                              "all - consumergroup"   "$KAFKA_SERVICE"
 add_perms_to_policy "ssb::consume;describe"                                                                                              "all - topic"           "$KAFKA_SERVICE"
 
+create_policy "$KAFKA_SERVICE" "kafka" "SSB - Internal topics" "topic" "__ssb*"
+add_perms_to_policy "ssb::publish;consume;configure;describe;create;delete;describe_configs;alter_configs;alter" "SSB - Internal topics" "$KAFKA_SERVICE"
+create_policy "$KAFKA_SERVICE" "kafka" "SSB - Internal consumer groups" "consumergroup" "__ssb*"
+add_perms_to_policy "ssb::publish;consume;describe;delete" "SSB - Internal consumer groups" "$KAFKA_SERVICE"
+
 # HDFS
 
 add_perms_to_policy ":cdp-admins:read;write;execute" "all - path" "$HDFS_SERVICE"
