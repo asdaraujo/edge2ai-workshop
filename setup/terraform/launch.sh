@@ -72,6 +72,10 @@ STACK_FILE=$(get_stack_file $NAMESPACE $BASE_DIR/resources exclude-signed)
 echo "Using stack: $STACK_FILE"
 presign_urls $STACK_FILE
 
+# If EXTRA_CIDR_BLOCKS is defined, merge its content with TF_VAR_extra_cidr_blocks
+TF_VAR_extra_cidr_blocks="$(echo "${TF_VAR_extra_cidr_blocks:-},${EXTRA_CIDR_BLOCKS:-}" | sed 's#[^0-9.,/]##g;s/,,*/,/g;s/^,//;s/,$//;s/[^,]*/"&"/g;s/^/[/;s/$/]/')"
+export TF_VAR_extra_cidr_blocks
+
 log "Check for parcels"
 chmod +x $BASE_DIR/resources/check-for-parcels.sh
 $BASE_DIR/resources/check-for-parcels.sh

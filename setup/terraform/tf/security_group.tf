@@ -32,17 +32,9 @@ resource "aws_security_group" "workshop_web_sg" {
 
   ingress {
     from_port   = 0
-    to_port     = 65535
-    protocol    = "tcp"
-    cidr_blocks = ["${var.my_public_ip}/32"]
-    self        = true
-  }
-
-  ingress {
-    from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["74.217.76.101/32"]
+    cidr_blocks = distinct(concat(["${var.my_public_ip}/32"], var.extra_cidr_blocks))
     self        = true
   }
 
@@ -54,21 +46,12 @@ resource "aws_security_group" "workshop_web_sg" {
   }
 }
 
-resource "aws_security_group_rule" "workshop_ssh_sg_rule" {
-  type              = "ingress"
-  from_port         = 0
-  to_port           = 65535
-  protocol          = "tcp"
-  cidr_blocks       = ["${var.my_public_ip}/32"]
-  security_group_id = aws_security_group.workshop_cluster_sg.id
-}
-
-resource "aws_security_group_rule" "workshop_ssh_rule" {
+resource "aws_security_group_rule" "workshop_cluster_extra_sg_rule" {
   type              = "ingress"
   from_port         = 0
   to_port           = 0
   protocol          = "-1"
-  cidr_blocks       = ["74.217.76.101/32"]
+  cidr_blocks       = distinct(concat(["${var.my_public_ip}/32"], var.extra_cidr_blocks))
   security_group_id = aws_security_group.workshop_cluster_sg.id
 }
 

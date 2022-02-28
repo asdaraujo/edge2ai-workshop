@@ -108,6 +108,12 @@ variable "cidr_block_1" {
   default     = "10.0.1.0/24"
 }
 
+variable "extra_cidr_blocks" {
+  description = "Extra CIDR blocks to add to security groups"
+  type        = list(string)
+  default     = []
+}
+
 variable "managed_security_group_ids" {
   type    = list(string)
   default = []
