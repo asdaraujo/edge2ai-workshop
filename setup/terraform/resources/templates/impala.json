@@ -78,17 +78,18 @@
           "roleType": "IMPALAD",
           "base": true,
           "configs": [
-{% if ENABLE_KERBEROS == 'yes' %}
             {
+              "name" : "impala_graceful_shutdown_deadline",
+              "value" : "15"
+            }
+{% if ENABLE_KERBEROS == 'yes' %}
+            ,{
               "name" : "enable_audit_event_log",
               "value" : "true"
             }
 {% endif %}
-{% if ENABLE_KERBEROS == 'yes' and ENABLE_TLS == 'yes' %}
-            ,
-{% endif %}
 {% if ENABLE_TLS == 'yes' %}
-            {
+            ,{
               "name": "webserver_certificate_file",
               "value": "/opt/cloudera/security/x509/cert.pem"
             },
