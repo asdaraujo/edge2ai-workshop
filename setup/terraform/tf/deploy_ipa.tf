@@ -1,8 +1,9 @@
 resource "null_resource" "deploy_ipa" {
-  count                 = (var.use_ipa ? 1 : 0)
+  count      = (var.use_ipa ? 1 : 0)
+  depends_on = [aws_security_group_rule.workshop_public_ips_sg_rule]
 
   connection {
-    host        = aws_instance.ipa[0].public_ip
+    host        = aws_eip.eip_ipa.0.public_ip
     type        = "ssh"
     user        = var.ssh_username
     private_key = file(var.ssh_private_key)

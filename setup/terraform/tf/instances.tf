@@ -150,3 +150,29 @@ resource "aws_instance" "ipa" {
     enddate = var.enddate
   }
 }
+
+resource "aws_network_interface" "eni_ipa" {
+  count           = (var.use_ipa ? 1 : 0)
+  subnet_id       = aws_subnet.subnet1.id
+  security_groups = [aws_security_group.workshop_cluster_sg.id]
+
+  tags = {
+    Name    = "${var.owner}-${var.name_prefix}-ipa-eni"
+    owner   = var.owner
+    project = var.project
+    enddate = var.enddate
+  }
+}
+
+resource "aws_eip" "eip_ipa" {
+  count    = (var.use_ipa ? 1 : 0)
+  instance = aws_instance.ipa.0.id
+  vpc      = true
+
+  tags = {
+    Name    = "${var.owner}-${var.name_prefix}-ipa-eip"
+    owner   = var.owner
+    project = var.project
+    enddate = var.enddate
+  }
+}

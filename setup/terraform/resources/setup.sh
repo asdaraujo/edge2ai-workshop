@@ -18,12 +18,13 @@ SSH_PWD=${3:-}
 NAMESPACE=${4:-}
 DOCKER_DEVICE=${5:-}
 IPA_HOST=${6:-}
+IPA_PRIVATE_IP=${7:-}
 export NAMESPACE DOCKER_DEVICE IPA_HOST
 
 BASE_DIR=$(cd "$(dirname $0)"; pwd -L)
 # Save params
 if [[ ! -f $BASE_DIR/.setup.params ]]; then
-  echo "bash -x $0 '$CLOUD_PROVIDER' '$SSH_USER' '$SSH_PWD' '$NAMESPACE' '$DOCKER_DEVICE' '$IPA_HOST'" > $BASE_DIR/.setup.params
+  echo "bash -x $0 '$CLOUD_PROVIDER' '$SSH_USER' '$SSH_PWD' '$NAMESPACE' '$DOCKER_DEVICE' '$IPA_HOST' '$IPA_PRIVATE_IP'" > $BASE_DIR/.setup.params
 fi
 
 source $BASE_DIR/common.sh
@@ -448,6 +449,12 @@ export CDSW_DOMAIN=cdsw.${PUBLIC_IP}.nip.io
 echo "-- Set /etc/hosts - Public DNS must come first"
 sed -i.bak "/${LOCAL_HOSTNAME}/d;/^${PRIVATE_IP}/d;/^::1/d" /etc/hosts
 echo "$PRIVATE_IP $PUBLIC_DNS $PRIVATE_DNS $LOCAL_HOSTNAME" >> /etc/hosts
+if [[ $IPA_HOST != "" ]]; then
+  sed -i.bak "/${IPA_HOST}/d" /etc/hosts
+  if [[ $IPA_PRIVATE_IP != "" ]]; then
+    echo "$IPA_PRIVATE_IP $IPA_HOST" >> /etc/hosts
+  fi
+fi
 
 echo "-- Force domain name"
 sed -i.bak '/kernel.domainname/d' /etc/sysctl.conf

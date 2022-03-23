@@ -91,6 +91,25 @@ EOF
   done
 }
 
+# Set hostname
+export PRIVATE_IP=$(hostname -I | awk '{print $1}')
+export LOCAL_HOSTNAME=$(hostname -f)
+export PUBLIC_IP=$(curl -s http://ifconfig.me || curl -s http://api.ipify.org/)
+export PUBLIC_DNS=ipa.${PUBLIC_IP}.nip.io
+
+sed -i.bak "/${LOCAL_HOSTNAME}/d;/^${PRIVATE_IP}/d;/^::1/d" /etc/hosts
+echo "$PRIVATE_IP $PUBLIC_DNS $LOCAL_HOSTNAME" >> /etc/hosts
+
+sed -i.bak '/kernel.domainname/d' /etc/sysctl.conf
+echo "kernel.domainname=${PUBLIC_DNS#*.}" >> /etc/sysctl.conf
+sysctl -p
+
+hostnamectl set-hostname $PUBLIC_DNS
+if [[ -f /etc/sysconfig/network ]]; then
+  sed -i "/HOSTNAME=/ d" /etc/sysconfig/network
+fi
+echo "HOSTNAME=${PUBLIC_DNS}" >> /etc/sysconfig/network
+
 # Server install
 yum_install epel-release
 # The EPEL repo has intermittent refresh issues that cause errors like the one below.

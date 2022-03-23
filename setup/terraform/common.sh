@@ -843,7 +843,7 @@ function ensure_tf_json_file() {
 function ipa_instance() {
   ensure_tf_json_file
   if [ -s $TF_JSON_FILE ]; then
-    cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.type == "aws_instance" and .name == "ipa") | "\(.values.tags.Name) \(.values.public_dns) \(.values.public_ip) \(.values.private_ip) \(.values.instance_type)"'
+    cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.type == "aws_instance" and .name == "ipa") | "\(.values.tags.Name) ipa.\(.values.public_ip).nip.io \(.values.public_ip) \(.values.private_ip) \(.values.instance_type)"'
   fi
 }
 
