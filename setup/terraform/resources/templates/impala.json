@@ -78,12 +78,17 @@
           "roleType": "IMPALAD",
           "base": true,
           "configs": [
+{% if CDH_VERSION is ge('7') %}
             {
               "name" : "impala_graceful_shutdown_deadline",
               "value" : "15"
             }
+{% endif %}
+{% if CDH_VERSION is ge('7') and ENABLE_KERBEROS == 'yes' %}
+            ,
+{% endif %}
 {% if ENABLE_KERBEROS == 'yes' %}
-            ,{
+            {
               "name" : "enable_audit_event_log",
               "value" : "true"
             }
@@ -102,11 +107,8 @@
               "value": "{{THE_PWD}}"
             }
 {% endif %}
-{% if (ENABLE_KERBEROS == 'yes' or ENABLE_TLS == 'yes') and USE_IPA %}
-            ,
-{% endif %}
 {% if USE_IPA %}
-            {
+            ,{
               "name": "impalad_ldap_ca_certificate",
               "value": "/opt/cloudera/security/x509/truststore.pem"
             }
