@@ -115,12 +115,6 @@
               "name" : "ranger.usersync.ldap.user.searchbase",
               "value" : "cn=users,cn=accounts,dc=workshop,dc=com"
             },
-{% if USE_IPA == "never" %}
-            {
-              "name" : "ranger.usersync.source.impl.class",
-              "value" : "org.apache.ranger.ldapusersync.process.LdapUserGroupBuilder"
-            },
-{% endif %}
             {
               "name" : "conf/ranger-ugsync-site.xml_role_safety_valve",
               "value" : "<property><name>ranger.usersync.unix.backend</name><value>nss</value></property>"
