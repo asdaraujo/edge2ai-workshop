@@ -430,6 +430,14 @@ function install_ipa_client() {
     --mkhomedir \
     --force-join
 
+  # Enable enumeration for the SSSD client, so that Ranger Usersync can see users/groups
+  sed -i.bak 's/^\[domain.*/&\
+enumerate = True\
+ldap_enumeration_refresh_timeout = 50/;'\
+'s/^\[nss\].*/&\
+enum_cache_timeout = 45/' /etc/sssd/sssd.conf
+  systemctl restart sssd
+
   # Adjust krb5.conf
   sed -i 's/udp_preference_limit.*/udp_preference_limit = 1/;/KEYRING/d' /etc/krb5.conf
 
@@ -999,7 +1007,7 @@ function clean_all() {
   while true; do
     for dv in $(dmsetup ls | sort | awk '{print $1}' | grep "docker"); do
       echo "Removing device $dv"
-      [[ -h "/dev/mapper/$dv" ]] && dmsetup remove "$dv"
+      dmsetup remove "$dv" || true
     done
     [[ $(dmsetup ls | grep "docker" | wc -l) -eq 0 ]] && break
     sleep 1

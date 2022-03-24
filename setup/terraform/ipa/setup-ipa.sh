@@ -67,6 +67,7 @@ function add_user() {
     echo "-- Creating user [$princ]"
     USERS_GRP_ID=$(get_group_id $USERS_GROUP)
     echo clouderatemp | ipa user-add "$princ" --first="$princ" --last="User" --cn="$princ" --homedir="$homedir" --noprivate --gidnumber $USERS_GRP_ID --password || true
+    ipa group-add-member "$USERS_GROUP" --users="$princ" || true
     kadmin.local change_password -pw ${USER_PASSWORD} $princ
   fi
   mkdir -p "${KEYTABS_DIR}"
