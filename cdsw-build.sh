@@ -1,1 +1,1 @@
-pip3 install --upgrade pip scikit-learn
+pip3 install --upgrade pip scikit-learn pandas
