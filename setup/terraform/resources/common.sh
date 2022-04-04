@@ -1014,8 +1014,8 @@ function clean_all() {
   done
   lvdisplay docker/thinpool >/dev/null 2>&1 && while true; do lvremove docker/thinpool && break; sleep 1; done
   vgdisplay docker >/dev/null 2>&1 && while true; do vgremove docker && break; sleep 1; done
-  pvdisplay /dev/nvme1n1 >/dev/null 2>&1 && while true; do pvremove /dev/nvme1n1 && break; sleep 1; done
-  dd if=/dev/zero of=/dev/nvme1n1 bs=1M count=100
+  pvdisplay $DOCKER_DEVICE >/dev/null 2>&1 && while true; do pvremove $DOCKER_DEVICE && break; sleep 1; done
+  dd if=/dev/zero of=$DOCKER_DEVICE bs=1M count=100
 
   echo "$THE_PWD" | kinit admin
   ipa host-del $(hostname -f)
