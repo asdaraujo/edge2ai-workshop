@@ -986,6 +986,11 @@ if [[ ${HAS_FLINK:-0} == 1 ]]; then
     ' > $BASE_DIR/flink_test.log 2>&1 &
 fi
 
+if [ "${HAS_CDSW:-}" == "1" ]; then
+  echo "-- Initiate CDSW setup in the background",
+  nohup python -u /tmp/resources/cdsw_setup.py $(curl ifconfig.me 2>/dev/null) /tmp/resources/iot_model.pkl /tmp/resources/the_pwd.txt > /tmp/resources/cdsw_setup.log 2>&1 &
+fi
+
 echo "-- Cleaning up"
 rm -f $BASE_DIR/stack.*.sh* $BASE_DIR/stack.sh*
 
