@@ -505,7 +505,7 @@ systemctl restart shellinaboxd
 if [ "${HAS_CDSW:-}" == "1" ]; then
     echo "CDSW_BUILD is set to '${CDSW_BUILD}'"
     # CDSW requires Centos 7.5, so we trick it to believe it is...
-    echo "CentOS Linux release 7.5.1810 (Core)" > /etc/redhat-release
+    echo "CentOS Linux release 7.9.2009 (Core)" > /etc/redhat-release
     # If user doesn't specify a device, tries to detect a free one to use
     # Device must be unmounted and have at least 200G of space
     if [[ "${DOCKER_DEVICE}" == "" ]]; then
