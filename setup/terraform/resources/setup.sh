@@ -415,7 +415,6 @@ case "${CLOUD_PROVIDER}" in
           sed -i.bak '/server 169.254.169.123/ d' /etc/chrony.conf
           echo "server 169.254.169.123 prefer iburst minpoll 4 maxpoll 4" >> /etc/chrony.conf
           systemctl restart chronyd
-          #export PUBLIC_DNS=$(curl http://169.254.169.254/latest/meta-data/public-hostname)
           export PUBLIC_DNS=cdp.${PUBLIC_IP}.nip.io
           export PRIVATE_DNS=$(curl http://169.254.169.254/latest/meta-data/local-hostname)
           export PRIVATE_IP=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)
@@ -648,9 +647,10 @@ CM_REPO_URL=$(grep baseurl $CM_REPO_FILE | sed 's/.*=//;s/ //g')
 
 # This is a temporary debug collection for troubleshooting some issues with QueueManager failing to start
 # due to port 8081 being used.
-# TODO: remove this when no longer needed
-(set +e; set +x; while true; do echo "--"; date; netstat -anp | grep ":8081 .*LISTEN" > /tmp/.netstat; cat /tmp/.netstat; ps -ef | awk '$2~/('"$(grep LISTEN /tmp/.netstat | awk '{gsub(/\/.*/, "", $NF); print $NF}' | tr "\n" "|")"'dummy)/'; sleep 1; done) > /tmp/netstat.log &
+# TODO: For debug purposes. Remove this when no longer needed
+(set +e; set +x; while true; do echo "--"; date; netstat -anp | grep ":8081 .*LISTEN" > /tmp/.netstat; cat /tmp/.netstat; ps -ef | awk '$2~/('"$(grep "LISTEN " /tmp/.netstat | awk '{gsub(/\/.*/, "", $NF); print $NF}' | tr "\n" "|")"'dummy)/'; sleep .5; done) > /tmp/netstat.log &
 NETSTAT_PID=$!
+trap "kill -9 $NETSTAT_PID" 0
 
 echo "-- Setup Cloudera Manager"
 python -u $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
@@ -700,6 +700,7 @@ python -u $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
 
 # TODO: remove this when no longer needed (see previous TODO)
 kill -9 $NETSTAT_PID || true
+trap - 0
 
 echo "-- Set shadow permissions - needed by Knox when using PAM authentication"
 chgrp shadow /etc/shadow
