@@ -61,7 +61,7 @@ function enable_py3() {
 #########  Start Packer Installation
 
 echo "-- Ensure SElinux is disabled"
-setenforce 0
+setenforce 0 || true
 if [[ -f /etc/selinux/config ]]; then
   sed -i 's/SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
 fi
@@ -431,6 +431,12 @@ case "${CLOUD_PROVIDER}" in
           export PUBLIC_DNS=$PRIVATE_DNS
           export PRIVATE_IP=$(curl -s -H "Metadata-Flavor: Google" http://169.254.169.254/computeMetadata/v1/instance/network-interfaces/0/ip)
           ;;
+      aliyun)
+          export PRIVATE_DNS=$(curl -s http://100.100.100.200/latest/meta-data/hostname)
+          [[ "$PRIVATE_DNS" == *"."* ]] || PRIVATE_DNS="${PRIVATE_DNS}.local"
+          export PRIVATE_IP=$(curl -s http://100.100.100.200/latest/meta-data/private-ipv4)
+          export PUBLIC_DNS=cdp.${PRIVATE_IP}.nip.io
+          ;;
       *)
           export PRIVATE_DNS=$(hostname -f)
           [[ "$PRIVATE_DNS" == *"."* ]] || PRIVATE_DNS="${PRIVATE_DNS}.local"
@@ -443,7 +449,7 @@ if [ "$PUBLIC_DNS" == "" ]; then
   exit 1
 fi
 export CLUSTER_HOST=$PUBLIC_DNS
-export CDSW_DOMAIN=cdsw.${PUBLIC_IP}.nip.io
+export CDSW_DOMAIN=cdsw${PUBLIC_DNS#cdp}
 
 echo "-- Set /etc/hosts - Public DNS must come first"
 sed -i.bak "/${LOCAL_HOSTNAME}/d;/^${PRIVATE_IP}/d;/^::1/d" /etc/hosts
@@ -605,7 +611,6 @@ chmod 700 ~/.ssh
 cat $KEY_FILE.pub >> ~/.ssh/authorized_keys
 chmod 400 ~/.ssh/authorized_keys
 ssh-keyscan -H $(hostname) >> ~/.ssh/known_hosts
-sed -i 's/.*PermitRootLogin.*/PermitRootLogin without-password/' /etc/ssh/sshd_config
 systemctl restart sshd
 
 echo "-- Check for additional parcels"
