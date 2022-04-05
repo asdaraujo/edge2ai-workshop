@@ -19,6 +19,8 @@ LOG.setLevel(logging.INFO)
 
 # Global constants
 LAB_METHOD_NAME_REGEX = r'lab([0-9]+)'
+HOSTNAME_ENV_VAR = 'TEST_HOSTNAME'
+PUBLIC_IP_ENV_VAR = 'TEST_PUBLIC_IP'
 RUN_ID_ENV_VAR = 'RUN_ID'
 THE_PWD_ENV_VAR = 'THE_PWD'
 THE_PWD_FILE_NAME = 'the_pwd.txt'
@@ -99,34 +101,60 @@ def is_kerberos_enabled(path=None):
 
 
 def get_hostname():
-    return socket.gethostname()
+    if HOSTNAME_ENV_VAR in os.environ:
+        return os.environ[HOSTNAME_ENV_VAR]
+    elif PUBLIC_IP_ENV_VAR in os.environ:
+        return 'cdp.{}.nip.io'.format(os.environ[PUBLIC_IP_ENV_VAR])
+    else:
+        return socket.gethostname()
 
 
 def get_public_ip():
-    retries = 3
-    while retries > 0:
-        resp = requests.get('http://ifconfig.me')
-        if resp.status_code == requests.codes.ok:
-            return resp.text
-        retries -= 1
-        time.sleep(1)
-    raise RuntimeError('Failed to get the public IP address.')
+    if PUBLIC_IP_ENV_VAR in os.environ:
+        return os.environ[PUBLIC_IP_ENV_VAR]
+    else:
+        retries = 3
+        while retries > 0:
+            resp = requests.get('http://ifconfig.me')
+            if resp.status_code == requests.codes.ok:
+                return resp.text
+            retries -= 1
+            time.sleep(1)
+        raise RuntimeError('Failed to get the public IP address.')
 
 
 def get_url_scheme():
     return 'https' if is_tls_enabled() else 'http'
 
 
-def api_request(method, url, expected_code=requests.codes.ok, auth=None, session=None, **kwargs):
+def api_request(method, url, expected_codes=None, auth=None, session=None, **kwargs):
+    if not expected_codes:
+        expected_codes = [requests.codes.ok]
     truststore = get_truststore_path() if is_tls_enabled() else None
     LOG.debug('Request: method: %s, url: %s, auth: %s, verify: %s, kwargs: %s',
               method, url, 'yes' if auth else 'no', truststore, kwargs)
     req = session or requests
     resp = req.request(method, url, auth=auth, verify=truststore, **kwargs)
-    if resp.status_code != expected_code:
-        raise RuntimeError('Request to URL %s returned code %s (expected was %s), Response: %s' % (
-            resp.url, resp.status_code, expected_code, resp.text))
+    if resp.status_code not in expected_codes:
+        raise RuntimeError('Request to URL %s returned code %s (expected was one of %s), Response: %s' % (
+            resp.url, resp.status_code, expected_codes, resp.text))
     return resp
+
+
+def api_get(url, expected_codes=None, auth=None, session=None, **kwargs):
+    return api_request('GET', url, expected_codes=expected_codes, auth=auth, session=session, **kwargs)
+
+
+def api_post(url, expected_codes=None, auth=None, session=None, **kwargs):
+    return api_request('POST', url, expected_codes=expected_codes, auth=auth, session=session, **kwargs)
+
+
+def api_put(url, expected_codes=None, auth=None, session=None, **kwargs):
+    return api_request('PUT', url, expected_codes=expected_codes, auth=auth, session=session, **kwargs)
+
+
+def api_patch(url, expected_codes=None, auth=None, session=None, **kwargs):
+    return api_request('PATCH', url, expected_codes=expected_codes, auth=auth, session=session, **kwargs)
 
 
 class AbstractWorkshopMeta(ABCMeta):
@@ -217,6 +245,7 @@ class AbstractWorkshop(metaclass=AbstractWorkshopMeta):
     def get_artifacts_dir(self):
         return os.path.join(os.path.dirname(__file__), 'artifacts', self.workshop_id())
 
+
 def _load_workshops():
     base_dir = get_base_dir()
     for f in os.listdir(base_dir):
@@ -251,7 +280,7 @@ def global_teardown(target_workshop='base', run_id=None):
 def exception_context(obj):
     try:
         yield
-    except:
+    except Exception:
         print('%s - Exception context: %s' % (datetime.strftime(datetime.now(), '%Y-%m-%d %H:%M:%S'), obj))
         raise
 

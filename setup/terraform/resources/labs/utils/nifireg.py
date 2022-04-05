@@ -61,14 +61,14 @@ def save_flow_ver(process_group, registry_client, bucket, flow_name=None,
         )
 
 
-def _api_request(method, endpoint, expected_code=requests.codes.ok, **kwargs):
+def _api_request(method, endpoint, expected_codes=None, **kwargs):
     url = get_api_url() + endpoint
     auth = None
-    return api_request(method, url, expected_code, auth=auth, **kwargs)
+    return api_request(method, url, expected_codes, auth=auth, **kwargs)
 
 
-def _api_delete(endpoint, expected_code=requests.codes.ok, **kwargs):
-    return _api_request('DELETE', endpoint, expected_code, **kwargs)
+def _api_delete(endpoint, expected_codes=None, **kwargs):
+    return _api_request('DELETE', endpoint, expected_codes, **kwargs)
 
 
 def delete_flows(identifier, identifier_type='name'):

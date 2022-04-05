@@ -27,9 +27,9 @@ def _get_cm_api_url():
     return get_url_scheme() + '://{}:{}/api/{}'.format(get_hostname(), _get_cm_port(), _get_cm_api_version())
 
 
-def _api_request(method, endpoint, expected_code=requests.codes.ok, **kwargs):
+def _api_request(method, endpoint, expected_codes=None, **kwargs):
     url = _get_cm_api_url() + endpoint
-    return api_request(method, url, expected_code, auth=CM_CREDS, **kwargs)
+    return api_request(method, url, expected_codes, auth=CM_CREDS, **kwargs)
 
 
 def _get_cluster_name():

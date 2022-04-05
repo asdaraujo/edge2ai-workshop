@@ -13,25 +13,25 @@ def get_api_url():
     return '%s://%s:%s/api/v1' % (get_url_scheme(), get_hostname(), _get_port())
 
 
-def _api_request(method, endpoint, expected_code=requests.codes.ok, **kwargs):
+def _api_request(method, endpoint, **kwargs):
     url = get_api_url() + endpoint
     if is_tls_enabled():
         auth = HTTPSPNEGOAuth()
     else:
         auth = None
-    return api_request(method, url, expected_code, auth=auth, **kwargs)
+    return api_request(method, url, auth=auth, **kwargs)
 
 
-def _api_get(endpoint, expected_code=requests.codes.ok, **kwargs):
-    return _api_request('GET', endpoint, expected_code, **kwargs)
+def _api_get(endpoint, **kwargs):
+    return _api_request('GET', endpoint, **kwargs)
 
 
-def _api_post(endpoint, expected_code=requests.codes.ok, **kwargs):
-    return _api_request('POST', endpoint, expected_code, **kwargs)
+def _api_post(endpoint, **kwargs):
+    return _api_request('POST', endpoint, **kwargs)
 
 
-def _api_delete(endpoint, expected_code=requests.codes.ok, **kwargs):
-    return _api_request('DELETE', endpoint, expected_code, **kwargs)
+def _api_delete(endpoint, **kwargs):
+    return _api_request('DELETE', endpoint, **kwargs)
 
 
 def get_versions(name):
@@ -70,7 +70,8 @@ def create_schema(name, description, schema_text):
         'validationLevel': 'ALL',
         'evolve': True
     }
-    _api_post(endpoint, requests.codes.created, headers={'Content-Type': 'application/json'}, json=body)
+    _api_post(endpoint, expected_codes=[requests.codes.created],
+              headers={'Content-Type': 'application/json'}, json=body)
     _create_schema_version(name, schema_text)
 
 
@@ -79,4 +80,5 @@ def _create_schema_version(name, schema_text):
     body = {
         'schemaText': schema_text
     }
-    _api_post(endpoint, requests.codes.created, headers={'Content-Type': 'application/json'}, json=body)
+    _api_post(endpoint, expected_codes=[requests.codes.created],
+              headers={'Content-Type': 'application/json'}, json=body)

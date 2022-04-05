@@ -46,29 +46,29 @@ def _get_api_url():
     return _API_URL
 
 
-def _api_request(method, endpoint, expected_code=requests.codes.ok, **kwargs):
+def _api_request(method, endpoint, **kwargs):
     global _XSRF_TOKEN
     if _XSRF_TOKEN:
         if 'headers' not in kwargs:
             kwargs['headers'] = {}
         kwargs['headers'].update({'X-XSRF-TOKEN': _XSRF_TOKEN})
     url = _get_api_url() + endpoint
-    resp = api_request(method, url, expected_code, session=_get_session(), **kwargs)
+    resp = api_request(method, url, session=_get_session(), **kwargs)
     if 'XSRF-TOKEN' in resp.cookies:
         _XSRF_TOKEN = resp.cookies['XSRF-TOKEN']
     return resp
 
-_CNT = 0
-def _api_get(endpoint, expected_code=requests.codes.ok, **kwargs):
-    return _api_request('GET', endpoint, expected_code, **kwargs)
+
+def _api_get(endpoint, **kwargs):
+    return _api_request('GET', endpoint, **kwargs)
 
 
-def _api_post(endpoint, expected_code=requests.codes.ok, **kwargs):
-    return _api_request('POST', endpoint, expected_code, **kwargs)
+def _api_post(endpoint, **kwargs):
+    return _api_request('POST', endpoint, **kwargs)
 
 
-def _api_delete(endpoint, expected_code=requests.codes.ok, **kwargs):
-    return _api_request('DELETE', endpoint, expected_code, **kwargs)
+def _api_delete(endpoint, **kwargs):
+    return _api_request('DELETE', endpoint, **kwargs)
 
 
 def _get_client_id():
@@ -126,7 +126,7 @@ def create_processor(flow_id, pg_id, name, processor_type, position, properties,
             'autoTerminatedRelationships': auto_terminate,
         }
     }
-    resp = _api_post(endpoint, requests.codes.created, headers={'Content-Type': 'application/json'}, json=body)
+    resp = _api_post(endpoint, expected_codes=[requests.codes.created], headers={'Content-Type': 'application/json'}, json=body)
     return resp.json()['componentConfiguration']['identifier']
 
 
@@ -148,7 +148,7 @@ def create_remote_processor_group(flow_id, pg_id, name, rpg_url, transport_proto
             'targetUris': rpg_url,
         }
     }
-    resp = _api_post(endpoint, requests.codes.created, headers={'Content-Type': 'application/json'}, json=body)
+    resp = _api_post(endpoint, expected_codes=[requests.codes.created], headers={'Content-Type': 'application/json'}, json=body)
     return resp.json()['componentConfiguration']['identifier']
 
 
@@ -211,7 +211,7 @@ def create_connection(flow_id, pg_id, source_id, source_type, destination_id, de
             'backPressureDataSizeThreshold': None,
         }
     }
-    resp = _api_post(endpoint, requests.codes.created, headers={'Content-Type': 'application/json'}, json=body)
+    resp = _api_post(endpoint, expected_codes=[requests.codes.created], headers={'Content-Type': 'application/json'}, json=body)
     return resp.json()
 
 
