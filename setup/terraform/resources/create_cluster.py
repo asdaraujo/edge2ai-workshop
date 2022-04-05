@@ -148,6 +148,7 @@ class ClusterCreator:
         self._hosts_api = None
         self._all_hosts_api = None
         self._cluster_api = None
+        self._command_api = None
 
         cm_client.configuration.username = 'admin'
         cm_client.configuration.password = the_pwd()
@@ -227,6 +228,12 @@ class ClusterCreator:
             self._cluster_api = cm_client.ClustersResourceApi(self.api_client)
         return self._cluster_api
 
+    @property
+    def command_api(self):
+        if self._command_api is None:
+            self._command_api = cm_client.CommandsResourceApi(self.api_client)
+        return self._command_api
+
     def wait(self, cmd, timeout=None):
         SYNCHRONOUS_COMMAND_ID = -1
         if cmd.id == SYNCHRONOUS_COMMAND_ID:
@@ -239,9 +246,8 @@ class ClusterCreator:
             deadline = time.time() + timeout
 
         try:
-            cmd_api_instance = cm_client.CommandsResourceApi(self.api_client)
             while True:
-                cmd = cmd_api_instance.read_command(int(cmd.id))
+                cmd = self.command_api.read_command(int(cmd.id))
                 print(datetime.strftime(datetime.now(), '%c'))
                 print_cmd(cmd)
                 if not cmd.active:
@@ -257,6 +263,9 @@ class ClusterCreator:
                     time.sleep(SLEEP_SECS)
         except ApiException as e:
             print("Exception when calling ClouderaManagerResourceApi->import_cluster_template: %s\n" % e)
+
+    def retry(self, cmd):
+        return self.command_api.retry(int(cmd.id))
 
     def setup_cm(self, key_file, cm_repo_url, use_kerberos, use_tls, kerberos_type, ipa_host):
 
@@ -343,7 +352,7 @@ class ClusterCreator:
         cmd = self.mgmt_api.restart_command()
         cmd = self.wait(cmd)
 
-    def create_cluster(self, template):
+    def create_cluster(self, template, import_retries=1):
 
         self._import_paywall_credentials()
 
@@ -355,7 +364,19 @@ class ClusterCreator:
         dst_cluster_template = self.api_client.deserialize(response=Response(json_str),
                                                            response_type=cm_client.ApiClusterTemplate)
         cmd = self.cm_api.import_cluster_template(add_repositories=True, body=dst_cluster_template)
-        cmd = self.wait(cmd)
+        retries = 0
+        while True:
+            # TODO: It doesn't hurt to have a retry for the Import Cluster action. Nevertheless, the reason
+            # for the retry logic here is an intermittent failure on First Run of YARN Queue Manager that causes
+            # it to fail due to failing to bind to port 8081. I haven't been able to identify the root cause for that
+            # yet. Hence, the retry. Once that's fixed this could be removed.
+            cmd = self.wait(cmd)
+            if cmd.success or retries >= import_retries:
+                break
+            retries += 1
+            print('WARNING: Import Cluster failed. Retry attempt #{} will start in a few seconds.'.format(retries))
+            time.sleep(10)
+            cmd = self.command_api.retry(cmd)
         if not cmd.success:
             raise RuntimeError('Failed to deploy cluster template')
 
