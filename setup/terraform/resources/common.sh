@@ -1128,7 +1128,17 @@ function nifi_reporting_task_state() {
     port=8080
   fi
   local api_url="${scheme}://${CLUSTER_HOST}:${port}/nifi-api"
-  token=$(curl -s -X POST -d "username=admin&password=${THE_PWD}" -k "${api_url}/access/token")
+  while true; do
+    set +e
+    token=$(curl -s -X POST -d "username=admin&password=${THE_PWD}" -k "${api_url}/access/token")
+    RET=$?
+    set +e
+    if [[ $RET == 0 ]]; then
+      break
+    fi
+    echo "Waiting for NiFi to be ready..."
+    sleep 5
+  done
   rts="$(curl -s -k -H "Authorization: Bearer $token" "${api_url}/flow/reporting-tasks")"
   rt_id=$(echo "$rts" | jq -r '.reportingTasks[] | . as $r | .component | select(.name == "'"$rt_name"'").id')
   rt_revision=$(echo "$rts" | jq -rc '.reportingTasks[] | . as $r | .component | select(.name == "'"$rt_name"'") | $r.revision')
