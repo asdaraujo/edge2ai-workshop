@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import io
+import math
 import os
 import re
 import requests
@@ -13,6 +15,8 @@ if len(sys.argv) > 3:
     PASSWORD = open(sys.argv[3]).read()
 else:
     PASSWORD = os.environ['THE_PWD']
+
+PROJECT_ZIP_FILE = os.environ.get('PROJECT_ZIP_FILE', None)
 
 BASE_DIR = os.path.dirname(__file__) if os.path.dirname(__file__) else '.'
 _IS_TLS_ENABLED = os.path.exists(os.path.join(BASE_DIR, '.enable-tls'))
@@ -43,6 +47,8 @@ _VIZ_RUNTIME = 0
 _MODEL = {}
 _DEFAULT_PROJECT = {}
 _VIZ_PROJECT = {}
+
+_UPLOAD_CHUNK_SIZE = 1048576
 
 
 class VizAppsInvalidLoginAttempt(RuntimeError):
@@ -179,6 +185,11 @@ def _cdsw_patch(url, expected_codes=None, **kwargs):
     return _rest_call(_CDSW_SESSION.patch, url, expected_codes, **kwargs)
 
 
+def _cdsw_delete(url, expected_codes=None, **kwargs):
+    global _CDSW_SESSION
+    return _rest_call(_CDSW_SESSION.delete, url, expected_codes, **kwargs)
+
+
 def _viz_get(url, expected_codes=None, **kwargs):
     global _VIZ_SESSION
     return _rest_call(_VIZ_SESSION.get, url, expected_codes, **kwargs)
@@ -202,6 +213,58 @@ def _get_project(name=None, project_id=None):
         if (name and proj['name'] == name) or (project_id and proj['id'] == project_id):
             return proj
     return {}
+
+
+def _create_github_project():
+    return _cdsw_post(CDSW_API + '/users/admin/projects', expected_codes=[201, 502],
+                      json={'template': 'git',
+                            'project_visibility': 'private',
+                            'name': _DEFAULT_PROJECT_NAME,
+                            'gitUrl': 'https://github.com/cloudera-labs/edge2ai-workshop'})
+
+
+def _create_local_project(zipfile):
+    token = str(time.time())[:9]
+    filename = os.path.basename(zipfile)
+    total_size = os.stat(zipfile).st_size
+    total_chunks = math.ceil(total_size / _UPLOAD_CHUNK_SIZE)
+
+    f = open(zipfile, 'rb')
+    chunk = 0
+    while True:
+        buf = f.read(_UPLOAD_CHUNK_SIZE)
+        if not buf:
+            break
+        chunk += 1
+        chunk_size = len(buf)
+        _cdsw_post(CDSW_API + '/upload/admin', expected_codes=[200],
+                   data={
+                       'uploadType': 'archive',
+                       'uploadToken': token,
+                       'flowChunkNumber': chunk,
+                       'flowChunkSize': chunk_size,
+                       'flowCurrentChunkSize': chunk_size,
+                       'flowTotalSize': total_size,
+                       'flowIdentifier': token + '-' + filename,
+                       'flowFilename': filename,
+                       'flowRelativePath': filename,
+                       'flowTotalChunks': total_chunks,
+                   },
+                   files={'file': (filename, io.BytesIO(buf), 'application/zip')}
+                   )
+
+    return _cdsw_post(CDSW_API + '/users/admin/projects', expected_codes=[201],
+                      json={
+                          "name": _DEFAULT_PROJECT_NAME,
+                          "project_visibility": "private",
+                          "template": "local",
+                          "isPrototype": False,
+                          "supportAsync": True,
+                          "avoidNameCollisions": False,
+                          "uploadToken": token,
+                          "fileName": filename,
+                          "isArchive": True
+                      })
 
 
 def _get_default_project():
@@ -406,20 +469,21 @@ def main():
             print('# Add project')
             _cdsw_get(CDSW_API + '/users/admin/projects')
             if not _get_default_project():
-                _cdsw_post(CDSW_API + '/users/admin/projects', expected_codes=[201],
-                           json={'template': 'git',
-                                 'project_visibility': 'private',
-                                 'name': _DEFAULT_PROJECT_NAME,
-                                 'gitUrl': 'https://github.com/cloudera-labs/edge2ai-workshop'})
+                if PROJECT_ZIP_FILE:
+                    print('Creating a Local project using file {}'.format(PROJECT_ZIP_FILE))
+                    _create_local_project(PROJECT_ZIP_FILE)
+                else:
+                    print('Creating a GitHub project')
+                    _create_github_project()
             print('Project ID: {}'.format(_get_default_project()['id'], ))
 
             print('# Upload setup script')
             setup_script = """!pip3 install --upgrade pip scikit-learn
-    !HADOOP_USER_NAME=hdfs hdfs dfs -mkdir /user/$HADOOP_USER_NAME
-    !HADOOP_USER_NAME=hdfs hdfs dfs -chown $HADOOP_USER_NAME:$HADOOP_USER_NAME /user/$HADOOP_USER_NAME
-    !hdfs dfs -put data/historical_iot.txt /user/$HADOOP_USER_NAME
-    !hdfs dfs -ls -R /user/$HADOOP_USER_NAME
-    """
+!HADOOP_USER_NAME=hdfs hdfs dfs -mkdir /user/$HADOOP_USER_NAME
+!HADOOP_USER_NAME=hdfs hdfs dfs -chown $HADOOP_USER_NAME:$HADOOP_USER_NAME /user/$HADOOP_USER_NAME
+!hdfs dfs -put data/historical_iot.txt /user/$HADOOP_USER_NAME
+!hdfs dfs -ls -R /user/$HADOOP_USER_NAME
+"""
             _cdsw_put(CDSW_API + '/projects/admin/edge2ai-workshop/files/setup_workshop.py',
                       files={'name': setup_script})
 

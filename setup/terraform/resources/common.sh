@@ -178,7 +178,7 @@ function load_stack() {
   else
     ENABLE_TLS=no
   fi
-  export ENABLE_KERBEROS ENABLE_TLS KERBEROS_TYPE USE_IPA TF_VAR_use_ipa
+  export ENABLE_KERBEROS ENABLE_TLS KERBEROS_TYPE USE_IPA TF_VAR_use_ipa PROJECT_ZIP_FILE
   prepare_keytabs_dir
 }
 
