@@ -2,43 +2,59 @@
 # -*- coding: utf-8 -*-
 import json
 from . import *
+from . import cdsw
 
 _DATAVIZ_SESSION = None
 _DATAVIZ_CSRF_TOKEN = None
 _DATAVIZ_USER = 'admin'
 
+_CSRF_REGEXPS = [
+    r'.*name="csrfmiddlewaretoken" type="hidden" value="([^"]*)"',
+    r'.*"csrfmiddlewaretoken": "([^"]*)"',
+    r'.*\.csrf_token\("([^"]*)"\)'
+]
+
 
 def _get_api_url():
-    return get_url_scheme() + '://viz.cdsw.{}.nip.io/arc'.format(get_public_ip())
+    return '{}://viz.{}/arc'.format(get_url_scheme(), cdsw.get_cdsw_domain_name())
+
+
+def _get_csrf_token(txt, quiet=False):
+    token = None
+    for regexp in _CSRF_REGEXPS:
+        m = re.match(regexp, txt, flags=re.DOTALL)
+        if m:
+            token = m.groups()[0]
+            break
+    else:
+        if not quiet:
+            raise RuntimeError("Cannot find CSRF token.")
+    return token
 
 
 def _api_call(func, path, data=None, files=None, headers=None):
     global _DATAVIZ_CSRF_TOKEN
     if not headers:
         headers = {}
-        headers.update({
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'X-CSRFToken': _DATAVIZ_CSRF_TOKEN,
-        })
+    if _DATAVIZ_CSRF_TOKEN:
+        headers['X-CSRFToken'] = _DATAVIZ_CSRF_TOKEN
+    if not 'Content-Type' in headers:
+        headers['Content-Type'] = 'application/x-www-form-urlencoded'
     url = _get_api_url() + path
     resp = func(url, data=data, headers=headers, files=files)
     if resp.status_code != requests.codes.ok:
         raise RuntimeError("Call to {} returned status {}. Text: {}".format(
             url, resp.status_code, resp.text))
 
-    m = re.match(r'.*name="csrfmiddlewaretoken" type="hidden" value="([^"]*)"', resp.text, flags=re.DOTALL)
-    if m:
-        _DATAVIZ_CSRF_TOKEN = m.groups()[0]
-    else:
-        m = re.match(r'.*"csrfmiddlewaretoken": "([^"]*)"', resp.text, flags=re.DOTALL)
-        if m:
-            _DATAVIZ_CSRF_TOKEN = m.groups()[0]
+    token = _get_csrf_token(resp.text, quiet=True)
+    if token:
+        _DATAVIZ_CSRF_TOKEN = token
 
     return resp
 
 
-def _api_get(path, data=None):
-    return _api_call(_get_session().get, path, data=data)
+def _api_get(path, data=None, headers=None):
+    return _api_call(_get_session().get, path, data=data, headers=headers)
 
 
 def _api_post(path, data=None, files=None, headers=None):
@@ -61,6 +77,8 @@ def _get_session():
     return _DATAVIZ_SESSION
 
 
+# APPS API
+
 def create_api_key():
     data = {
         'username': 'admin',
@@ -77,6 +95,24 @@ def delete_api_key(apikey):
         'apikeys_list': '["{}"]'.format(apikey),
     }
     resp = _api_delete('/apps/apikey_api', data)
+
+
+def get_users():
+    resp = _api_get(_get_api_url() + '/apps/users_api',
+                    headers={
+                        'Content-Type': 'application/json',
+                    })
+    if resp.status_code == requests.codes.ok:
+        return resp.json()
+    return []
+
+
+def get_user(username):
+    users = get_users()
+    for user in users:
+        if user['username'] == username:
+            return user
+    return {}
 
 
 def create_connection(conn_type, conn_name, params):

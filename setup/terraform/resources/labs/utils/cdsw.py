@@ -12,16 +12,20 @@ _CDSW_SESSION = None
 _VIZ_PROJECT_NAME = 'VizApps Workshop'
 
 
+def get_cdsw_domain_name():
+    return get_hostname().replace('cdp.', 'cdsw.')
+
+
 def _get_api_url():
-    return get_url_scheme() + '://cdsw.%s.nip.io/api/v1' % (get_public_ip(),)
+    return '{}://{}/api/v1'.format(get_url_scheme(), get_cdsw_domain_name())
 
 
 def get_altus_api_url():
-    return get_url_scheme() + '://cdsw.%s.nip.io/api/altus-ds-1' % (get_public_ip(),)
+    return '{}://{}/api/altus-ds-1'.format(get_url_scheme(), get_cdsw_domain_name())
 
 
 def get_model_endpoint_url():
-    return get_url_scheme() + '://modelservice.cdsw.%s.nip.io/model' % (get_public_ip(),)
+    return '{}://modelservice.{}/model'.format(get_url_scheme(), get_cdsw_domain_name())
 
 
 def get_session():

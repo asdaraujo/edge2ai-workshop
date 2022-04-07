@@ -22,15 +22,15 @@ _FLINK_VERSION = None
 # }
 
 def _get_api_url():
-    return get_url_scheme() + '://cdp.{}.nip.io:8000/api/v1'.format(get_public_ip())
+    return '{}://{}:8000/api/v1'.format(get_url_scheme(), get_hostname())
 
 
 def _get_rest_api_url():
-    return get_url_scheme() + '://cdp.{}.nip.io:18121/api/v1'.format(get_public_ip())
+    return '{}://{}:18121/api/v1'.format(get_url_scheme(), get_hostname())
 
 
 def _get_ui_url():
-    return get_url_scheme() + '://cdp.{}.nip.io:8000/ui'.format(get_public_ip())
+    return '{}://{}:8000/ui'.format(get_url_scheme(), get_hostname())
 
 
 def _get_url(api_type):
