@@ -847,14 +847,13 @@ systemctl start minifi
 if [[ ${HAS_KAFKA:-0} == 1 ]]; then
   echo "-- Create Kafka topic (iot)"
   auth admin
-  if [[ -f $KAFKA_CLIENT_PROPERTIES ]]; then
-    CLIENT_CONFIG_OPTION="--command-config $KAFKA_CLIENT_PROPERTIES"
-  else
-    CLIENT_CONFIG_OPTION=""
-  fi
+  # Avoid timeouts right after the cluster was created, which we have seen in some environments that have slow disks.
+  echo "request.timeout.ms=60000" >> $KAFKA_CLIENT_PROPERTIES
+  CLIENT_CONFIG_OPTION="--command-config $KAFKA_CLIENT_PROPERTIES"
   KAFKA_PORT=$(get_kafka_port)
   for topic in iot iot_enriched iot_enriched_avro; do
-    retry_if_needed 60 1 "kafka-topics $CLIENT_CONFIG_OPTION --bootstrap-server ${CLUSTER_HOST}:${KAFKA_PORT} --create --topic $topic --partitions 10 --replication-factor 1"
+    kafka_cmd="kafka-topics $CLIENT_CONFIG_OPTION --bootstrap-server ${CLUSTER_HOST}:${KAFKA_PORT}"
+    retry_if_needed 60 1 "$kafka_cmd --create --topic $topic --partitions 10 --replication-factor 1 || ($kafka_cmd --delete --topic $topic; exit 1)"
     kafka-topics $CLIENT_CONFIG_OPTION --bootstrap-server ${CLUSTER_HOST}:${KAFKA_PORT} --describe --topic $topic
   done
   unauth
@@ -993,7 +992,7 @@ fi
 
 if [ "${HAS_CDSW:-}" == "1" ]; then
   echo "-- Initiate CDSW setup in the background",
-  nohup python -u /tmp/resources/cdsw_setup.py $(curl ifconfig.me 2>/dev/null) /tmp/resources/iot_model.pkl /tmp/resources/the_pwd.txt > /tmp/resources/cdsw_setup.log 2>&1 &
+  nohup python -u /tmp/resources/cdsw_setup.py $(echo "$PUBLIC_DNS" | sed -E 's/cdp.(.*).nip.io/\1/') /tmp/resources/iot_model.pkl /tmp/resources/the_pwd.txt > /tmp/resources/cdsw_setup.log 2>&1 &
 fi
 
 echo "-- Cleaning up"
