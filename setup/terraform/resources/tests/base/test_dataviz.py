@@ -11,18 +11,14 @@ VIZ_PROJECT_NAME = 'VizApps Workshop'
 VIZ_APP_NAME = 'Viz Server Application'
 
 
-def _is_dataviz_deployed():
-    return cdsw.get_release() >= [1, 10]
-
-
-@pytest.mark.skipif(not _is_dataviz_deployed(), reason='DataViz is not deployed')
+@pytest.mark.skipif(not dataviz.is_dataviz_available(), reason='DataViz is not deployed')
 def test_dataviz_project_existence():
     app = cdsw.get_application(project_name=VIZ_PROJECT_NAME, app_name=VIZ_APP_NAME)
     with exception_context(app):
         assert app.get('url', None)
 
 
-@pytest.mark.skipif(not _is_dataviz_deployed(), reason='DataViz is not deployed')
+@pytest.mark.skipif(not dataviz.is_dataviz_available(), reason='DataViz is not deployed')
 def test_dataviz_get_users():
     users = dataviz.get_users()
     with exception_context(users):

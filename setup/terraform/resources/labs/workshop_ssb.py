@@ -4,11 +4,10 @@
 Common utilities for Python scripts
 """
 from . import *
-from .utils import ssb, schreg
+from .utils import ssb, schreg, kafka
 
+TRUSTSTORE_PATH = '/opt/cloudera/security/jks/truststore.jks'
 KAFKA_PROVIDER_NAME = 'edge2ai-kafka'
-KAFKA_PROVIDER_BROKERS = '{}:9092'.format(get_hostname())
-KAFKA_PROVIDER_PROTOCOL = 'plaintext'
 
 SR_PROVIDER_NAME = 'sr'
 SR_PROVIDER_DATABASE_FILTER = '.*'
@@ -58,8 +57,17 @@ class SqlStreamBuilderWorkshop(AbstractWorkshop):
         """
         return ['nifi']
 
+    @classmethod
+    def is_runnable(cls):
+        """
+        Return True is the workshop is runnable (i.e. all the necessary prerequisites are satisfied).
+        This method can be overriden to check for necessary prerequisites.
+        """
+        return ssb.is_ssb_installed() and ssb.is_csa16_or_later()
+
     def before_setup(self):
-        pass
+        if is_kerberos_enabled():
+            ssb.upload_keytab('admin', '/keytabs/admin.keytab')
 
     def after_setup(self):
         pass
@@ -74,13 +82,23 @@ class SqlStreamBuilderWorkshop(AbstractWorkshop):
         ssb.delete_data_provider(KAFKA_PROVIDER_NAME)
 
     def lab1_create_kafka_data_provider(self):
+        if is_tls_enabled():
+            if is_kerberos_enabled():
+                protocol = 'sasl'
+            else:
+                protocol = 'ssl'
+        else:
+            if is_kerberos_enabled():
+                protocol = 'sasl_plaintext'
+            else:
+                protocol = 'plaintext'
         props = {
-            'brokers': KAFKA_PROVIDER_BROKERS,
-            'protocol': KAFKA_PROVIDER_PROTOCOL,
+            'brokers': kafka.get_bootstrap_servers(),
+            'protocol': protocol,
             'username': None,
             'password': None,
             'mechanism': 'KERBEROS',
-            'ssl.truststore.location': None,
+            'ssl.truststore.location': TRUSTSTORE_PATH,
         }
         ssb.create_data_provider(KAFKA_PROVIDER_NAME, 'kafka', props)
 

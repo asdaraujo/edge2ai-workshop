@@ -11,6 +11,7 @@ from datetime import datetime
 from importlib import import_module
 from inspect import getmembers
 
+import pytest
 import requests
 
 logging.basicConfig(level=logging.WARN)
@@ -176,6 +177,14 @@ class AbstractWorkshop(metaclass=AbstractWorkshopMeta):
         """
         pass
 
+    @classmethod
+    def is_runnable(cls):
+        """
+        Return True is the workshop is runnable (i.e. all the necessary prerequisites are satisfied).
+        This method can be overriden to check for necessary prerequisites.
+        """
+        return True
+
     def before_setup(self):
         pass
 
@@ -210,6 +219,9 @@ class AbstractWorkshop(metaclass=AbstractWorkshopMeta):
             WORKSHOPS[workshop](self.run_id, self.context).execute_teardown()
 
     def execute_setup(self, target_lab=99):
+        if not self.is_runnable():
+            LOG.warning("Workshop is not runnable.")
+            return None
         self._setup_prereqs()
         self.before_setup()
         lab_setup_functions = [(n, f, _get_step_number(n)) for n, f in
@@ -218,13 +230,20 @@ class AbstractWorkshop(metaclass=AbstractWorkshopMeta):
         for func_name, func, lab_number in lab_setup_functions:
             if lab_number < target_lab:
                 LOG.info("Executing {}::{}".format(self.workshop_id(), func_name))
-                func(self)
+                try:
+                    func(self)
+                except Exception as err:
+                    LOG.info("Execution of {}::{} FAILED!".format(self.workshop_id(), func_name))
+                    raise err
             else:
                 LOG.debug("[{0}] is numbered higher than target [lab{1}], skipping".format(func_name, target_lab))
         self.after_setup()
         return self.context
 
     def execute_teardown(self):
+        if not self.is_runnable():
+            LOG.warning("Workshop is not runnable.")
+            return
         self.teardown()
         self._teardown_prereqs()
 
@@ -240,22 +259,32 @@ def _load_workshops():
             import_module(f, package=__package__)
 
 
-def global_setup(target_workshop='base', target_lab=99, run_id=None):
+def is_workshop_runnable(target_workshop):
+    if target_workshop in WORKSHOPS:
+        return WORKSHOPS[target_workshop]().is_runnable()
+    return False
+
+
+def workshop_setup(target_workshop='base', target_lab=99, run_id=None, ignore=False):
     _load_workshops()
     if target_workshop in WORKSHOPS:
         LOG.info('Executing setup for Lab {} in Workshop {}'.format(target_workshop, target_lab))
         WORKSHOPS[target_workshop](run_id).execute_setup(target_lab)
+    elif ignore:
+        LOG.info('Passing')
     else:
         raise RuntimeError("Workshop [{}] not found. Known workshops are: {}".format(target_workshop, WORKSHOPS))
     LOG.info('Global setup completed successfully!')
 
 
-def global_teardown(target_workshop='base', run_id=None):
+def workshop_teardown(target_workshop, run_id=None, ignore=False):
     _load_workshops()
-    if target_workshop is not None:
+    if target_workshop in WORKSHOPS:
         LOG.info('Executing teardown for Workshop {}'.format(target_workshop))
         WORKSHOPS[target_workshop](run_id).execute_teardown()
-    else:
+    elif target_workshop is not None and ignore:
+        LOG.info('Passing')
+    elif target_workshop is None:
         for target_workshop in WORKSHOPS:
             LOG.info('Executing teardown for Workshop {}'.format(target_workshop))
             WORKSHOPS[target_workshop](run_id).execute_teardown()
@@ -285,7 +314,9 @@ def retry_test(max_retries=0, wait_time_secs=0):
                     else:
                         retries += 1
                         time.sleep(wait_time_secs)
-                        print('%s - Retry #%d' % (datetime.strftime(datetime.now(), '%Y-%m-%d %H:%M:%S'), retries))
+                        print('{} - {} - Retry #{}'.format(datetime.strftime(datetime.now(), '%Y-%m-%d %H:%M:%S'),
+                                                           f.__name__,
+                                                           retries))
 
         return wrapped_f
 

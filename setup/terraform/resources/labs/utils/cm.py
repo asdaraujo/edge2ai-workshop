@@ -8,6 +8,7 @@ CM_CREDS = ('admin', get_the_pwd())
 _API_VERSION = None
 _CLUSTER_NAME = None
 
+
 def _get_cm_port():
     return 7183 if is_tls_enabled() else 7180
 
@@ -46,3 +47,9 @@ def get_product_version(product, stage='ACTIVATED'):
     selected_version = [p for p in products['items'] if p['product'] == product and p['stage'] == stage]
     assert len(selected_version) == 1
     return selected_version[0]['version']
+
+
+def get_services(service_type=None):
+    services = _api_request('GET', '/clusters/{}/services'.format(_get_cluster_name())).json()
+    selected_services = [s for s in services['items'] if service_type is None or s['type'] == service_type]
+    return selected_services

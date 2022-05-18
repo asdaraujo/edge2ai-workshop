@@ -25,6 +25,6 @@ if [[ -f /keytabs/admin.keytab ]]; then
 fi
 
 cd $BASE_DIR
-python3 -c "import labs; labs.global_teardown(target_workshop='${TARGET_WORKSHOP}')"
-python3 -c "import labs; labs.global_setup(target_workshop='${TARGET_WORKSHOP}', target_lab=${TARGET_LAB})"
+python3 -c "import labs; labs.workshop_teardown(target_workshop='${TARGET_WORKSHOP}')"
+python3 -c "import labs; labs.workshop_setup(target_workshop='${TARGET_WORKSHOP}', target_lab=${TARGET_LAB})"
 echo "Done!"

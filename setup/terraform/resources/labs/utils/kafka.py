@@ -7,13 +7,13 @@ def _get_port():
     return '9093' if is_tls_enabled() else '9092'
 
 
-def _get_bootstrap_servers():
+def get_bootstrap_servers():
     return get_hostname() + ':' + _get_port()
 
 
 def get_common_client_properties(env, client_type, consumer_group_id, client_id):
     props = {
-        'bootstrap.servers': _get_bootstrap_servers(),
+        'bootstrap.servers': get_bootstrap_servers(),
     }
     if client_type == 'producer':
         props.update({

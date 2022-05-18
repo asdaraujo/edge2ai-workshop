@@ -155,8 +155,17 @@ class ChangeDataCaptureWorkshop(AbstractWorkshop):
         """
         return []
 
+    @classmethod
+    def is_runnable(cls):
+        """
+        Return True is the workshop is runnable (i.e. all the necessary prerequisites are satisfied).
+        This method can be overriden to check for necessary prerequisites.
+        """
+        return ssb.is_ssb_installed() and ssb.is_csa16_or_later()
+
     def before_setup(self):
-        pass
+        if is_kerberos_enabled():
+            ssb.upload_keytab('admin', '/keytabs/admin.keytab')
 
     def after_setup(self):
         pass

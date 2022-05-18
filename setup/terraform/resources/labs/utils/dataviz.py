@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import json
+import os.path
+
 from . import *
 from . import cdsw
 
@@ -36,11 +38,16 @@ def _api_call(func, path, data=None, files=None, headers=None):
     global _DATAVIZ_CSRF_TOKEN
     if not headers:
         headers = {}
-    if _DATAVIZ_CSRF_TOKEN:
+    if 'X-CSRFToken' in headers and headers['X-CSRFToken'] is None:
+        del headers['X-CSRFToken']
+    elif _DATAVIZ_CSRF_TOKEN:
         headers['X-CSRFToken'] = _DATAVIZ_CSRF_TOKEN
-    if not 'Content-Type' in headers:
+    if 'Content-Type' in headers and headers['Content-Type'] is None:
+        del headers['Content-Type']
+    elif 'Content-Type' not in headers:
         headers['Content-Type'] = 'application/x-www-form-urlencoded'
     url = _get_api_url() + path
+
     resp = func(url, data=data, headers=headers, files=files)
     if resp.status_code != requests.codes.ok:
         raise RuntimeError("Call to {} returned status {}. Text: {}".format(
@@ -61,6 +68,10 @@ def _api_post(path, data=None, files=None, headers=None):
     return _api_call(_get_session().post, path, data=data, files=files, headers=headers)
 
 
+def _api_put(path, data=None, files=None, headers=None):
+    return _api_call(_get_session().put, path, data=data, files=files, headers=headers)
+
+
 def _api_delete(path, data=None):
     return _api_call(_get_session().delete, path, data=data)
 
@@ -75,6 +86,10 @@ def _get_session():
         _api_get('/apps/login')
         _api_post('/apps/login?', {'next': '', 'username': _DATAVIZ_USER, 'password': get_the_pwd()})
     return _DATAVIZ_SESSION
+
+
+def is_dataviz_available():
+    return cdsw.get_release() >= [1, 10]
 
 
 # APPS API
@@ -149,9 +164,9 @@ def create_dataset(data):
 
 
 def delete_dataset(ds_id=None, ds_name=None, dc_name=None):
-    assert ds_id is not None or ds_name is not None or dc_name is not None,\
+    assert ds_id is not None or ds_name is not None or dc_name is not None, \
         'One of "ds_id", "ds_name" or "dc_name" must be specified.'
-    assert (0 if ds_id is None else 1) + (0 if ds_name is None else 1) + (0 if dc_name is None else 1),\
+    assert (0 if ds_id is None else 1) + (0 if ds_name is None else 1) + (0 if dc_name is None else 1), \
         'Only one of "ds_id", "ds_name" or "dc_name" can be specified.'
     if ds_id is not None:
         ds_ids = [ds_id]
@@ -170,6 +185,27 @@ def get_datasets(ds_name=None, conn_name=None):
     return [d for d in resp.json()
             if (ds_name is None or d['name'] == ds_name)
             and (conn_name is None or d['dc_name'] == conn_name)]
+
+
+def get_workspaces(workspace_name=None, workspace_id=None):
+    resp = _api_get('/workspace/workspace')
+    return [w for w in resp.json()
+            if (workspace_name is None or w['name'] == workspace_name)
+            or (workspace_id is None or w['id'] == workspace_id)]
+
+
+def import_artifacts2(dc_name, file_name):
+    workspace = get_workspaces(workspace_name='Public')[0]
+    payload = {
+        'dataconnection_name': dc_name,
+        'workspace_id': workspace['id'],
+        'thumbnails_action': 1,  # Import from the file
+        'sanity_check': 'on',
+    }
+    files = {'import_file': (os.path.basename(file_name), open(file_name, 'r'), 'application/json')}
+    headers = {'Content-Type': None}
+    _api_post('/migration/migrate', files=files, data=payload, headers=headers)
+    _api_put('/migration/migrate?dry_run=false', files=files, data=payload)
 
 
 def import_artifacts(dc_name, file_name):

@@ -9,6 +9,8 @@ import os
 import pytest
 from ..labs import *
 
+_LAST_WORKSHOP = None
+
 
 @pytest.fixture(scope="session")
 def setup_flag():
@@ -36,14 +38,30 @@ def run_id():
     return get_run_id()
 
 
-@pytest.fixture(scope="session", autouse=True)
-def setup_all(setup_flag, teardown_flag, run_id):
-    print('SETUP_ALL:{}'.format(run_id))
+@pytest.fixture(scope="module", autouse=True)
+def setup_all(setup_flag, teardown_flag, run_id, request):
+    global _LAST_WORKSHOP
+    module_path = os.path.dirname(request.module.__file__)
+    workshop = os.path.basename(module_path)
     if setup_flag:
-        global_teardown(run_id=run_id)
-        global_setup(run_id=run_id)
+        if _LAST_WORKSHOP != workshop:
+            print('\nTEARDOWN:{}:{}\n'.format(run_id, _LAST_WORKSHOP if _LAST_WORKSHOP else 'GLOBAL'))
+            workshop_teardown(target_workshop=_LAST_WORKSHOP, run_id=run_id)
+
+            if not is_workshop_runnable(workshop):
+                pytest.skip('Workshop [{}] is not runnable.'.format(workshop))
+
+            print('\nSETUP:{}:{}\n'.format(run_id, workshop))
+            workshop_setup(target_workshop=workshop, run_id=run_id, ignore=True)
+            _LAST_WORKSHOP = workshop
+
+
+@pytest.fixture(scope="session", autouse=True)
+def final_teardown(setup_flag, teardown_flag, run_id, request):
+    global _LAST_WORKSHOP
     yield True
-    if teardown_flag:
-        global_teardown(run_id=run_id)
+    if teardown_flag and _LAST_WORKSHOP:
+        print('\nTEARDOWN:{}:{}\n'.format(run_id, _LAST_WORKSHOP))
+        workshop_teardown(target_workshop=_LAST_WORKSHOP, run_id=run_id, ignore=True)
 
 

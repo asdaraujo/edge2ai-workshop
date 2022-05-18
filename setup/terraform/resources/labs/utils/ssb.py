@@ -5,6 +5,7 @@ import uuid
 
 from . import *
 from . import cm
+from requests_kerberos import HTTPKerberosAuth, DISABLED
 
 _SSB_USER = 'admin'
 _SSB_SESSION = None
@@ -15,14 +16,32 @@ _API_EXTERNAL = 'external'
 _API_UI = 'ui'
 _FLINK_VERSION = None
 
-# _LEGACY_ENDPOINTS = {
-#     'csa1.5': {
-#         '/internal/external-provider': '/external-providers',
-#     },
-# }
+
+_CSRF_REGEXPS = [
+    r'.*name="csrf_token" type="hidden" value="([^"]*)"',
+    r'.*var *csrf_token *= *"([^"]*)"'
+]
+
+
+def _get_csrf_token(txt, quiet=True):
+    token = None
+    for regexp in _CSRF_REGEXPS:
+        m = re.match(regexp, txt, flags=re.DOTALL)
+        if m:
+            token = m.groups()[0]
+            break
+    else:
+        if not quiet:
+            raise RuntimeError("Cannot find CSRF token.")
+    return token
+
+
+def _get_ui_port():
+    return '8001' if is_tls_enabled() else '8000'
+
 
 def _get_api_url():
-    return '{}://{}:8000/api/v1'.format(get_url_scheme(), get_hostname())
+    return '{}://{}:{}/api/v1'.format(get_url_scheme(), get_hostname(), _get_ui_port())
 
 
 def _get_rest_api_url():
@@ -30,7 +49,7 @@ def _get_rest_api_url():
 
 
 def _get_ui_url():
-    return '{}://{}:8000/ui'.format(get_url_scheme(), get_hostname())
+    return '{}://{}:{}/ui'.format(get_url_scheme(), get_hostname(), _get_ui_port())
 
 
 def _get_url(api_type):
@@ -44,26 +63,27 @@ def _get_url(api_type):
 
 def _api_call(func, path, data=None, files=None, headers=None, api_type=_API_INTERNAL, token=False):
     global _SSB_CSRF_TOKEN
-    # path = _adjust_api_endpoint_for_version(path)
     if not headers:
         headers = {}
     if api_type != _API_UI:
         headers['Content-Type'] = 'application/json'
         data = json.dumps(data)
-    if api_type == _API_EXTERNAL:
+    auth = None
+    if is_kerberos_enabled():
+        auth = HTTPKerberosAuth(mutual_authentication=DISABLED)
+    else:
         headers['Username'] = 'admin'
     if token:
         headers['X-CSRF-TOKEN'] = _SSB_CSRF_TOKEN
     url = _get_url(api_type) + path
-    resp = func(url, data=data, headers=headers, files=files)
+    resp = func(url, data=data, headers=headers, files=files, auth=auth)
     if resp.status_code != requests.codes.ok:
         raise RuntimeError("Call to {} returned status {}. \nData: {}\nResponse: {}".format(
             url, resp.status_code, json.dumps(data), resp.text))
 
-    m = re.match(r'.*name="csrf_token" type="hidden" value="([^"]*)"', resp.text, flags=re.DOTALL)
-    if m:
-        _SSB_CSRF_TOKEN = m.groups()[0]
-
+    token = _get_csrf_token(resp.text)
+    if token:
+        _SSB_CSRF_TOKEN = token
     return resp
 
 
@@ -98,22 +118,22 @@ def _get_flink_version():
     return _FLINK_VERSION
 
 
-def _is_csa16():
-    return 'csa1.6' in _get_flink_version()
+def _get_csa_version():
+    parcel_version = _get_flink_version()
+    version_match = re.match(r'.*csa-?([0-9.]*).*', parcel_version)
+    return [int(v) for v in version_match.groups()[0].split('.')]
 
 
-# def _adjust_api_endpoint_for_version(endpoint):
-#     global _LEGACY_ENDPOINTS
-#     for version_key in _LEGACY_ENDPOINTS.keys():
-#         if version_key in _get_flink_version():
-#             for current_endpoint, legacy_endpoint in _LEGACY_ENDPOINTS[version_key].items():
-#                 if endpoint.startswith(current_endpoint):
-#                     return endpoint.replace(current_endpoint, legacy_endpoint)
-#     return endpoint
+def is_csa16_or_later():
+    return _get_csa_version() >= [1, 6]
+
+
+def is_ssb_installed():
+    return len(cm.get_services('SQL_STREAM_BUILDER')) > 0
 
 
 def create_data_provider(provider_name, provider_type, properties):
-    if _is_csa16():
+    if is_csa16_or_later():
         provider_type_attr = 'type'
     else:
         provider_type_attr = 'provider_type'
@@ -122,14 +142,14 @@ def create_data_provider(provider_name, provider_type, properties):
         provider_type_attr: provider_type,
         'properties': properties,
     }
-    if _is_csa16():
+    if is_csa16_or_later():
         return _api_post('/internal/external-provider', data, api_type=_API_INTERNAL, token=True)
     else:
         return _api_post('/external-providers', data)
 
 
 def get_data_providers(provider_name=None):
-    if _is_csa16():
+    if is_csa16_or_later():
         resp = _api_get('/internal/external-provider', api_type=_API_INTERNAL)
         providers = resp.json()
     else:
@@ -141,7 +161,7 @@ def get_data_providers(provider_name=None):
 def delete_data_provider(provider_name):
     assert provider_name is not None
     for provider in get_data_providers(provider_name):
-        if _is_csa16():
+        if is_csa16_or_later():
             _api_delete('/internal/external-provider/{}'.format(provider['provider_id']), api_type=_API_INTERNAL, token=True)
         else:
             _api_delete('/external-providers/{}'.format(provider['provider_id']))
@@ -149,7 +169,7 @@ def delete_data_provider(provider_name):
 
 def detect_schema(provider_name, topic_name):
     provider_id = get_data_providers(provider_name)[0]['provider_id']
-    if _is_csa16():
+    if is_csa16_or_later():
         raw_json = _api_get('/internal/kafka/{}/schema?topic_name={}'.format(provider_id, topic_name)).text
         return json.dumps(json.loads(raw_json), indent=2)
     else:
@@ -181,14 +201,14 @@ def create_kafka_table(table_name, table_format, provider_name, topic_name, sche
             "schema": schema,
         }
     }
-    if _is_csa16():
+    if is_csa16_or_later():
         return _api_post('/internal/data-provider', data, api_type=_API_INTERNAL, token=True)
     else:
         return _api_post('/sb-source', data, token=True)
 
 
 def get_tables(table_name=None, org='ssb_default'):
-    if _is_csa16():
+    if is_csa16_or_later():
         data = _api_get('/internal/catalog/tables-tree').json()
         assert 'tables' in data
         if 'ssb' in data['tables'] and org in data['tables']['ssb']:
@@ -204,7 +224,7 @@ def get_tables(table_name=None, org='ssb_default'):
 def delete_table(table_name):
     assert table_name is not None
     for table in get_tables(table_name):
-        if _is_csa16():
+        if is_csa16_or_later():
             _api_delete('/internal/data-provider/{}'.format(table['id']), token=True)
         else:
             _api_delete('/sb-source/{}'.format(table['id']), token=True)
@@ -267,3 +287,13 @@ def stop_job(job_name, savepoint=False, savepoint_path=None, timeout=1000, wait_
 def stop_all_jobs():
     for job in get_jobs():
         stop_job(job['name'])
+
+
+def upload_keytab(principal, keytab_file):
+    global _SSB_CSRF_TOKEN
+    data = {
+        'keytab_principal': principal,
+        'csrf_token': _SSB_CSRF_TOKEN,
+    }
+    files = {'keytab_file': (os.path.basename(keytab_file), open(keytab_file, 'rb'), 'application/octet-stream')}
+    return _api_post('/keytab/upload', api_type=_API_UI, data=data, files=files, token=True)

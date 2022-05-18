@@ -42,6 +42,14 @@ class DataVizWorkshop(AbstractWorkshop):
         """
         return ['nifi']
 
+    @classmethod
+    def is_runnable(cls):
+        """
+        Return True is the workshop is runnable (i.e. all the necessary prerequisites are satisfied).
+        This method can be overriden to check for necessary prerequisites.
+        """
+        return dataviz.is_dataviz_available()
+
     def before_setup(self):
         pass
 
@@ -56,10 +64,10 @@ class DataVizWorkshop(AbstractWorkshop):
         dataviz.create_connection(CONNECTION_TYPE, CONNECTION_NAME, CONNECTION_PARAMS)
 
     def lab3_create_dataset(self):
-        dataviz.import_artifacts(CONNECTION_NAME, os.path.join(self.get_artifacts_dir(), DATASET_EXPORT_FILE))
+        dataviz.import_artifacts2(CONNECTION_NAME, os.path.join(self.get_artifacts_dir(), DATASET_EXPORT_FILE))
 
     def lab4_create_table_visual(self):
-        dataviz.import_artifacts(CONNECTION_NAME, os.path.join(self.get_artifacts_dir(), TABLE_VISUAL_EXPORT_FILE))
+        dataviz.import_artifacts2(CONNECTION_NAME, os.path.join(self.get_artifacts_dir(), TABLE_VISUAL_EXPORT_FILE))
 
     def lab5_create_scatter_visual(self):
-        dataviz.import_artifacts(CONNECTION_NAME, os.path.join(self.get_artifacts_dir(), SCATTER_VISUAL_EXPORT_FILE))
+        dataviz.import_artifacts2(CONNECTION_NAME, os.path.join(self.get_artifacts_dir(), SCATTER_VISUAL_EXPORT_FILE))

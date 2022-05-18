@@ -184,6 +184,7 @@ EOF
     pytest==6.2.5 \
     PyYAML==6.0 \
     requests-gssapi==1.2.3 \
+    requests-kerberos==0.14.0 \
     thrift-sasl==0.4.3
 
   rm -f /usr/bin/python3 /usr/bin/pip3
