@@ -98,15 +98,18 @@ def _get_runtimes(refresh=False):
     return _RUNTIMES
 
 
-def _find_runtime(editor, kernel, edition, short_version, retries=600):
+def _find_runtime(editor, kernel, edition=None, short_version=None, retries=600):
     total_retries = retries
     while True:
         runtimes = _get_runtimes(refresh=True)
         selected = [runtime for runtime in runtimes
-                    if runtime['editor'] == editor and runtime['kernel'] == kernel and runtime['edition'] == edition
-                    and runtime['shortVersion'] == short_version]
+                    if runtime['editor'] == editor
+                    and runtime['kernel'] == kernel
+                    and (edition is None or runtime['edition'] == edition)
+                    and (short_version is None or runtime['shortVersion'] == short_version)]
+        selected = sorted(selected, key=lambda x: (x['edition'], x['shortVersion']))
         if selected:
-            return selected[0]['id']
+            return selected[-1]['id']
         retries -= 1
         if retries <= 0:
             break
@@ -119,7 +122,7 @@ def _find_runtime(editor, kernel, edition, short_version, retries=600):
 def _get_default_runtime():
     global _DEFAULT_RUNTIME
     if not _DEFAULT_RUNTIME:
-        _DEFAULT_RUNTIME = _find_runtime('Workbench', 'Python 3.7', 'Standard', '2021.12')
+        _DEFAULT_RUNTIME = _find_runtime('Workbench', 'Python 3.7', 'Standard')
         print('Default Runtime ID: {}'.format(_DEFAULT_RUNTIME, ))
     return _DEFAULT_RUNTIME
 
@@ -127,7 +130,7 @@ def _get_default_runtime():
 def _get_viz_runtime():
     global _VIZ_RUNTIME
     if not _VIZ_RUNTIME:
-        _VIZ_RUNTIME = _find_runtime('Workbench', 'Cloudera Data Visualization', 'CDV 6.3.7', '6.3.7-b38')
+        _VIZ_RUNTIME = _find_runtime('Workbench', 'Cloudera Data Visualization')
         print('Viz Runtime ID: {}'.format(_VIZ_RUNTIME, ))
     return _VIZ_RUNTIME
 
