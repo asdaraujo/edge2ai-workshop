@@ -99,7 +99,7 @@ function show_details() {
   fi
 
   if [ "$summary_only" != "no" ]; then
-    printf "%-25s %-40s %10d  %8s  %9s %s\n" "$namespace" "$web_server" "$(cat ${INSTANCE_LIST_FILE}.$namespace | wc -l)" "$enddate" "$remaining_days" "$warning"
+    printf "%-25s %-30s %-30s %10d  %8s  %9s %s\n" "$namespace" "$web_server" "$(awk 'NR==1{print $2}' ${INSTANCE_LIST_FILE}.$namespace)" "$(cat ${INSTANCE_LIST_FILE}.$namespace | wc -l)" "$enddate" "$remaining_days" "$warning"
   else
     if [ -s "$TF_VAR_web_ssh_private_key" ]; then
       echo "WEB SERVER Key file: $TF_VAR_web_ssh_private_key"
@@ -165,7 +165,7 @@ function show_details() {
 }
 
 if [ "$NAMESPACE" == "" ]; then
-  printf "%-25s %-40s %10s  %8s  %9s\n" "Namespace" "Web Server" "# of VMs" "End Date" "Days Left"
+  printf "%-25s %-30s %-30s %10s  %8s  %9s\n" "Namespace" "Web Server" "Cluster 0" "# of VMs" "End Date" "Days Left"
   tmp_dir=/tmp/list-details.$$
   rm -rf $tmp_dir
   mkdir $tmp_dir
