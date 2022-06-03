@@ -6,7 +6,11 @@
          "flink-FLINK_HISTORY_SERVER-BASE"
         ,"flink-GATEWAY-BASE"
 {% if CM_VERSION is ge('7.3.1') and CDH_VERSION is ge('7.1.6') and CSA_VERSION is ge('1.3') %}
+{% if CSA_VERSION is lt('1.7') %}
         ,"sql_stream_builder-STREAMING_SQL_CONSOLE-BASE"
+{% else %}
+        ,"sql_stream_builder-LOAD_BALANCER-BASE"
+{% endif %}
         ,"sql_stream_builder-STREAMING_SQL_ENGINE-BASE"
         ,"sql_stream_builder-MATERIALIZED_VIEW_ENGINE-BASE"
 {% endif %}
@@ -228,8 +232,9 @@
             }
 {% endif %}
           ]
-        },
-        {
+        }
+{% if CSA_VERSION is lt('1.7') %}
+        ,{
           "refName": "sql_stream_builder-STREAMING_SQL_CONSOLE-BASE",
           "roleType": "STREAMING_SQL_CONSOLE",
           "base": true,
@@ -276,6 +281,61 @@
 {% endif %}
           ]
         }
+{% else %}
+        ,{
+          "refName": "sql_stream_builder-LOAD_BALANCER-BASE",
+          "roleType": "LOAD_BALANCER",
+          "base": true,
+          "configs": [
+            {
+              "name": "loadbalancer.url",
+              "value": "{{CLUSTER_HOST}}"
+            },
+            {
+              "name": "ssb.mve.loadbalancer.server.port",
+              "value": "8071"
+            },
+            {
+              "name": "ssb.mve.loadbalancer.server.secure.port",
+              "value": "8471"
+            },
+            {
+              "name": "ssb.sse.loadbalancer.server.port",
+              "value": "8070"
+            },
+            {
+              "name": "ssb.sse.loadbalancer.server.secure.port",
+              "value": "8470"
+            }
+{% if ENABLE_TLS == 'yes' %}
+            ,{
+              "name": "ssl_client_truststore_location",
+              "value": "/opt/cloudera/security/jks/truststore.jks"
+            },
+            {
+              "name": "ssl_client_truststore_password",
+              "value": "{{THE_PWD}}"
+            },
+            {
+              "name": "ssl_enabled",
+              "value": "true"
+            },
+            {
+              "name": "ssl_server_keystore_keypassword",
+              "value": "{{THE_PWD}}"
+            },
+            {
+              "name": "ssl_server_keystore_location",
+              "value": "/opt/cloudera/security/jks/keystore.jks"
+            },
+            {
+              "name": "ssl_server_keystore_password",
+              "value": "{{THE_PWD}}"
+            }
+{% endif %}
+          ]
+        }
+{% endif %}
       ]
     }
 {% endif %}
