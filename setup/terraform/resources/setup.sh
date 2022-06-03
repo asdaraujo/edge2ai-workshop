@@ -10,24 +10,25 @@ if [ "$USER" != "root" ]; then
   exit 1
 fi
 
+BASE_DIR=$(cd "$(dirname $0)"; pwd -L)
+source $BASE_DIR/common.sh
+
 #########  Set variables upfront
 
 CLOUD_PROVIDER=${1:-aws}
 SSH_USER=${2:-}
 SSH_PWD=${3:-}
 NAMESPACE=${4:-}
-DOCKER_DEVICE=${5:-}
+DOCKER_DEVICE=${5:-$(detect_docker_device)}
 IPA_HOST=${6:-}
 IPA_PRIVATE_IP=${7:-}
 export NAMESPACE DOCKER_DEVICE IPA_HOST
 
-BASE_DIR=$(cd "$(dirname $0)"; pwd -L)
 # Save params
 if [[ ! -f $BASE_DIR/.setup.params ]]; then
   echo "bash -x $0 '$CLOUD_PROVIDER' '$SSH_USER' '$SSH_PWD' '$NAMESPACE' '$DOCKER_DEVICE' '$IPA_HOST' '$IPA_PRIVATE_IP'" > $BASE_DIR/.setup.params
 fi
 
-source $BASE_DIR/common.sh
 KEY_FILE=${BASE_DIR}/myRSAkey
 TEMPLATE_FILE=$BASE_DIR/cluster_template.${NAMESPACE}.json
 
@@ -513,26 +514,9 @@ if [ "${HAS_CDSW:-}" == "1" ]; then
     echo "CDSW_BUILD is set to '${CDSW_BUILD}'"
     # CDSW requires Centos 7.5, so we trick it to believe it is...
     echo "CentOS Linux release 7.9.2009 (Core)" > /etc/redhat-release
-    # If user doesn't specify a device, tries to detect a free one to use
-    # Device must be unmounted and have at least 200G of space
     if [[ "${DOCKER_DEVICE}" == "" ]]; then
-      echo "Docker device was not specified in the command line. Will try to detect a free device to use"
-      TMP_FILE=/tmp/.device.list
-      # Find devices that are not mounted and have size greater than or equal to 200G
-      lsblk -o NAME,MOUNTPOINT,SIZE -s -p -n | awk '/^\// && NF == 2 && $NF ~ /([2-9]|[0-9][0-9])[0-9][0-9]G/' > "${TMP_FILE}"
-      if [[ $(cat $TMP_FILE | wc -l) == 0 ]]; then
-        echo "ERROR: Could not find any candidate devices."
-        exit 1
-      elif [[ $(cat ${TMP_FILE} | wc -l) -gt 1 ]]; then
-        echo "ERROR: Found more than 1 possible devices to use:"
-        cat ${TMP_FILE}
-        exit 1
-      else
-        echo "Found 1 device to use"
-        cat ${TMP_FILE}
-        DOCKER_DEVICE=$(awk '{print $1}' ${TMP_FILE})
-      fi
-      rm -f ${TMP_FILE}
+      echo "ERROR: Could not find any candidate devices."
+      exit 1
     fi
     echo "Docker device: ${DOCKER_DEVICE}"
 else

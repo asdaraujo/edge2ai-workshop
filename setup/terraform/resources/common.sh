@@ -1144,3 +1144,21 @@ function nifi_reporting_task_state() {
   rt_revision=$(echo "$rts" | jq -rc '.reportingTasks[] | . as $r | .component | select(.name == "'"$rt_name"'") | $r.revision')
   curl -s -k -H "Authorization: Bearer $token" "${api_url}/reporting-tasks/${rt_id}/run-status" -d '{"state": "'"$state"'", "revision": '"$rt_revision"'}' -H 'Content-Type: application/json' -X PUT
 }
+
+function detect_docker_device() {
+  echo "INFO: Docker device was not specified in the command line. Will try to detect a free device to use" >&2
+  local tmp_file=/tmp/.device.list
+  # Find devices that are not mounted and have size greater than or equal to 200G
+  lsblk -o NAME,MOUNTPOINT,SIZE -s -p -n | awk '/^\// && NF == 2 && $NF ~ /([2-9]|[0-9][0-9])[0-9][0-9]G/' > "${tmp_file}"
+  if [[ $(cat "${tmp_file}" | wc -l) == 0 ]]; then
+    echo "WARNING: Could not find any candidate devices." >&2
+  elif [[ $(cat "${tmp_file}" | wc -l) -gt 1 ]]; then
+    echo "WARNING: Found more than 1 possible devices to use:" >&2
+    cat "${tmp_file}" >&2
+  else
+    echo "INFO: Found 1 device to use:" >&2
+    cat "${tmp_file}" >&2
+    awk '{print $1}' "${tmp_file}"
+  fi
+  rm -f "${tmp_file}"
+}
