@@ -35,7 +35,7 @@ add_ingress "$web_sg" "$(curl ifconfig.me 2>/dev/null)/32" tcp 80 "WEB_ADMIN" fo
 get_ips > $IP_FILE
 for ip in $(cat $IP_FILE); do
   add_ingress "$web_sg" "${ip}/32" tcp 80 "WORKSHOP_USER" force
-  add_ingress "$cluster_sg" "${ip}/32" tcp 0-65535 "WORKSHOP_USER" force
+  add_ingress "$cluster_sg" "${ip}/32" -1 0 "WORKSHOP_USER" force
 done
 
 for sg in "$web_sg" "$cluster_sg"; do
