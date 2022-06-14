@@ -21,16 +21,9 @@ resource "null_resource" "deploy_cdp" {
 
   provisioner "remote-exec" {
     inline = [
-      "set -o nounset",
       "set -o errexit",
-      "set -o pipefail",
       "set -o xtrace",
-      "trap 'echo Return code: $?' 0",
-      "sudo bash -c 'cat /tmp/resources/clusters_metadata.sh >> /etc/profile'",
-      "# Prepare resources",
-      "chmod +x /tmp/resources/*sh",
-      "# Deploy workshop",
-      "sudo bash -x /tmp/resources/setup.sh aws \"${var.ssh_username}\" \"${var.ssh_password}\" \"${var.namespace}\" \"\" \"${(var.use_ipa ? "ipa.${aws_eip.eip_ipa[0].public_ip}.nip.io" : "")}\" \"${(var.use_ipa ? aws_instance.ipa[0].private_ip : "")}\" 2>&1 | tee /tmp/resources/setup.log",
+      "sudo nohup bash -x /tmp/resources/setup.sh aws \"${var.ssh_username}\" \"${var.ssh_password}\" \"${var.namespace}\" \"\" \"${(var.use_ipa ? "ipa.${aws_eip.eip_ipa[0].public_ip}.nip.io" : "")}\" \"${(var.use_ipa ? aws_instance.ipa[0].private_ip : "")}\" > /tmp/resources/setup.log 2>&1 &",
       "sleep 1 # don't remove - needed for the nohup to work",
     ]
   }

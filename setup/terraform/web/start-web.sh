@@ -1,8 +1,9 @@
 #!/bin/bash
-set -o xtrace
-set -o errexit
 set -o nounset
+set -o errexit
 set -o pipefail
+set -o xtrace
+trap 'echo Setup return code: $?' 0
 BASE_DIR=$(cd $(dirname $0); pwd -L)
 
 DB_HOST=localhost

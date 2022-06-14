@@ -13,15 +13,18 @@ resource "null_resource" "deploy_web" {
     destination = "/home/${var.ssh_username}/web"
   }
 
+  provisioner "file" {
+    source      = "../resources/check-setup-status.sh"
+    destination = "/home/${var.ssh_username}/web/check-setup-status.sh"
+  }
+
   provisioner "remote-exec" {
     inline = [
-      "set -o nounset",
       "set -o errexit",
-      "set -o pipefail",
       "set -o xtrace",
-      "trap 'echo Return code: $?' 0",
       "cd web/",
-      "bash -x ./start-web.sh 2>&1 | tee ./start-web.log",
+      "nohup bash -x ./start-web.sh > ./start-web.log 2>&1 &",
+      "sleep 1 # don't remove - needed for the nohup to work",
     ]
   }
 }

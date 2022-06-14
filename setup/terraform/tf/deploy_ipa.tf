@@ -14,15 +14,18 @@ resource "null_resource" "deploy_ipa" {
     destination = "/home/${var.ssh_username}/ipa"
   }
 
+  provisioner "file" {
+    source      = "../resources/check-setup-status.sh"
+    destination = "/home/${var.ssh_username}/ipa/check-setup-status.sh"
+  }
+
   provisioner "remote-exec" {
     inline = [
-      "set -o nounset",
       "set -o errexit",
-      "set -o pipefail",
       "set -o xtrace",
-      "trap 'echo Return code: $?' 0",
       "cd ipa/",
-      "sudo bash -x ./setup-ipa.sh 2>&1 | tee ./setup-ipa.log",
+      "sudo nohup bash -x ./setup-ipa.sh > ./setup-ipa.log 2>&1 &",
+      "sleep 1 # don't remove - needed for the nohup to work",
     ]
   }
 }

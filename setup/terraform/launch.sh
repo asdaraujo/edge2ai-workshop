@@ -93,6 +93,8 @@ if [ -s $TF_STATE ]; then
 fi
 run_terraform apply -auto-approve -parallelism="${TF_VAR_parallelism}" -refresh=true -state=$TF_STATE
 
+"${BASE_DIR}/check-setup-status.sh" "${NAMESPACE}" "${START_TIME}"
+
 log "Deployment completed successfully"
 
 # Clean up

@@ -843,14 +843,14 @@ function ensure_tf_json_file() {
 function ipa_instance() {
   ensure_tf_json_file
   if [ -s $TF_JSON_FILE ]; then
-    cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.type == "aws_instance" and .name == "ipa") | "\(.values.tags.Name) ipa.\(.values.public_ip).nip.io \(.values.public_ip) \(.values.private_ip) \(.values.instance_type)"'
+    cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.type == "aws_instance" and .name == "ipa") | "\(.values.tags.Name) ipa.\(.values.public_ip).nip.io \(.values.public_ip) \(.values.private_ip) \(.values.instance_type) \(.values.id)"'
   fi
 }
 
 function web_instance() {
   ensure_tf_json_file
   if [ -s $TF_JSON_FILE ]; then
-    cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.type == "aws_instance" and .name == "web") | "\(.values.tags.Name) \(.values.public_dns) \(.values.public_ip) \(.values.private_ip) \(.values.instance_type)"'
+    cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.type == "aws_instance" and .name == "web") | "\(.values.tags.Name) \(.values.public_dns) \(.values.public_ip) \(.values.private_ip) \(.values.instance_type) \(.values.id)"'
   fi
 }
 
@@ -863,6 +863,7 @@ function web_attr() {
     "public_ip") pos=3 ;;
     "private_ip") pos=4 ;;
     "instance_type") pos=5 ;;
+    "id") pos=6 ;;
   esac
   awk '{print $'$pos'}'
 }
@@ -879,7 +880,7 @@ function cluster_instances() {
     if [[ $cluster_id != "" ]]; then
       filter='select(.index == '$cluster_id') |'
     fi
-    cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.type == "aws_instance" and .name == "cluster") |'"$filter"' "\(.index) \(.values.tags.Name) cdp.\(.values.public_ip).nip.io \(.values.public_ip) \(.values.private_ip)"'
+    cat $TF_JSON_FILE | jq -r '.values[]?.resources[]? | select(.type == "aws_instance" and .name == "cluster") |'"$filter"' "\(.index) \(.values.tags.Name) cdp.\(.values.public_ip).nip.io \(.values.public_ip) \(.values.private_ip) \(.values.instance_type) \(.values.id)"'
   fi
 }
 
@@ -893,6 +894,7 @@ function cluster_attr() {
     "public_ip") pos=4 ;;
     "private_ip") pos=5 ;;
     "instance_type") pos=6 ;;
+    "id") pos=7 ;;
   esac
   awk '{print $'$pos'}'
 }
@@ -1080,6 +1082,10 @@ function _cleanup() {
   local ret=$2
   reset_traps
 
+  if [[ $PUBLIC_IPS_FILE != "" && -f $PUBLIC_IPS_FILE ]]; then
+    rm -f $PUBLIC_IPS_FILE
+  fi
+  
   LC_ALL=C type cleanup 2>&1 | egrep -q "is a (shell )*function" && (cleanup || true)
 
   if [[ $ret -ne 0 ]]; then

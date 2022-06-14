@@ -1,8 +1,10 @@
 #!/bin/bash
+set -o nounset
+set -o errexit
+set -o pipefail
+set -o xtrace
+trap 'echo Setup return code: $?' 0
 BASE_DIR=$(cd $(dirname $0); pwd -L)
-
-set -e
-set -u
 
 THE_PWD=supersecret1
 

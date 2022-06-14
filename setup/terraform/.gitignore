@@ -17,6 +17,7 @@
 .nifi
 .nifireg
 .schreg
+.setup-status/
 .smm
 .terraform/
 .terraform.lock.hcl

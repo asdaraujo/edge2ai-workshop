@@ -16,10 +16,13 @@ fi
 C_NORMAL="$(echo -e "\033[0m")"
 C_BOLD="$(echo -e "\033[1m")"
 C_DIM="$(echo -e "\033[2m")"
+C_BLACK="$(echo -e "\033[30m")"
 C_RED="$(echo -e "\033[31m")"
+C_GREEN="$(echo -e "\033[32m")"
 C_YELLOW="$(echo -e "\033[33m")"
 C_BLUE="$(echo -e "\033[34m")"
 C_WHITE="$(echo -e "\033[97m")"
+C_BG_GREEN="$(echo -e "\033[42m")"
 C_BG_RED="$(echo -e "\033[101m")"
 C_BG_MAGENTA="$(echo -e "\033[105m")"
 "$reset_xtrace" && set -x

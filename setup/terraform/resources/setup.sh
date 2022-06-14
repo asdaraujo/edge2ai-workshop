@@ -1,16 +1,18 @@
 #! /bin/bash
+set -o nounset
+set -o errexit
+set -o pipefail
+set -o xtrace
+trap 'echo Setup return code: $?' 0
+BASE_DIR=$(cd "$(dirname $0)"; pwd -L)
 
-echo "-- Commencing SingleNodeCluster Setup Script"
-
-set -e
-set -u
+echo "-- Starting OneNodeCluster Setup Script"
 
 if [ "$USER" != "root" ]; then
   echo "ERROR: This script ($0) must be executed by root"
   exit 1
 fi
 
-BASE_DIR=$(cd "$(dirname $0)"; pwd -L)
 source $BASE_DIR/common.sh
 
 #########  Set variables upfront
@@ -45,6 +47,7 @@ fi
 
 
 CM_REPO_FILE=/etc/yum.repos.d/cloudera-manager.repo
+PREINSTALL_COMPLETED_FLAG=${BASE_DIR}/.preinstall.completed
 
 export PUBLIC_IP=$(curl -s http://ifconfig.me || curl -s http://api.ipify.org/)
 if [[ ! $PUBLIC_IP =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
@@ -76,7 +79,7 @@ else
 fi
 
 echo "-- Testing if this is a pre-packed image by looking for existing Cloudera Manager repo"
-if [[ ! -f $CM_REPO_FILE ]]; then
+if [[ ! -f $PREINSTALL_COMPLETED_FLAG ]]; then
   echo "-- Cloudera Manager repo not found, assuming not prepacked"
   echo "-- Installing EPEL repo"
   yum_install epel-release
@@ -123,7 +126,7 @@ if [[ ! -f $CM_REPO_FILE ]]; then
     CM_REPO_AS_TARBALL_FILE=/tmp/cm-repo-as-a-tarball.tar.gz
     retry_if_needed 5 5 "wget --progress=dot:giga $wget_basic_auth '${CM_REPO_AS_TARBALL_URL}' -O '$CM_REPO_AS_TARBALL_FILE'"
     tar -C /var/www/html -xvf $CM_REPO_AS_TARBALL_FILE
-    CM_REPO_ROOT_DIR=$(tar -tvf $CM_REPO_AS_TARBALL_FILE | head -1 | awk '{print $NF}')
+    CM_REPO_ROOT_DIR=$((tar -tvf $CM_REPO_AS_TARBALL_FILE || true) | head -1 | awk '{print $NF}')
     if [[ $CM_MAJOR_VERSION == 5 ]]; then
       CM_REPO_ROOT_DIR=${CM_REPO_ROOT_DIR}/${CM_VERSION}
     fi
@@ -342,6 +345,7 @@ EOF
   sed -i 's/enabled=1/enabled=0/' /etc/yum.repos.d/epel*
 
   echo "-- Finished image preinstall"
+  touch "${PREINSTALL_COMPLETED_FLAG}"
 else
   echo "-- Cloudera Manager repo already present, assuming this is a prewarmed image"
   set +e
@@ -361,6 +365,12 @@ else
 fi
 
 ##### Start install
+
+echo "-- Set cluster identity"
+cat $BASE_DIR/clusters_metadata.sh >> /etc/profile
+
+echo "-- Make scripts executable"
+chmod +x $BASE_DIR/*.sh
 
 echo "-- Prewarm parcels directory"
 for parcel_file in $(find /opt/cloudera/parcel-repo -type f); do
@@ -640,7 +650,7 @@ CM_REPO_URL=$(grep baseurl $CM_REPO_FILE | sed 's/.*=//;s/ //g')
 # TODO: For debug purposes. Remove this when no longer needed
 (set +e; set +x; while true; do echo "--"; date; netstat -anp | grep ":8081 .*LISTEN" > /tmp/.netstat; cat /tmp/.netstat; ps -ef | awk '$2~/('"$(grep "LISTEN " /tmp/.netstat | awk '{gsub(/\/.*/, "", $NF); print $NF}' | tr "\n" "|")"'dummy)/'; sleep .5; done) > /tmp/netstat.log &
 NETSTAT_PID=$!
-trap "kill -9 $NETSTAT_PID" 0
+trap "kill -9 $NETSTAT_PID;"' echo Setup return code: $?' 0
 
 echo "-- Setup Cloudera Manager"
 python -u $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
@@ -690,7 +700,7 @@ python -u $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
 
 # TODO: remove this when no longer needed (see previous TODO)
 kill -9 $NETSTAT_PID || true
-trap - 0
+trap 'echo Setup return code: $?' 0
 
 echo "-- Set shadow permissions - needed by Knox when using PAM authentication"
 chgrp shadow /etc/shadow
