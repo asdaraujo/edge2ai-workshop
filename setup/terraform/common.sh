@@ -37,10 +37,10 @@ function check_version() {
       fi
 
       # git is installed
-      remote=$(git status | grep "Your branch" | egrep -o "[^']*/${GITHUB_BRANCH}\>" | sed 's#/.*##')
+      remote=$(set +e; git status | grep "Your branch" | egrep -o "[^']*/${GITHUB_BRANCH}\>" | sed 's#/.*##'; true)
       if [[ $remote != "" ]]; then
         # current branch points to the remote $GITHUB_BRANCH branch
-        uri=$(git remote -v | egrep "^ *$remote\s.*\(fetch\)" | awk '{print $2}')
+        uri=$(set +e; git remote -v | egrep "^ *$remote\s.*\(fetch\)" | awk '{print $2}'; true)
         if [[ $uri =~ "$GITHUB_REPO" ]]; then
           # remote repo is the official repo
           GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no" git fetch > /dev/null 2>&1 || true
@@ -202,6 +202,8 @@ function maybe_launch_docker() {
       -v $BASE_DIR/../..:/edge2ai-workshop \
       -v $HOME/.aws:/root/.aws \
       -e DEBUG=${DEBUG:-} \
+      -e NO_PROMPT=${NO_PROMPT:-} \
+      -e NO_LOG_FETCH=${NO_LOG_FETCH:-} \
       -e HOSTS_ADD=$(basename $PUBLIC_IPS_FILE) \
       $docker_img \
       $cmd $*
@@ -246,6 +248,8 @@ function try_in_docker() {
       -v $BASE_DIR/../..:/edge2ai-workshop \
       -v $HOME/.aws:/root/.aws \
       -e DEBUG=${DEBUG:-} \
+      -e NO_PROMPT=${NO_PROMPT:-} \
+      -e NO_LOG_FETCH=${NO_LOG_FETCH:-} \
       -e HOSTS_ADD=$(basename $PUBLIC_IPS_FILE) \
       $docker_img \
       /bin/bash -c "cd /edge2ai-workshop/setup/terraform; export BASE_DIR=\$PWD; export NO_DOCKER_MSG=1; source common.sh; load_env $namespace; ${cmd[@]}"
@@ -1085,7 +1089,7 @@ function _cleanup() {
   if [[ $PUBLIC_IPS_FILE != "" && -f $PUBLIC_IPS_FILE ]]; then
     rm -f $PUBLIC_IPS_FILE
   fi
-  
+
   LC_ALL=C type cleanup 2>&1 | egrep -q "is a (shell )*function" && (cleanup || true)
 
   if [[ $ret -ne 0 ]]; then
