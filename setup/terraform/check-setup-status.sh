@@ -129,9 +129,9 @@ function print_header() {
   done
 
   echo "${C_WHITE}" >&2
-  echo "Setup status legend: ${C_WHITE}W${C_NORMAL} = Web server, ${C_WHITE}I${C_NORMAL} = IPA server, ${C_WHITE}[0-9]*${C_NORMAL} = Cluster instances" >&2
-  echo "                     ${C_NORMAL}${STATUS_FETCHING} = Fetching status, ${STATUS_RUNNING} = Running, ${STATUS_STALE} = Stale status" >&2
-  echo "                     ${STATUS_COMPLETED} = Completed, ${STATUS_FAILED} = Failed, ${STATUS_UNKNOWN} = Unknown" >&2
+  echo "Legend: ${C_WHITE}W${C_NORMAL} = Web server, ${C_WHITE}I${C_NORMAL} = IPA server, ${C_WHITE}[0-9]*${C_NORMAL} = Cluster instances" >&2
+  echo "        ${C_NORMAL}${STATUS_FETCHING} = Fetching status, ${STATUS_RUNNING} = Running, ${STATUS_STALE} = Stale status" >&2
+  echo "        ${STATUS_COMPLETED} = Completed, ${STATUS_FAILED} = Failed, ${STATUS_UNKNOWN} = Unknown" >&2
   echo "${C_WHITE}$line1" >&2
   echo "$line2  Elapsed Time" >&2
   echo -n "${C_NORMAL}" >&2
@@ -245,14 +245,18 @@ STATUS_FILE_PREFIX="$STATUS_DIR/setup-status.${NAMESPACE}.${TIMESTAMP}"
 
 start_checks
 status=$(wait_for_completion)
-if [[ $status != "success" && ${NO_LOG_FETCH:-} == "" ]]; then
-  confirm=Y
-  if [[ ${NO_PROMPT:-} == "" ]]; then
-    echo "${C_RED}WARNING: The setup of at least one instance failed to complete.${C_NORMAL}"
-    echo -n "         Do you want to fetch the logs for the failed instance(s)? (Y|n) "
-    read confirm
-  fi
-  if [[ $(echo "$confirm" | tr 'a-z' 'A-Z') != "N" ]]; then
-    fetch_logs
+if [[ $status == "success" ]]; then
+  echo "Instance deployment finished successfully"
+else
+  echo "${C_RED}WARNING: The deployment of at least one instance failed to complete.${C_NORMAL}"
+  if [[ ${NO_LOG_FETCH:-} == "" ]]; then
+    confirm=Y
+    if [[ ${NO_PROMPT:-} == "" ]]; then
+      echo -n "Do you want to fetch the logs for the failed instance(s)? (Y|n) "
+      read confirm
+    fi
+    if [[ $(echo "$confirm" | tr 'a-z' 'A-Z') != "N" ]]; then
+      fetch_logs
+    fi
   fi
 fi

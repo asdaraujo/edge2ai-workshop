@@ -367,7 +367,9 @@ fi
 ##### Start install
 
 echo "-- Set cluster identity"
-cat $BASE_DIR/clusters_metadata.sh >> /etc/profile
+if [[ -f $BASE_DIR/clusters_metadata.sh ]]; then
+  cat $BASE_DIR/clusters_metadata.sh >> /etc/profile
+fi
 
 echo "-- Make scripts executable"
 chmod +x $BASE_DIR/*.sh
