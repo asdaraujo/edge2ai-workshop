@@ -114,6 +114,7 @@ fi
 echo "HOSTNAME=${PUBLIC_DNS}" >> /etc/sysconfig/network
 
 # Server install
+yum erase -y epel-release || true; rm -f /etc/yum.repos.r/epel* || true
 yum_install epel-release
 # The EPEL repo has intermittent refresh issues that cause errors like the one below.
 # Switch to baseurl to avoid those issues when using the metalink option.
