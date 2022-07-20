@@ -40,18 +40,20 @@ sudo setenforce 0
 sudo sed -i.bak 's/^ *SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
 sudo sestatus
 
-## MariaDB 10.1 repo file
+## MariaDB 10.8 repo file
 sudo bash -c "
 cat > /etc/yum.repos.d/MariaDB.repo <<EOF
 [mariadb]
 name = MariaDB
-baseurl = http://yum.mariadb.org/10.1/centos7-amd64
+baseurl = http://yum.mariadb.org/10.8/centos7-amd64
 gpgkey=https://yum.mariadb.org/RPM-GPG-KEY-MariaDB
 gpgcheck=1
 EOF
 "
 
 # Install stuff
+sudo yum erase -y epel-release || true
+rm -f /etc/yum.repos.r/epel* || true
 yum_install epel-release
 # The EPEL repo has intermittent refresh issues that cause errors like the one below.
 # Switch to baseurl to avoid those issues when using the metalink option.
@@ -104,7 +106,7 @@ sudo systemctl enable mariadb
 sudo systemctl start mariadb
 
 # Create databases
-mysql -u root <<EOF
+sudo mysql -u root <<EOF
 create database ${DB_NAME} character set utf8 collate utf8_bin;
 create user '${DB_USER}'@'${DB_HOST}' identified by '${DB_PWD}';
 grant all privileges on ${DB_NAME}.* to '${DB_USER}'@'${DB_HOST}';
@@ -112,8 +114,8 @@ flush privileges;
 EOF
 
 # Secure MariaDB
-mysql -u root <<EOF
-UPDATE mysql.user SET Password=PASSWORD('supersecret1') WHERE User='root';
+sudo mysql -u root <<EOF
+SET PASSWORD = PASSWORD('${DB_PWD}');
 DELETE FROM mysql.user WHERE User='';
 DROP DATABASE IF EXISTS test;
 DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';
@@ -143,7 +145,7 @@ flask db upgrade
 sudo bash -c "
 cat > /etc/supervisord.d/workshop.ini <<EOF
 [program:workshop]
-command=$BASE_DIR/env/bin/gunicorn -b localhost:8000 -w 4 workshop:app
+command=$BASE_DIR/env/bin/gunicorn -b 127.0.0.1:8000 -w 4 workshop:app
 directory=$BASE_DIR
 user=$(whoami)
 autostart=true
@@ -186,7 +188,7 @@ server {
 
     location / {
         # forward application requests to the gunicorn server
-        proxy_pass http://localhost:8000/;
+        proxy_pass http://127.0.0.1:8000/;
         proxy_redirect off;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -215,7 +217,7 @@ server {
 
     location / {
         # forward application requests to the gunicorn server
-        proxy_pass http://localhost:8000;
+        proxy_pass http://127.0.0.1:8000;
         proxy_redirect off;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
