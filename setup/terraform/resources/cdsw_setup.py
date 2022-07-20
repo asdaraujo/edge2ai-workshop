@@ -462,8 +462,8 @@ def main():
             print('# Add engine')
             resp = _cdsw_post(CDSW_API + '/site/engine-profiles', expected_codes=[201],
                               json={'cpu': 1, 'memory': 4})
-            engine_id = resp.json()['id']
-            print('Engine ID: {}'.format(engine_id, ))
+            engine_profile_id = resp.json()['id']
+            print('Engine ID: {}'.format(engine_profile_id, ))
 
             print('# Add environment variable')
             _cdsw_patch(CDSW_API + '/site/config',
@@ -594,23 +594,24 @@ def main():
             print('Viz project ID: {}'.format(_get_viz_project()['id'], ))
             print('Viz project URL: {}'.format(_get_viz_project()['url'], ))
 
-            print('# Add custom engine for Data Visualization server')
-            params = {
-                "engineImage": {
-                    "description": "dataviz-623",
-                    "repository": "docker.repository.cloudera.com/cloudera/cdv/cdswdataviz",
-                    "tag": "6.2.3-b18"}
-            }
-            resp = _cdsw_post(CDSW_API + '/engine-images', json=params)
-            engine_image_id = resp.json()['id']
-            print('Engine Image ID: {}'.format(engine_image_id, ))
+            if _get_release() < [1, 10]:
+                print('# Add custom engine for Data Visualization server')
+                params = {
+                    "engineImage": {
+                        "description": "dataviz-623",
+                        "repository": "docker.repository.cloudera.com/cloudera/cdv/cdswdataviz",
+                        "tag": "6.2.3-b18"}
+                }
+                resp = _cdsw_post(CDSW_API + '/engine-images', json=params)
+                engine_image_id = resp.json()['id']
+                print('Engine Image ID: {}'.format(engine_image_id, ))
 
-            print('# Set new engine image as default for the viz project')
-            _cdsw_patch(_get_viz_project()['url'] + '/engine-images',
-                        json={'engineImageId': engine_image_id})
-            resp = _cdsw_get(_get_viz_project()['url'] + '/engine-images')
-            project_engine_image_id = resp.json()['id']
-            print('Project image default engine Image ID set to: {}'.format(project_engine_image_id))
+                print('# Set new engine image as default for the viz project')
+                _cdsw_patch(_get_viz_project()['url'] + '/engine-images',
+                            json={'engineImageId': engine_image_id})
+                resp = _cdsw_get(_get_viz_project()['url'] + '/engine-images')
+                project_engine_image_id = resp.json()['id']
+                print('Project image default engine Image ID set to: {}'.format(project_engine_image_id))
 
             print('# Create application with Data Visualization server')
             params = {
@@ -624,7 +625,10 @@ def main():
                 'nvidia_gpu': 0,
                 'script': '/opt/vizapps/tools/arcviz/startup_app.py',
                 'subdomain': 'viz',
-                'type': 'manual'
+                'type': 'manual',
+                'environment': {
+                    'USE_MULTIPROC': 'false',
+                }
             }
             if _get_release() >= [1, 10]:
                 params.update({'runtime_id': _get_viz_runtime()})
