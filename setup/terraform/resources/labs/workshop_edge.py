@@ -91,24 +91,37 @@ class EdgeWorkshop(AbstractWorkshop):
         canvas.schedule_components(self.context.root_pg.id, True, [self.context.from_gw])
 
         # Create flow in EFM
-        self.context.consume_mqtt = efm.create_processor(
-            self.context.flow_id, self.context.efm_pg_id,
-            'ConsumeMQTT',
-            'org.apache.nifi.processors.mqtt.ConsumeMQTT',
-            (100, 100),
-            {
-                'Broker URI': 'tcp://{hostname}:1883'.format(hostname=get_hostname()),
-                'Client ID': 'minifi-iot',
+        properties = {
+            'Broker URI': 'tcp://{hostname}:1883'.format(hostname=get_hostname()),
+            'Client ID': 'minifi-iot',
+        }
+        if efm.get_efm_version() >= [1, 4, 0, 0]:
+            mqtt_processor_type = 'org.apache.nifi.minifi.processors.ConsumeMQTT'
+            properties.update({
+                'Topic': 'iot/#',
+                'Queue Max Message': '60',
+            })
+            mqtt_output = 'success'
+        else:
+            mqtt_processor_type = 'org.apache.nifi.processors.mqtt.ConsumeMQTT'
+            properties.update({
                 'Topic Filter': 'iot/#',
                 'Max Queue Size': '60',
             })
+            mqtt_output = 'Message'
+        self.context.consume_mqtt = efm.create_processor(
+            self.context.flow_id, self.context.efm_pg_id,
+            'ConsumeMQTT',
+            mqtt_processor_type,
+            (100, 100),
+            properties)
         self.context.nifi_rpg = efm.create_remote_processor_group(
             self.context.flow_id, self.context.efm_pg_id, 'Remote PG', nf.get_url(),
             'HTTP', (100, 400))
         self.context.consume_conn = efm.create_connection(
             self.context.flow_id, self.context.efm_pg_id, self.context.consume_mqtt, 'PROCESSOR',
             self.context.nifi_rpg,
-            'REMOTE_INPUT_PORT', ['Message'], destination_port=self.context.from_gw.id,
+            'REMOTE_INPUT_PORT', [mqtt_output], destination_port=self.context.from_gw.id,
             name='Sensor data', flow_file_expiration='60 seconds')
 
         # Create a bucket in NiFi Registry to save the edge flow versions
@@ -120,36 +133,65 @@ class EdgeWorkshop(AbstractWorkshop):
 
     def lab3_expand_edge_flow(self):
         # Expand the CEM flow
-        extract_proc = efm.create_processor(
-            self.context.flow_id, self.context.efm_pg_id,
-            'Extract sensor_0 and sensor1 values',
-            'org.apache.nifi.processors.standard.EvaluateJsonPath',
-            (500, 100),
-            {
-                'Destination': 'flowfile-attribute',
-                'sensor_0': '$.sensor_0',
-                'sensor_1': '$.sensor_1',
-            },
-            auto_terminate=['failure', 'unmatched', 'sensor_0', 'sensor_1'])
-        filter_proc = efm.create_processor(
-            self.context.flow_id, self.context.efm_pg_id,
-            'Filter Errors',
-            'org.apache.nifi.processors.standard.RouteOnAttribute',
-            (500, 400),
-            {
-                'Routing Strategy': 'Route to Property name',
-                'error': '${sensor_0:ge(500):or(${sensor_1:ge(500)})}',
-            },
-            auto_terminate=['error'])
+        if efm.get_efm_version() >= [1, 4, 0, 0]:
+            success_relationship = 'success'
+            # MiNiFi CPP does natively has EvaluateJsonPath, so here we change
+            # it to ExtractText instead as a workaround
+            extract_proc = efm.create_processor(
+                self.context.flow_id, self.context.efm_pg_id,
+                'Extract sensor_0 and sensor1 values',
+                'org.apache.nifi.minifi.processors.ExtractText',
+                (500, 100),
+                {
+                    'Regex Mode': 'true',
+                    'Include Capture Group 0': 'true',
+                    'sensor_0': '"sensor_0"\s*:\s*([0-9.]+)',
+                    'sensor_1': '"sensor_1"\s*:\s*([0-9.]+)',
+                },
+                auto_terminate=[])
+            matched_relationship = 'success'
+            filter_proc = efm.create_processor(
+                self.context.flow_id, self.context.efm_pg_id,
+                'Filter Errors',
+                'org.apache.nifi.minifi.processors.RouteOnAttribute',
+                (500, 400),
+                {
+                    'error': '${sensor_0:ge(500):or(${sensor_1:ge(500)})}',
+                },
+                auto_terminate=['error', 'failure'])
+        else:
+            success_relationship = 'Message'
+            extract_proc = efm.create_processor(
+                self.context.flow_id, self.context.efm_pg_id,
+                'Extract sensor_0 and sensor1 values',
+                'org.apache.nifi.processors.standard.EvaluateJsonPath',
+                (500, 100),
+                {
+                    'Destination': 'flowfile-attribute',
+                    'sensor_0': '$.sensor_0',
+                    'sensor_1': '$.sensor_1',
+                },
+                auto_terminate=['failure', 'unmatched', 'sensor_0', 'sensor_1'])
+            matched_relationship = 'matched'
+            filter_proc = efm.create_processor(
+                self.context.flow_id, self.context.efm_pg_id,
+                'Filter Errors',
+                'org.apache.nifi.processors.standard.RouteOnAttribute',
+                (500, 400),
+                {
+                    'Routing Strategy': 'Route to Property name',
+                    'error': '${sensor_0:ge(500):or(${sensor_1:ge(500)})}',
+                },
+                auto_terminate=['error'])
         efm.delete_by_type(self.context.flow_id, self.context.consume_conn, 'connections')
         self.context.consume_conn = efm.create_connection(
             self.context.flow_id, self.context.efm_pg_id, self.context.consume_mqtt,
-            'PROCESSOR', extract_proc, 'PROCESSOR', ['Message'],
+            'PROCESSOR', extract_proc, 'PROCESSOR', [success_relationship],
             name='Sensor data',
             flow_file_expiration='60 seconds')
         efm.create_connection(
             self.context.flow_id, self.context.efm_pg_id, extract_proc,
-            'PROCESSOR', filter_proc, 'PROCESSOR', ['matched'],
+            'PROCESSOR', filter_proc, 'PROCESSOR', [matched_relationship],
             name='Extracted attributes',
             flow_file_expiration='60 seconds')
         efm.create_connection(

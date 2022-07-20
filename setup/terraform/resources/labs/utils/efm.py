@@ -8,12 +8,7 @@ _AGENT_MANIFESTS = None
 _EFM_SESSION = None
 _XSRF_TOKEN = None
 _API_URL = None
-
-def _get_auth_url():
-    return ('{scheme}://{hostname}:9443/gateway/knoxsso/api/v1/websso?'
-            'originalUrl={scheme}://{hostname}:9443/gateway/homepage/home/').format(
-        scheme=get_url_scheme(),
-        hostname=get_hostname())
+_SWAGGER_URL = None
 
 
 def _get_session():
@@ -31,19 +26,39 @@ def _get_session():
     return _EFM_SESSION
 
 
-def _get_api_url():
+def _ensure_urls():
     global _API_URL
+    global _SWAGGER_URL
     if not _API_URL:
         for scheme in ['http', 'https']:
             api_url = '{}://{}:10088/efm/api'.format(scheme, get_hostname())
             try:
                 requests.get(api_url, verify=get_truststore_path())
                 _API_URL = api_url
+                _SWAGGER_URL = '{}://{}:10088/efm/swagger/swagger.json'.format(scheme, get_hostname())
                 break
             except (requests.exceptions.ConnectionError, requests.exceptions.SSLError):
                 pass
     assert _API_URL is not None, "Could not find a working URL for the EFM server"
+
+
+def _get_api_url():
+    global _API_URL
+    _ensure_urls()
     return _API_URL
+
+
+def _get_swagger_url():
+    global _SWAGGER_URL
+    _ensure_urls()
+    return _SWAGGER_URL
+
+
+def _get_auth_url():
+    return ('{scheme}://{hostname}:9443/gateway/knoxsso/api/v1/websso?'
+            'originalUrl={scheme}://{hostname}:9443/gateway/homepage/home/').format(
+        scheme=get_url_scheme(),
+        hostname=get_hostname())
 
 
 def _api_request(method, endpoint, **kwargs):
@@ -84,6 +99,13 @@ def _get_agent_manifests():
     return _AGENT_MANIFESTS
 
 
+def get_efm_version():
+    resp = _get_session().get(_SWAGGER_URL)
+    resp_json = resp.json()
+    assert ('info' in resp_json and 'version' in resp_json['info'])
+    return [int(v) for v in re.findall(r'[0-9]+', resp_json['info']['version'])]
+
+
 def get_flow(agent_class):
     resp = _api_get('/designer/flows')
     resp_json = resp.json()
@@ -96,13 +118,13 @@ def get_flow(agent_class):
 
 def _get_processor_bundle(processor_type):
     for manifest in _get_agent_manifests():
-        for bundle in manifest['bundles']:
-            for processor in bundle['componentManifest']['processors']:
-                if processor['type'] == processor_type:
+        for bundle in manifest.get('bundles', []):
+            for processor in bundle.get('componentManifest', {}).get('processors', []):
+                if processor.get('type', '') == processor_type:
                     return {
-                        'group': processor['group'],
-                        'artifact': processor['artifact'],
-                        'version': processor['version'],
+                        'group': bundle['group'],
+                        'artifact': bundle['artifact'],
+                        'version': bundle['version'],
                     }
     raise RuntimeError('Processor type %s not found in agent manifest.' % (processor_type,))
 

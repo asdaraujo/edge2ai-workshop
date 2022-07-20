@@ -82,6 +82,7 @@ echo "-- Testing if this is a pre-packed image by looking for existing Cloudera 
 if [[ ! -f $PREINSTALL_COMPLETED_FLAG ]]; then
   echo "-- Cloudera Manager repo not found, assuming not prepacked"
   echo "-- Installing EPEL repo"
+  yum erase -y epel-release || true; rm -f /etc/yum.repos.r/epel* || true
   yum_install epel-release
   # The EPEL repo has intermittent refresh issues that cause errors like the one below.
   # Switch to baseurl to avoid those issues when using the metalink option.
@@ -111,10 +112,10 @@ if [[ ! -f $PREINSTALL_COMPLETED_FLAG ]]; then
   # For troubleshooting purposes, when needed
   yum_install sysstat strace iotop lsof
 
-  echo "-- Installing redis (for SSB)"
-  yum_install redis
-  sudo systemctl start redis
-  sudo systemctl enable redis
+  #echo "-- Installing redis (for SSB)"
+  #yum_install redis
+  #sudo systemctl start redis
+  #sudo systemctl enable redis
 
   echo "-- Install CM repo"
   if [ "${CM_REPO_AS_TARBALL_URL:-}" == "" ]; then
@@ -207,55 +208,74 @@ EOF
   MAVEN_BIN=$(ls -d1tr "$(get_homedir $SSH_USER)"/apache-maven-*/bin | tail -1)
   echo "export PATH=\$PATH:$MAVEN_BIN" >> "$(get_homedir $SSH_USER)"/.bash_profile
 
-  echo "-- Get and extract CEM tarball to /opt/cloudera/cem"
-  mkdir -p /opt/cloudera/cem
-  if [ "$CEM_URL" != "" ]; then
-    CEM_TARBALL_NAME=$(basename ${CEM_URL%%\?*})
-    CEM_TARBALL_PATH=/opt/cloudera/cem/${CEM_TARBALL_NAME}
-    retry_if_needed 5 5 "wget --progress=dot:giga $wget_basic_auth '${CEM_URL}' -O '$CEM_TARBALL_PATH'"
-    tar -zxf $CEM_TARBALL_PATH -C /opt/cloudera/cem
-    rm -f $CEM_TARBALL_PATH
-  else
-    for url in "$EFM_TARBALL_URL" "$MINIFITK_TARBALL_URL" "$MINIFI_TARBALL_URL"; do
-      TARBALL_NAME=$(basename ${url%%\?*})
-      TARBALL_PATH=/opt/cloudera/cem/${TARBALL_NAME}
-      retry_if_needed 5 5 "wget --progress=dot:giga $wget_basic_auth '${url}' -O '$TARBALL_PATH'"
-    done
+  if [[ ${HAS_CEM:-} == "1" ]]; then
+    echo "-- Get and extract CEM tarball to /opt/cloudera/cem"
+    mkdir -p /opt/cloudera/cem
+    if [ "${CEM_URL:-}" != "" ]; then
+      CEM_TARBALL_NAME=$(basename ${CEM_URL%%\?*})
+      CEM_TARBALL_PATH=/opt/cloudera/cem/${CEM_TARBALL_NAME}
+      retry_if_needed 5 5 "wget --progress=dot:giga $wget_basic_auth '${CEM_URL}' -O '$CEM_TARBALL_PATH'"
+      tar -zxf $CEM_TARBALL_PATH -C /opt/cloudera/cem
+      rm -f $CEM_TARBALL_PATH
+    else
+      for url in ${EFM_TARBALL_URL:-} ${MINIFI_TARBALL_URL:-}; do
+        TARBALL_NAME=$(basename ${url%%\?*})
+        TARBALL_PATH=/opt/cloudera/cem/${TARBALL_NAME}
+        retry_if_needed 5 5 "wget --progress=dot:giga $wget_basic_auth '${url}' -O '$TARBALL_PATH'"
+      done
+    fi
+
+    EFM_TARBALL=$(find /opt/cloudera/cem/ -name "efm-*-bin.tar.gz" | sort | tail -1)
+    if [[ ${EFM_TARBALL:-} != "" ]]; then
+      echo "-- Install and configure EFM"
+      EFM_BASE_NAME=$(basename $EFM_TARBALL | sed 's/-bin.tar.gz//')
+      tar -zxf ${EFM_TARBALL} -C /opt/cloudera/cem
+      rm -f /opt/cloudera/cem/efm /etc/init.d/efm
+      ln -s /opt/cloudera/cem/${EFM_BASE_NAME} /opt/cloudera/cem/efm
+      ln -s /opt/cloudera/cem/efm/bin/efm.sh /etc/init.d/efm
+      sed -i '1s/.*/&\n# chkconfig: 2345 20 80\n# description: EFM is a Command \& Control service for managing MiNiFi deployments/' /opt/cloudera/cem/efm/bin/efm.sh
+      chkconfig --add efm
+      chown -R root:root /opt/cloudera/cem/${EFM_BASE_NAME}
+      sed -i.bak 's#APP_EXT_LIB_DIR=.*#APP_EXT_LIB_DIR=/usr/share/java#' /opt/cloudera/cem/efm/conf/efm.conf
+    fi
+
+    MINIFI_TARBALL=$(find /opt/cloudera/cem/ -name "minifi-[0-9]*-bin.tar.gz" | sort | tail -1)
+    if [[ ${MINIFI_TARBALL:-} != "" ]]; then
+      echo "-- Install and configure MiNiFi Java"
+      MINIFI_BASE_NAME=$(basename $MINIFI_TARBALL | sed 's/-bin.tar.gz//')
+      tar -zxf ${MINIFI_TARBALL} -C /opt/cloudera/cem
+      rm -f /opt/cloudera/cem/minifi
+      ln -s /opt/cloudera/cem/${MINIFI_BASE_NAME} /opt/cloudera/cem/minifi
+      chown -R root:root /opt/cloudera/cem/${MINIFI_BASE_NAME}
+
+      /opt/cloudera/cem/minifi/bin/minifi.sh install
+
+      echo "-- Disable services here for packer images - will reenable later"
+      systemctl disable minifi
+
+      echo "-- Download and install MQTT Processor NAR file"
+      retry_if_needed 5 5 "wget --progress=dot:giga https://repo1.maven.org/maven2/org/apache/nifi/nifi-mqtt-nar/1.8.0/nifi-mqtt-nar-1.8.0.nar -P /opt/cloudera/cem/minifi/lib"
+      chown root:root /opt/cloudera/cem/minifi/lib/nifi-mqtt-nar-1.8.0.nar
+      chmod 660 /opt/cloudera/cem/minifi/lib/nifi-mqtt-nar-1.8.0.nar
+    fi
+
+    if [[ $MINIFI_TARBALL == "" ]]; then
+      CPP_MINIFI_TARBALL=$(find /opt/cloudera/cem/ -name "nifi-minifi-cpp-*-bin*.tar.gz" | sort | tail -1)
+      if [[ ${CPP_MINIFI_TARBALL:-} != "" ]]; then
+        echo "-- Install and configure MiNiFi CPP"
+        CPP_MINIFI_BASE_NAME=$(basename $CPP_MINIFI_TARBALL | sed 's/-bin.*tar.gz//')
+        tar -zxf ${CPP_MINIFI_TARBALL} -C /opt/cloudera/cem
+        rm -f /opt/cloudera/cem/minifi
+        ln -s /opt/cloudera/cem/${CPP_MINIFI_BASE_NAME} /opt/cloudera/cem/minifi
+        chown -R root:root /opt/cloudera/cem/${CPP_MINIFI_BASE_NAME}
+
+        /opt/cloudera/cem/minifi/bin/minifi.sh install
+
+        echo "-- Disable services here for packer images - will reenable later"
+        systemctl disable minifi
+      fi
+    fi
   fi
-
-  echo "-- Install and configure EFM"
-  EFM_TARBALL=$(find /opt/cloudera/cem/ -name "efm-*-bin.tar.gz")
-  EFM_BASE_NAME=$(basename $EFM_TARBALL | sed 's/-bin.tar.gz//')
-  tar -zxf ${EFM_TARBALL} -C /opt/cloudera/cem
-  rm -f /opt/cloudera/cem/efm /etc/init.d/efm
-  ln -s /opt/cloudera/cem/${EFM_BASE_NAME} /opt/cloudera/cem/efm
-  ln -s /opt/cloudera/cem/efm/bin/efm.sh /etc/init.d/efm
-  sed -i '1s/.*/&\n# chkconfig: 2345 20 80\n# description: EFM is a Command \& Control service for managing MiNiFi deployments/' /opt/cloudera/cem/efm/bin/efm.sh
-  chkconfig --add efm
-  chown -R root:root /opt/cloudera/cem/${EFM_BASE_NAME}
-  sed -i.bak 's#APP_EXT_LIB_DIR=.*#APP_EXT_LIB_DIR=/usr/share/java#' /opt/cloudera/cem/efm/conf/efm.conf
-
-  echo "-- Install and configure MiNiFi"
-  MINIFI_TARBALL=$(find /opt/cloudera/cem/ -name "minifi-[0-9]*-bin.tar.gz")
-  MINIFITK_TARBALL=$(find /opt/cloudera/cem/ -name "minifi-toolkit-*-bin.tar.gz")
-  MINIFI_BASE_NAME=$(basename $MINIFI_TARBALL | sed 's/-bin.tar.gz//')
-  MINIFITK_BASE_NAME=$(basename $MINIFITK_TARBALL | sed 's/-bin.tar.gz//')
-  tar -zxf ${MINIFI_TARBALL} -C /opt/cloudera/cem
-  tar -zxf ${MINIFITK_TARBALL} -C /opt/cloudera/cem
-  rm -f /opt/cloudera/cem/minifi
-  ln -s /opt/cloudera/cem/${MINIFI_BASE_NAME} /opt/cloudera/cem/minifi
-  chown -R root:root /opt/cloudera/cem/${MINIFI_BASE_NAME}
-  chown -R root:root /opt/cloudera/cem/${MINIFITK_BASE_NAME}
-
-  /opt/cloudera/cem/minifi/bin/minifi.sh install
-
-  echo "-- Disable services here for packer images - will reenable later"
-  systemctl disable minifi
-
-  echo "-- Download and install MQTT Processor NAR file"
-  retry_if_needed 5 5 "wget --progress=dot:giga https://repo1.maven.org/maven2/org/apache/nifi/nifi-mqtt-nar/1.8.0/nifi-mqtt-nar-1.8.0.nar -P /opt/cloudera/cem/minifi/lib"
-  chown root:root /opt/cloudera/cem/minifi/lib/nifi-mqtt-nar-1.8.0.nar
-  chmod 660 /opt/cloudera/cem/minifi/lib/nifi-mqtt-nar-1.8.0.nar
 
   echo "-- Preloading large Parcels to /opt/cloudera/parcel-repo"
   mkdir -p /opt/cloudera/parcel-repo
@@ -306,23 +326,25 @@ EOF
   cd "${BASE_DIR}"
 
   echo "-- Install CSDs"
-  for url in "${CSD_URLS[@]}"; do
-    echo "---- Downloading $url"
-    file_name=$(basename "${url%%\?*}")
-    if [ "${REMOTE_REPO_USR:-}" != "" -a "${REMOTE_REPO_PWD:-}" != "" ]; then
-      auth="--user '$REMOTE_REPO_USR' --password '$REMOTE_REPO_PWD'"
-    else
-      auth=""
-    fi
-    retry_if_needed 5 5 "wget --progress=dot:giga $wget_basic_auth '${url}' -O '/opt/cloudera/csd/${file_name}'"
-    # Patch CDSW CSD so that we can use it on CDP
-    if [ "${HAS_CDSW:-1}" == "1" -a "$url" == "$CDSW_CSD_URL" -a "$CM_MAJOR_VERSION" == "7" ]; then
-      jar xvf /opt/cloudera/csd/CLOUDERA_DATA_SCIENCE_WORKBENCH-*.jar descriptor/service.sdl
-      sed -i 's/"max" *: *"6"/"max" : "7"/g' descriptor/service.sdl
-      jar uvf /opt/cloudera/csd/CLOUDERA_DATA_SCIENCE_WORKBENCH-*.jar descriptor/service.sdl
-      rm -rf descriptor
-    fi
-  done
+  if [[ ${CSD_URLS[@]:-} != "" ]]; then
+    for url in "${CSD_URLS[@]}"; do
+      echo "---- Downloading $url"
+      file_name=$(basename "${url%%\?*}")
+      if [ "${REMOTE_REPO_USR:-}" != "" -a "${REMOTE_REPO_PWD:-}" != "" ]; then
+        auth="--user '$REMOTE_REPO_USR' --password '$REMOTE_REPO_PWD'"
+      else
+        auth=""
+      fi
+      retry_if_needed 5 5 "wget --progress=dot:giga $wget_basic_auth '${url}' -O '/opt/cloudera/csd/${file_name}'"
+      # Patch CDSW CSD so that we can use it on CDP
+      if [ "${HAS_CDSW:-1}" == "1" -a "$url" == "$CDSW_CSD_URL" -a "$CM_MAJOR_VERSION" == "7" ]; then
+        jar xvf /opt/cloudera/csd/CLOUDERA_DATA_SCIENCE_WORKBENCH-*.jar descriptor/service.sdl
+        sed -i 's/"max" *: *"6"/"max" : "7"/g' descriptor/service.sdl
+        jar uvf /opt/cloudera/csd/CLOUDERA_DATA_SCIENCE_WORKBENCH-*.jar descriptor/service.sdl
+        rm -rf descriptor
+      fi
+    done
+  fi
 
   chown -R cloudera-scm:cloudera-scm /opt/cloudera
 
@@ -434,11 +456,9 @@ case "${CLOUD_PROVIDER}" in
           export PRIVATE_IP=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)
           ;;
       azure)
-          umount /mnt/resource
-          mount /dev/sdb1 /opt
-          export PUBLIC_DNS=$(TBD)
-          export PRIVATE_DNS=$(TBD)
-          export PRIVATE_IP=$(TBD)
+          export PUBLIC_DNS=cdp.${PUBLIC_IP}.nip.io
+          export PRIVATE_DNS="$(cat /etc/hostname).$(grep search /etc/resolv.conf | awk '{print $2}')"
+          export PRIVATE_IP=$(hostname -I | awk '{print $1}')
           ;;
       gcp)
           export PRIVATE_DNS=$(curl -H "Metadata-Flavor: Google" http://169.254.169.254/computeMetadata/v1/instance/hostname)
@@ -734,8 +754,9 @@ if [[ ${HAS_RANGER:-0} == 1 && ${HAS_NIFI:-0} == 1 ]]; then
   $BASE_DIR/ranger_policies.sh "$(is_tls_enabled)"
 fi
 
-echo "-- Configure and start EFM"
-sed -i.bak \
+if [[ ${HAS_CEM:-} == "1" ]]; then
+  echo "-- Configure and start EFM"
+  sed -i.bak \
 's#^efm.server.address=.*#efm.server.address='"${CLUSTER_HOST}"'#;'\
 's#^efm.server.port=.*#efm.server.port=10088#;'\
 's#^efm.security.user.certificate.enabled=.*#efm.security.user.certificate.enabled=false#;'\
@@ -747,11 +768,11 @@ sed -i.bak \
 's#^efm.db.url=.*#efm.db.url=jdbc:postgresql://'"${CLUSTER_HOST}"':5432/efm#;'\
 's#^efm.db.driverClass=.*#efm.db.driverClass=org.postgresql.Driver#;'\
 's#^efm.db.password=.*#efm.db.password='"${THE_PWD}"'#' /opt/cloudera/cem/efm/conf/efm.properties
-if [[ "$(is_tls_enabled)" == "yes" ]]; then
-  if [[ $(compare_version "$CEM_VERSION" "1.2.2.0") != "<" ]]; then
-    sed -i.bak 's#^efm.server.ssl.enabled=.*#efm.server.ssl.enabled=true#;' /opt/cloudera/cem/efm/conf/efm.properties
-  fi
-  sed -i.bak \
+  if [[ "$(is_tls_enabled)" == "yes" ]]; then
+    if [[ $(compare_version "$CEM_VERSION" "1.2.2.0") != "<" ]]; then
+      sed -i.bak 's#^efm.server.ssl.enabled=.*#efm.server.ssl.enabled=true#;' /opt/cloudera/cem/efm/conf/efm.properties
+    fi
+    sed -i.bak \
 's#^efm.server.ssl.keyStore=.*#efm.server.ssl.keyStore=/opt/cloudera/security/jks/keystore.jks#;'\
 's#^efm.server.ssl.keyStoreType=.*#efm.server.ssl.keyStoreType=jks#;'\
 's#^efm.server.ssl.keyStorePassword=.*#efm.server.ssl.keyStorePassword='"$THE_PWD"'#;'\
@@ -761,35 +782,115 @@ if [[ "$(is_tls_enabled)" == "yes" ]]; then
 's#^efm.server.ssl.trustStorePassword=.*#efm.server.ssl.trustStorePassword='"$THE_PWD"'#;'\
 's#^efm.security.user.certificate.enabled=.*#efm.security.user.certificate.enabled=true#;'\
 's#^efm.nifi.registry.url=.*#efm.nifi.registry.url=https://'"${CLUSTER_HOST}"':18433#' /opt/cloudera/cem/efm/conf/efm.properties
-fi
-if [[ "$(is_kerberos_enabled)" == "yes" && $(compare_version "$CEM_VERSION" "1.2.2.0") != "<" ]]; then
-  sed -i.bak \
+  fi
+  if [[ "$(is_kerberos_enabled)" == "yes" && $(compare_version "$CEM_VERSION" "1.2.2.0") != "<" ]]; then
+    sed -i.bak \
 's#^efm.security.user.auth.enabled=.*#efm.security.user.auth.enabled=true#;'\
 's#^efm.security.user.knox.enabled=.*#efm.security.user.knox.enabled=true#;'\
 's#^efm.security.user.knox.url=.*#efm.security.user.knox.url=https://'"${CLUSTER_HOST}"':9443/gateway/knoxsso/api/v1/websso#;'\
 's#^efm.security.user.knox.publicKey=.*#efm.security.user.knox.publicKey=/opt/cloudera/security/x509/cert.pem#;'\
 's#^efm.security.user.knox.cookieName=.*#efm.security.user.knox.cookieName=hadoop-jwt#' /opt/cloudera/cem/efm/conf/efm.properties
-fi
-echo -e "\nefm.encryption.password=${THE_PWD}${THE_PWD}" >> /opt/cloudera/cem/efm/conf/efm.properties
+  fi
+  echo -e "\nefm.encryption.password=${THE_PWD}${THE_PWD}" >> /opt/cloudera/cem/efm/conf/efm.properties
 
-retries=0
-while true; do
-  sudo -u postgres psql < <( echo -e "drop database efm;\nCREATE DATABASE efm OWNER efm ENCODING 'UTF8';" )
-  nohup service efm start &
-  sleep 10
-  set +e
-  ps -ef | grep  efm.jar | grep -v grep
-  cnt=$(ps -ef | grep  efm.jar | grep -v grep | wc -l)
-  set -e
-  if [ "$cnt" -gt 0 ]; then
-    break
+  retries=0
+  while true; do
+    sudo -u postgres psql < <( echo -e "drop database efm;\nCREATE DATABASE efm OWNER efm ENCODING 'UTF8';" )
+    nohup service efm start &
+    sleep 10
+    set +e
+    ps -ef | grep  efm.jar | grep -v grep
+    cnt=$(ps -ef | grep  efm.jar | grep -v grep | wc -l)
+    set -e
+    if [ "$cnt" -gt 0 ]; then
+      break
+    fi
+    if [ "$retries" == "5" ]; then
+      break
+    fi
+    retries=$((retries + 1))
+    echo "Retrying to start EFM ($retries)"
+  done
+
+  echo "-- Configure and start MiNiFi"
+  if [[ -f /opt/cloudera/cem/minifi/conf/bootstrap.conf ]]; then
+    # MiNiFi Java
+    sed -i.bak \
+'s%^[ #]*nifi.minifi.sensitive.props.key *=.*%nifi.minifi.sensitive.props.key=clouderaclouderacloudera%;'\
+'s%^[ #]*nifi.c2.enable *=.*%nifi.c2.enable=true%;'\
+'s%^[ #]*nifi.c2.agent.heartbeat.period *=.*%nifi.c2.agent.heartbeat.period=10000%;'\
+'s%^[ #]*nifi.c2.agent.class *=.*%nifi.c2.agent.class=iot-1%;'\
+'s%^[ #]*nifi.c2.agent.identifier *=.*%nifi.c2.agent.identifier=agent-iot-1%' /opt/cloudera/cem/minifi/conf/bootstrap.conf
+    if [[ "$(is_tls_enabled)" == "yes" ]]; then
+      sed -i.bak \
+'s%^[ #]*nifi.minifi.security.keystore *=.*%nifi.minifi.security.keystore=/opt/cloudera/security/jks/keystore.jks%;'\
+'s%^[ #]*nifi.minifi.security.keystoreType *=.*%nifi.minifi.security.keystoreType=JKS%;'\
+'s%^[ #]*nifi.minifi.security.keystorePasswd *=.*%nifi.minifi.security.keystorePasswd='"${THE_PWD}"'%;'\
+'s%^[ #]*nifi.minifi.security.keyPasswd *=.*%nifi.minifi.security.keyPasswd='"${THE_PWD}"'%;'\
+'s%^[ #]*nifi.minifi.security.truststore *=.*%nifi.minifi.security.truststore=/opt/cloudera/security/jks/truststore.jks%;'\
+'s%^[ #]*nifi.minifi.security.truststoreType *=.*%nifi.minifi.security.truststoreType=JKS%;'\
+'s%^[ #]*nifi.minifi.security.truststorePasswd *=.*%nifi.minifi.security.truststorePasswd='"${THE_PWD}"'%;'\
+'s%^[ #]*nifi.minifi.security.ssl.protocol *=.*%nifi.minifi.security.ssl.protocol=TLS%' /opt/cloudera/cem/minifi/conf/bootstrap.conf
+    fi
+    if [[ "$(is_tls_enabled)" == "yes" && $(compare_version "$CEM_VERSION" "1.2.2.0") != "<" ]]; then
+      sed -i.bak \
+'s%^[ #]*nifi.c2.rest.url *=.*%nifi.c2.rest.url=https://'"${CLUSTER_HOST}"':10088/efm/api/c2-protocol/heartbeat%;'\
+'s%^[ #]*nifi.c2.rest.url.ack *=.*%nifi.c2.rest.url.ack=https://'"${CLUSTER_HOST}"':10088/efm/api/c2-protocol/acknowledge%;'\
+'s%^[ #]*nifi.c2.security.truststore.location *=.*%nifi.c2.security.truststore.location=/opt/cloudera/security/jks/truststore.jks%;'\
+'s%^[ #]*nifi.c2.security.truststore.password *=.*%nifi.c2.security.truststore.password='"${THE_PWD}"'%;'\
+'s%^[ #]*nifi.c2.security.truststore.type *=.*%nifi.c2.security.truststore.type=JKS%;'\
+'s%^[ #]*nifi.c2.security.keystore.location *=.*%nifi.c2.security.keystore.location=/opt/cloudera/security/jks/keystore.jks%;'\
+'s%^[ #]*nifi.c2.security.keystore.password *=.*%nifi.c2.security.keystore.password='"${THE_PWD}"'%;'\
+'s%^[ #]*nifi.c2.security.keystore.type *=.*%nifi.c2.security.keystore.type=JKS%;'\
+'s%^[ #]*nifi.c2.security.need.client.auth *=.*%nifi.c2.security.need.client.auth=true%' /opt/cloudera/cem/minifi/conf/bootstrap.conf
+    else
+      sed -i.bak \
+'s%^[ #]*nifi.c2.rest.url *=.*%nifi.c2.rest.url=http://'"${CLUSTER_HOST}"':10088/efm/api/c2-protocol/heartbeat%;'\
+'s%^[ #]*nifi.c2.rest.url.ack *=.*%nifi.c2.rest.url.ack=http://'"${CLUSTER_HOST}"':10088/efm/api/c2-protocol/acknowledge%' /opt/cloudera/cem/minifi/conf/bootstrap.conf
+    fi
+  elif [[ -f /opt/cloudera/cem/minifi/conf/minifi.properties ]]; then
+    # MiNiFi C++
+    sed -i.bak \
+'s%^[ #]*nifi.c2.enable *=.*%nifi.c2.enable=true%;'\
+'s%^[ #]*nifi.c2.agent.protocol.class *=.*%nifi.c2.agent.protocol.class=RESTSender%;'\
+'s%^[ #]*nifi.c2.agent.heartbeat.period *=.*%nifi.c2.agent.heartbeat.period=10000%;'\
+'s%^[ #]*nifi.c2.agent.class *=.*%nifi.c2.agent.class=iot-1%;'\
+'s%^[ #]*nifi.c2.agent.identifier *=.*%nifi.c2.agent.identifier=agent-iot-1%' /opt/cloudera/cem/minifi/conf/minifi.properties
+#    if [[ "$(is_tls_enabled)" == "yes" ]]; then
+#      sed -i.bak \
+#'s%^[ #]*nifi.minifi.security.keystore *=.*%nifi.minifi.security.keystore=/opt/cloudera/security/jks/keystore.jks%;'\
+#'s%^[ #]*nifi.minifi.security.keystoreType *=.*%nifi.minifi.security.keystoreType=JKS%;'\
+#'s%^[ #]*nifi.minifi.security.keystorePasswd *=.*%nifi.minifi.security.keystorePasswd='"${THE_PWD}"'%;'\
+#'s%^[ #]*nifi.minifi.security.keyPasswd *=.*%nifi.minifi.security.keyPasswd='"${THE_PWD}"'%;'\
+#'s%^[ #]*nifi.minifi.security.truststore *=.*%nifi.minifi.security.truststore=/opt/cloudera/security/jks/truststore.jks%;'\
+#'s%^[ #]*nifi.minifi.security.truststoreType *=.*%nifi.minifi.security.truststoreType=JKS%;'\
+#'s%^[ #]*nifi.minifi.security.truststorePasswd *=.*%nifi.minifi.security.truststorePasswd='"${THE_PWD}"'%;'\
+#'s%^[ #]*nifi.minifi.security.ssl.protocol *=.*%nifi.minifi.security.ssl.protocol=TLS%' /opt/cloudera/cem/minifi/conf/minifi.properties
+#    fi
+    if [[ "$(is_tls_enabled)" == "yes" && $(compare_version "$CEM_VERSION" "1.2.2.0") != "<" ]]; then
+      true
+#      sed -i.bak \
+#'s%^[ #]*nifi.c2.rest.url *=.*%nifi.c2.rest.url=https://'"${CLUSTER_HOST}"':10088/efm/api/c2-protocol/heartbeat%;'\
+#'s%^[ #]*nifi.c2.rest.url.ack *=.*%nifi.c2.rest.url.ack=https://'"${CLUSTER_HOST}"':10088/efm/api/c2-protocol/acknowledge%;'\
+#'s%^[ #]*nifi.c2.security.truststore.location *=.*%nifi.c2.security.truststore.location=/opt/cloudera/security/jks/truststore.jks%;'\
+#'s%^[ #]*nifi.c2.security.truststore.password *=.*%nifi.c2.security.truststore.password='"${THE_PWD}"'%;'\
+#'s%^[ #]*nifi.c2.security.truststore.type *=.*%nifi.c2.security.truststore.type=JKS%;'\
+#'s%^[ #]*nifi.c2.security.keystore.location *=.*%nifi.c2.security.keystore.location=/opt/cloudera/security/jks/keystore.jks%;'\
+#'s%^[ #]*nifi.c2.security.keystore.password *=.*%nifi.c2.security.keystore.password='"${THE_PWD}"'%;'\
+#'s%^[ #]*nifi.c2.security.keystore.type *=.*%nifi.c2.security.keystore.type=JKS%;'\
+#'s%^[ #]*nifi.c2.security.need.client.auth *=.*%nifi.c2.security.need.client.auth=true%' /opt/cloudera/cem/minifi/conf/minifi.properties
+    else
+      sed -i.bak \
+'s%^[ #]*nifi.c2.rest.url *=.*%nifi.c2.rest.url=http://'"${CLUSTER_HOST}"':10088/efm/api/c2-protocol/heartbeat%;'\
+'s%^[ #]*nifi.c2.rest.url.ack *=.*%nifi.c2.rest.url.ack=http://'"${CLUSTER_HOST}"':10088/efm/api/c2-protocol/acknowledge%' /opt/cloudera/cem/minifi/conf/minifi.properties
+    fi
   fi
-  if [ "$retries" == "5" ]; then
-    break
+
+  if [[ -f /opt/cloudera/cem/minifi/conf/bootstrap.conf || -f /opt/cloudera/cem/minifi/conf/minifi.properties ]]; then
+    systemctl enable minifi
+    systemctl start minifi
   fi
-  retries=$((retries + 1))
-  echo "Retrying to start EFM ($retries)"
-done
+fi
 
 echo "-- Enable and start MQTT broker"
 systemctl enable mosquitto
@@ -800,44 +901,6 @@ mkdir -p /opt/demo
 cp -f $BASE_DIR/simulate.py /opt/demo/
 cp -f $BASE_DIR/spark.iot.py /opt/demo/
 chmod -R 775 /opt/demo
-
-echo "-- Configure and start MiNiFi"
-sed -i.bak \
-'s%^[ #]*nifi.minifi.sensitive.props.key *=.*%nifi.minifi.sensitive.props.key=clouderaclouderacloudera%;'\
-'s%^[ #]*nifi.c2.enable *=.*%nifi.c2.enable=true%;'\
-'s%^[ #]*nifi.c2.agent.heartbeat.period *=.*%nifi.c2.agent.heartbeat.period=10000%;'\
-'s%^[ #]*nifi.c2.agent.class *=.*%nifi.c2.agent.class=iot-1%;'\
-'s%^[ #]*nifi.c2.agent.identifier *=.*%nifi.c2.agent.identifier=agent-iot-1%' /opt/cloudera/cem/minifi/conf/bootstrap.conf
-if [[ "$(is_tls_enabled)" == "yes" ]]; then
-  sed -i.bak \
-'s%^[ #]*nifi.minifi.security.keystore *=.*%nifi.minifi.security.keystore=/opt/cloudera/security/jks/keystore.jks%;'\
-'s%^[ #]*nifi.minifi.security.keystoreType *=.*%nifi.minifi.security.keystoreType=JKS%;'\
-'s%^[ #]*nifi.minifi.security.keystorePasswd *=.*%nifi.minifi.security.keystorePasswd='"${THE_PWD}"'%;'\
-'s%^[ #]*nifi.minifi.security.keyPasswd *=.*%nifi.minifi.security.keyPasswd='"${THE_PWD}"'%;'\
-'s%^[ #]*nifi.minifi.security.truststore *=.*%nifi.minifi.security.truststore=/opt/cloudera/security/jks/truststore.jks%;'\
-'s%^[ #]*nifi.minifi.security.truststoreType *=.*%nifi.minifi.security.truststoreType=JKS%;'\
-'s%^[ #]*nifi.minifi.security.truststorePasswd *=.*%nifi.minifi.security.truststorePasswd='"${THE_PWD}"'%;'\
-'s%^[ #]*nifi.minifi.security.ssl.protocol *=.*%nifi.minifi.security.ssl.protocol=TLS%' /opt/cloudera/cem/minifi/conf/bootstrap.conf
-fi
-if [[ "$(is_tls_enabled)" == "yes" && $(compare_version "$CEM_VERSION" "1.2.2.0") != "<" ]]; then
-  sed -i.bak \
-'s%^[ #]*nifi.c2.rest.url *=.*%nifi.c2.rest.url=https://'"${CLUSTER_HOST}"':10088/efm/api/c2-protocol/heartbeat%;'\
-'s%^[ #]*nifi.c2.rest.url.ack *=.*%nifi.c2.rest.url.ack=https://'"${CLUSTER_HOST}"':10088/efm/api/c2-protocol/acknowledge%;'\
-'s%^[ #]*nifi.c2.security.truststore.location *=.*%nifi.c2.security.truststore.location=/opt/cloudera/security/jks/truststore.jks%;'\
-'s%^[ #]*nifi.c2.security.truststore.password *=.*%nifi.c2.security.truststore.password='"${THE_PWD}"'%;'\
-'s%^[ #]*nifi.c2.security.truststore.type *=.*%nifi.c2.security.truststore.type=JKS%;'\
-'s%^[ #]*nifi.c2.security.keystore.location *=.*%nifi.c2.security.keystore.location=/opt/cloudera/security/jks/keystore.jks%;'\
-'s%^[ #]*nifi.c2.security.keystore.password *=.*%nifi.c2.security.keystore.password='"${THE_PWD}"'%;'\
-'s%^[ #]*nifi.c2.security.keystore.type *=.*%nifi.c2.security.keystore.type=JKS%;'\
-'s%^[ #]*nifi.c2.security.need.client.auth *=.*%nifi.c2.security.need.client.auth=true%' /opt/cloudera/cem/minifi/conf/bootstrap.conf
-else
-  sed -i.bak \
-'s%^[ #]*nifi.c2.rest.url *=.*%nifi.c2.rest.url=http://'"${CLUSTER_HOST}"':10088/efm/api/c2-protocol/heartbeat%;'\
-'s%^[ #]*nifi.c2.rest.url.ack *=.*%nifi.c2.rest.url.ack=http://'"${CLUSTER_HOST}"':10088/efm/api/c2-protocol/acknowledge%' /opt/cloudera/cem/minifi/conf/bootstrap.conf
-fi
-
-systemctl enable minifi
-systemctl start minifi
 
 # TODO: Implement Ranger DB and Setup in template
 # TODO: Fix kafka topic creation once Ranger security is setup
@@ -954,10 +1017,13 @@ if [[ ${HAS_ATLAS:-0} == 1 ]]; then
   }'
   fi
 
-  echo "-- Restart NiFi Default Atlas Reporting Task"
-  nifi_reporting_task_state "Default Atlas Reporting Task" "STOPPED"
-  sleep 1
-  nifi_reporting_task_state "Default Atlas Reporting Task" "RUNNING"
+
+  if [[ ${HAS_NIFI:-0} == 1 ]]; then
+    echo "-- Restart NiFi Default Atlas Reporting Task"
+    nifi_reporting_task_state "Default Atlas Reporting Task" "STOPPED"
+    sleep 1
+    nifi_reporting_task_state "Default Atlas Reporting Task" "RUNNING"
+  fi
 fi
 
 if [[ ${HAS_FLINK:-0} == 1 ]]; then

@@ -1,6 +1,9 @@
 #!/bin/bash
 BASE_DIR=$(cd "$(dirname $0)"; pwd -L)
 
+function suppress_deprecation_warning() {
+  egrep -v "from cryptography.hazmat.backends|CryptographyDeprecationWarning"
+}
 source /opt/rh/rh-python36/enable
 
 set -u
@@ -25,6 +28,6 @@ if [[ -f /keytabs/admin.keytab ]]; then
 fi
 
 cd $BASE_DIR
-python3 -c "import labs; labs.workshop_teardown(target_workshop='${TARGET_WORKSHOP}')"
-python3 -c "import labs; labs.workshop_setup(target_workshop='${TARGET_WORKSHOP}', target_lab=${TARGET_LAB})"
+python3 -c "import labs; labs.workshop_teardown(target_workshop='${TARGET_WORKSHOP}')" 2> >(suppress_deprecation_warning >&2)
+python3 -c "import labs; labs.workshop_setup(target_workshop='${TARGET_WORKSHOP}', target_lab=${TARGET_LAB})" 2> >(suppress_deprecation_warning >&2)
 echo "Done!"

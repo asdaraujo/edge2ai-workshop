@@ -178,7 +178,12 @@ function load_stack() {
   else
     ENABLE_TLS=no
   fi
-  export ENABLE_KERBEROS ENABLE_TLS KERBEROS_TYPE USE_IPA TF_VAR_use_ipa PROJECT_ZIP_FILE
+  if [[ "${CEM_URL:-}" == "" && "${EFM_TARBALL_URL:-}${MINIFITK_TARBALL_URL:-}${MINIFI_TARBALL_URL:-}" == "" ]]; then
+    export HAS_CEM=0
+  else
+    export HAS_CEM=1
+  fi
+  export ENABLE_KERBEROS ENABLE_TLS KERBEROS_TYPE USE_IPA TF_VAR_use_ipa PROJECT_ZIP_FILE HAS_CEM
   prepare_keytabs_dir
 }
 
@@ -280,13 +285,15 @@ function validate_stack() {
     fi
   fi
 
-  if [ ! \( "${CEM_URL:-}" != "" -a "${EFM_TARBALL_URL:-}${MINIFITK_TARBALL_URL:-}${MINIFI_TARBALL_URL:-}" == "" \) -a \
-       ! \( "${CEM_URL:-}" == "" -a "${EFM_TARBALL_URL:-}" != "" -a "${MINIFITK_TARBALL_URL:-}" != "" -a "${MINIFI_TARBALL_URL:-}" != "" \) ]; then
-    echo "ERROR: The following parameter combinations are mutually exclusive:" > /dev/stderr
-    echo "         - CEM_URL must be specified" > /dev/stderr
-    echo "           OR" > /dev/stderr
-    echo "         - EFM_TARBALL_URL and MINIFITK_TARBALL_URL and MINIFI_TARBALL_URL must be specified" > /dev/stderr
-    errors=1
+  if [[ ! ("${CEM_URL:-}" == "" && "${EFM_TARBALL_URL:-}${MINIFITK_TARBALL_URL:-}${MINIFI_TARBALL_URL:-}" == "") ]]; then
+    export HAS_CEM=1
+    if [[ "${CEM_URL:-}" != "" && "${EFM_TARBALL_URL:-}${MINIFITK_TARBALL_URL:-}${MINIFI_TARBALL_URL:-}" != "" ]]; then
+      echo "ERROR: The following parameter combinations are mutually exclusive:" > /dev/stderr
+      echo "         - CEM_URL must be specified" > /dev/stderr
+      echo "           OR" > /dev/stderr
+      echo "         - EFM_TARBALL_URL and MINIFITK_TARBALL_URL and MINIFI_TARBALL_URL must be specified" > /dev/stderr
+      errors=1
+    fi
   fi
 
   if [ ! \( "${CM_BASE_URL:-}" != "" -a "${CM_REPO_FILE_URL:-}" != "" -a "${CM_REPO_AS_TARBALL_URL:-}" == "" \) -a \
@@ -436,6 +443,8 @@ enumerate = True\
 ldap_enumeration_refresh_timeout = 50/;'\
 's/^\[nss\].*/&\
 enum_cache_timeout = 45/' /etc/sssd/sssd.conf
+  systemctl restart sssd
+  sleep 60 # wait a bit and do it a second time for good measure
   systemctl restart sssd
 
   # Adjust krb5.conf
