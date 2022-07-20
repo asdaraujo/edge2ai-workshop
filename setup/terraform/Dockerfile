@@ -63,6 +63,11 @@ RUN curl -sSLo /tmp/packer.zip https://releases.hashicorp.com/packer/${PACKERVER
 
 RUN which python || ln -s $(which python3) /usr/bin/python
 
+# Azure CLI
+RUN apk add --no-cache -q --virtual=build gcc musl-dev python3-dev libffi-dev openssl-dev cargo make \
+     && pip install --no-cache-dir azure-cli==2.28.0 -q \
+     && apk del --purge build
+
 WORKDIR /edge2ai-workshop/setup/terraform
 
 ENTRYPOINT ["/bin/bash"]
