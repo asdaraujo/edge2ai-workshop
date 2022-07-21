@@ -2,7 +2,7 @@
 set -o errexit
 set -o nounset
 BASE_DIR=$(cd $(dirname $0); pwd -L)
-source $BASE_DIR/common-basics.sh
+source $BASE_DIR/lib/common-basics.sh
 
 if [[ $# != 1 && $# != 2 ]]; then
   echo "Syntax: $0 <namespace> [start_epoch]"
@@ -12,7 +12,7 @@ fi
 NAMESPACE=$1
 START_TIME=${2:-$(date +%s)}
 
-source $BASE_DIR/common.sh
+source $BASE_DIR/lib/common.sh
 
 CURL=(curl -L -k --connect-timeout 5)
 CPIDS=""
@@ -25,18 +25,26 @@ STATUS_STALE="${C_YELLOW}R${C_NORMAL}"
 STATUS_FAILED="${C_BG_RED}${C_BLACK}X${C_NORMAL}"
 
 function cleanup() {
-#  if [[ ${STATUS_FILE_PREFIX:-} != "" ]]; then
-#    rm -f "${STATUS_FILE_PREFIX}".*
-#  fi
+  if [[ ${STATUS_FILE_PREFIX:-} != "" ]]; then
+    rm -f "${STATUS_FILE_PREFIX}".*
+  fi
   if [[ ${CPIDS:-} != "" ]]; then
     kill -9 $CPIDS 2>/dev/null
   fi
 }
 
-function timeout() {
-  local timeout_secs=$1
-  local cmd=$2
-  python -c "import subprocess, sys; subprocess.run(sys.argv[2], shell=True, timeout=int(sys.argv[1]))" "$timeout_secs" "$cmd" 2>/dev/null
+function is_check_running() {
+  if [[ ! -f "${STATUS_CHECK_FILE}" ]]; then
+    echo no
+    return
+  fi
+  local check_pid=$(cat "${STATUS_CHECK_FILE}")
+  if [[ $(ps -o pid | awk -v PID=$check_pid 'BEGIN {cnt = 0} $1 == PID {cnt += 1} END {print cnt}') -eq 0 ]]; then
+    rm -f "${STATUS_CHECK_FILE}"
+    echo no
+    return
+  fi
+  echo yes
 }
 
 function check_instance_status() {
@@ -53,7 +61,7 @@ function check_instance_status() {
   fi
   > "${STATUS_FILE_PREFIX}.${id}"
   while true; do
-    if [[ ! -f "${STATUS_FILE_PREFIX}.checking" ]]; then
+    if [[ $(is_check_running) == "no" ]]; then
       rm -f "${STATUS_FILE_PREFIX}.${id}"
       break
     fi
@@ -74,7 +82,7 @@ function check_instance_status() {
 }
 
 function start_checks() {
-  touch "${STATUS_FILE_PREFIX}.checking"
+  echo "$$" > "${STATUS_CHECK_FILE}"
   for ip in $(web_instance | web_attr public_ip); do
     > "${STATUS_FILE_PREFIX}.W.log"
     check_instance_status W $ip 2> "${STATUS_FILE_PREFIX}.W.log" &
@@ -87,7 +95,7 @@ function start_checks() {
     CPIDS="$CPIDS $!"
   done
 
-  cluster_instances | awk '{print $1" "$4}' | while read index ip; do
+  cluster_instances | cluster_attr index public_ip | while read index ip; do
     > "${STATUS_FILE_PREFIX}.${index}.log"
     check_instance_status $index $ip 2> "${STATUS_FILE_PREFIX}.${index}.log" &
     CPIDS="$CPIDS $!"
@@ -188,7 +196,7 @@ function total_instances() {
 function wait_for_completion() {
   local cnt=0
   local total=$(total_instances)
-  while true; do
+  while [[ $(is_check_running) == "yes" ]]; do
     if [[ $((cnt % 12)) -eq 0 ]]; then
       print_header
     fi
@@ -236,12 +244,12 @@ function fetch_logs() {
   done
 }
 
-load_env $NAMESPACE
 STATUS_DIR=${BASE_DIR}/.setup-status
 mkdir -p "$STATUS_DIR"
 find "$STATUS_DIR" -type f -mtime +2 -delete # delete old stuff, if any
 TIMESTAMP=$(date +%s)
 STATUS_FILE_PREFIX="$STATUS_DIR/setup-status.${NAMESPACE}.${TIMESTAMP}"
+STATUS_CHECK_FILE="${STATUS_FILE_PREFIX}.checking"
 
 start_checks
 status=$(wait_for_completion)
@@ -259,4 +267,5 @@ else
       fetch_logs
     fi
   fi
+  exit 1
 fi

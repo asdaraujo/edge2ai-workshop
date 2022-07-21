@@ -2,7 +2,7 @@
 set -o errexit
 set -o nounset
 BASE_DIR=$(cd $(dirname $0); pwd -L)
-source $BASE_DIR/common-basics.sh
+source $BASE_DIR/lib/common-basics.sh
 
 if [ $# -lt 1 ]; then
   echo "Syntax: $0 <namespace> [web_ip_adress] [admin_email] [admin_password] [admin_full_name]"
@@ -11,9 +11,8 @@ if [ $# -lt 1 ]; then
 fi
 NAMESPACE=$1
 
-source $BASE_DIR/common.sh
+source $BASE_DIR/lib/common.sh
 
-load_env $NAMESPACE
 # need to load the stack for calling get_service_urls
 source $BASE_DIR/resources/common.sh
 validate_stack $NAMESPACE $BASE_DIR/resources

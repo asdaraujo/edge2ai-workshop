@@ -3,7 +3,7 @@
 set -o errexit
 set -o nounset
 BASE_DIR=$(cd $(dirname $0); pwd -L)
-source $BASE_DIR/common-basics.sh
+source $BASE_DIR/lib/common-basics.sh
 
 if [ $# != 2 -a $# != 3 ]; then
   echo "Syntax: $0 <namespace> <cluster_number>"
@@ -15,7 +15,7 @@ CLUSTER_ID=$2
 PROXY_PORT=${3:-}
 
 export NO_DOCKER_EXEC=1
-source $BASE_DIR/common.sh
+source $BASE_DIR/lib/common.sh
 
 PUBLIC_DNS=$(try_in_docker $NAMESPACE public_dns $CLUSTER_ID)
 if [ "$PUBLIC_DNS" == "" ]; then

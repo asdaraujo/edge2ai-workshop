@@ -2,7 +2,7 @@
 set -o errexit
 set -o nounset
 BASE_DIR=$(cd $(dirname $0); pwd -L)
-source $BASE_DIR/common-basics.sh
+source $BASE_DIR/lib/common-basics.sh
 
 if [ $# != 1 ]; then
   echo "Syntax: $0 <namespace>"
@@ -13,7 +13,8 @@ NAMESPACE=$1
 LOG_NAME=$BASE_DIR/logs/setup.log.${NAMESPACE}.$(date +%Y%m%d%H%M%S)
 
 CAFFEINATE_ME=1
-source $BASE_DIR/common.sh
+NEED_CLOUD_SESSION=1
+source $BASE_DIR/lib/common.sh
 
 mkdir -p "${BASE_DIR}"/logs
 (
@@ -25,13 +26,10 @@ check_version
 check_stack_version
 
 function cleanup() {
-  collect_logs "${NAMESPACE:-}"
   kdestroy > /dev/null 2>&1 || true
 }
 
 validate_env
-load_env $NAMESPACE
-check_python_modules
 
 # Check if enddate is close
 WARNING_THRESHOLD_DAYS=2
@@ -80,19 +78,17 @@ log "Check for parcels"
 chmod +x $BASE_DIR/resources/check-for-parcels.sh
 $BASE_DIR/resources/check-for-parcels.sh
 
+log "Execute pre-launch setup"
+pre_launch_setup
+
 log "Ensure key pair exists"
-check_for_orphaned_keys
 ensure_key_pairs
 
 log "Launching Terraform"
-# Sets the var below to prevent managed SGs from being added to the SGs we create
-if [ -s $TF_STATE ]; then
-  export TF_VAR_managed_security_group_ids="[$(run_terraform show -json $TF_STATE | \
-    jq -r '.values[]?.resources[]? | select(.type == "aws_security_group").values.id | "\"\(.)\""' | \
-    tr "\n" "," | sed 's/,$//')]"
-fi
 run_terraform apply -auto-approve -parallelism="${TF_VAR_parallelism}" -refresh=true -state=$TF_STATE
+refresh_tf_state
 
+log "Monitoring for deployment completion"
 "${BASE_DIR}/check-setup-status.sh" "${NAMESPACE}" "${START_TIME}"
 
 log "Deployment completed successfully"

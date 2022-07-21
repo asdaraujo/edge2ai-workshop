@@ -2,7 +2,7 @@
 set -o errexit
 set -o nounset
 BASE_DIR=$(cd $(dirname $0); pwd -L)
-source $BASE_DIR/common-basics.sh
+source $BASE_DIR/lib/common-basics.sh
 
 if [[ $# -lt 1 ]]; then
   echo "Syntax: $0 <namespace> [action]"
@@ -21,18 +21,12 @@ if [[ $ACTION == "enddate" ]]; then
   fi
 fi
 
-source $BASE_DIR/common.sh
-
-load_env $NAMESPACE
+NEED_CLOUD_SESSION=1
+source $BASE_DIR/lib/common.sh
 
 function list_instances() {
   local instance_ids=$1
-  printf "%-20s %-10s %-40s %-15s %s\n" $(echo "Id State Name Owner EndDate"; aws ec2 describe-instances --instance-ids $instance_ids | \
-  jq -r '.Reservations[].Instances[] | "\(.InstanceId) \(.State.Name) \(.Tags[]? | select(.Key == "Name").Value) \(.Tags[]? | select(.Key == "owner").Value) \(.Tags[]? | select(.Key == "enddate").Value)"' | sort -k2)
-}
-
-function yamlize() {
-  python -c 'import json, yaml, sys; print(yaml.dump(json.loads(sys.stdin.read())))'
+  printf "%-12s %-15s %-8s %-40s %s\n" $(echo "State Owner EndDate Name Id"; list_cloud_instances "$instance_ids")
 }
 
 INSTANCE_IDS="$(cluster_instances | cluster_attr id) $(web_instance | web_attr id) $(ipa_instance | ipa_attr id)"
@@ -40,31 +34,31 @@ INSTANCE_IDS="$(cluster_instances | cluster_attr id) $(web_instance | web_attr i
 if [[ $ACTION == "list" ]]; then
   list_instances "$INSTANCE_IDS"
 elif [[ $ACTION == "terminate" ]]; then
-  aws ec2 terminate-instances --instance-ids $INSTANCE_IDS | yamlize
+  terminate_instances "$INSTANCE_IDS"
   list_instances "$INSTANCE_IDS"
 elif [[ $ACTION == "stop" ]]; then
-  aws ec2 stop-instances --instance-ids $INSTANCE_IDS | yamlize
+  stop_instances "$INSTANCE_IDS"
   list_instances "$INSTANCE_IDS"
 elif [[ $ACTION == "start" ]]; then
-  aws ec2 start-instances --instance-ids $INSTANCE_IDS | yamlize
+  start_instances "$INSTANCE_IDS"
   list_instances "$INSTANCE_IDS"
 elif [[ $ACTION == "enddate" ]]; then
-  aws ec2 create-tags --resources $INSTANCE_IDS --tags Key=enddate,Value=$ENDDATE
+  set_instances_tag "$INSTANCE_IDS" enddate "$ENDDATE"
   list_instances "$INSTANCE_IDS"
-elif [[ $ACTION == "check" ]]; then
+elif [[ $ACTION == "is_protected" ]]; then
   for id in $INSTANCE_IDS; do
-    aws ec2 describe-instance-attribute --instance-id $id --attribute disableApiTermination | jq -r '"\(.InstanceId) \(.DisableApiTermination.Value)"'
+    printf "%-5s %s\n" "$(is_instance_protected $id)" "$id"
   done
 elif [[ $ACTION == "protect" ]]; then
   for id in $INSTANCE_IDS; do
     echo "Enabling protection for instance $id"
-    aws ec2 modify-instance-attribute --instance-id $id --disable-api-termination
+    protect_instance $id
   done
 elif [[ $ACTION == "unprotect" ]]; then
   for id in $INSTANCE_IDS; do
     echo "Disabling protection for instance $id"
-    aws ec2 modify-instance-attribute --instance-id $id --no-disable-api-termination
+    unprotect_instance $id
   done
 elif [[ $ACTION == "describe" ]]; then
-  aws ec2 describe-instances --instance-ids $INSTANCE_IDS | yamlize
+  describe_instances "$INSTANCE_IDS"
 fi

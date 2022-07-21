@@ -2,7 +2,7 @@
 set -o errexit
 set -o nounset
 BASE_DIR=$(cd $(dirname $0); pwd -L)
-source $BASE_DIR/common-basics.sh
+source $BASE_DIR/lib/common-basics.sh
 
 if [ $# != 1 ]; then
   echo "Syntax: $0 <namespace>"
@@ -11,15 +11,13 @@ if [ $# != 1 ]; then
 fi
 NAMESPACE=$1
 
-source $BASE_DIR/common.sh
+source $BASE_DIR/lib/common.sh
 
 mkdir -p $BASE_DIR/logs
 (
 set -o errexit
 set -o nounset
 set -o pipefail
-
-load_env $NAMESPACE
 
 packer build \
   -var "aws_profile=$TF_VAR_aws_profile" \

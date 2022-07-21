@@ -2,40 +2,43 @@
 set -o errexit
 set -o nounset
 BASE_DIR=$(cd $(dirname $0); pwd -L)
-source $BASE_DIR/common-basics.sh
+source $BASE_DIR/lib/common-basics.sh
 
-if [ $# -gt 1 ]; then
-  echo "Syntax: $0 [namespace]"
+if [[ $# -gt 2 || ($# -eq 2 && $2 != "--refresh") ]]; then
+  echo "Syntax: $0 [namespace] [--refresh]"
   show_namespaces
   exit 1
 fi
 NAMESPACE=${1:-}
+REFRESH=${2:-}
 
-source $BASE_DIR/common.sh
+if [[ $REFRESH != "" ]]; then
+  NEED_CLOUD_SESSION=1
+fi
+source $BASE_DIR/lib/common.sh
 
 function cleanup() {
   rm -f ${INSTANCE_LIST_FILE}* ${WEB_INSTANCE_LIST_FILE}* ${IPA_INSTANCE_LIST_FILE}*
 }
 
-EC2_PRICES_URL_TEMPLATE=https://raw.githubusercontent.com/yeo/ec2.shop/master/data/REGION-ondemand.json
 INSTANCE_LIST_FILE=/tmp/.instance.list.$$
 WEB_INSTANCE_LIST_FILE=/tmp/.instance.web.$$
 IPA_INSTANCE_LIST_FILE=/tmp/.instance.ipa.$$
 
 function show_costs() {
-  local ec2_prices_url=$(echo "$EC2_PRICES_URL_TEMPLATE" | sed "s/REGION/$TF_VAR_aws_region/")
-  local tmp_file=/tmp/list-details.cost.$$
+  local web_price=0
+  local ipa_price=0
+  local web_instance_type=$(web_instance | web_attr instance_type)
+  if [[ $web_instance_type != "" ]]; then
+    web_price=$(get_instance_hourly_cost $web_instance_type)
+  fi
+  local ipa_instance_type=$(ipa_instance | web_attr instance_type)
+  if [[ $ipa_instance_type != "" ]]; then
+    ipa_price=$(get_instance_hourly_cost $ipa_instance_type)
+  fi
+  local cluster_price=$(get_instance_hourly_cost $TF_VAR_cluster_instance_type)
 
-  local ret=$(curl -w "%{http_code}" "$ec2_prices_url" -o $tmp_file --stderr /dev/null)
-  if [[ $ret == 200 ]]; then
-    local web_instance_type=$(web_instance | web_attr instance_type)
-    local ipa_instance_type=$(ipa_instance | web_attr instance_type)
-    local web_price=$(jq -r '.prices[] | select(.attributes["aws:ec2:instanceType"] == "'"$web_instance_type"'").price.USD' $tmp_file)
-    web_price=${web_price:-0}
-    local ipa_price=$(jq -r '.prices[] | select(.attributes["aws:ec2:instanceType"] == "'"$ipa_instance_type"'").price.USD' $tmp_file)
-    ipa_price=${ipa_price:-0}
-    local cluster_price=$(jq -r '.prices[] | select(.attributes["aws:ec2:instanceType"] == "'"$TF_VAR_cluster_instance_type"'").price.USD' $tmp_file)
-
+  if [[ ($web_instance_type == "" || $web_price != "0") && ($ipa_instance_type == "" || $ipa_price != "0") && $cluster_price != "" ]]; then
     echo -e "\nCLOUD COSTS:"
     echo "============"
     printf "%-11s %-15s %3s %15s %15s %15s\n" "Purpose" "Instance Type" "Qty" "Unit USD/Hr" "Total USD/Hr" "Total USD/Day"
@@ -50,37 +53,42 @@ function show_costs() {
   else
     echo -e "\nUnable to retrieve cloud costs."
   fi
-  rm -f $tmp_file
 }
 
 function show_details() {
   local namespace=$1
-  local summary_only=${2:-no}
+  local show_summary=${2:-no}
 
   local warning=""
-  if [[ $summary_only == "no" ]]; then
+  if [[ $show_summary == "no" ]]; then
     load_env $namespace
   else
     local tmp_file=/tmp/.${namespace}.$$
-    NO_AWS_SSO_LOGIN=1 load_env $namespace > $tmp_file 2>&1
+    SKIP_CLOUD_LOGIN=1 load_env $namespace > $tmp_file 2>&1
     if [[ -s $tmp_file ]]; then
       warning="$(cat $tmp_file | sed 's/\.$//'). "
     fi
     rm -f $tmp_file
   fi
 
+  if [[ $REFRESH != "" ]]; then
+    refresh_tf_state
+  fi
   ensure_tf_json_file
 
-  web_instance | while read name public_dns public_ip private_ip instance_type; do
-    printf "%-40s %-55s %-15s %-15s %-9s\n" "$name" "$public_dns" "$public_ip" "$private_ip" "$(is_stoppable web 0)"
+  web_instance | web_attr name public_dns public_ip private_ip is_stoppable | \
+  while read name public_dns public_ip private_ip is_stoppable; do
+    printf "%-40s %-55s %-15s %-15s %-9s\n" "$name" "$public_dns" "$public_ip" "$private_ip" "$is_stoppable"
   done | sed 's/\([^ ]*-\)\([0-9]*\)\( .*\)/\1\2\3 \2/' | sort -k4n | sed 's/ [0-9]*$//' > ${WEB_INSTANCE_LIST_FILE}.$namespace
 
-  ipa_instance | while read name public_dns public_ip private_ip instance_type; do
+  ipa_instance | ipa_attr name public_dns public_ip private_ip | \
+  while read name public_dns public_ip private_ip; do
     printf "%-40s %-55s %-15s %-15s %-9s\n" "$name" "$public_dns" "$public_ip" "$private_ip" "Yes"
   done | sed 's/\([^ ]*-\)\([0-9]*\)\( .*\)/\1\2\3 \2/' | sort -k4n | sed 's/ [0-9]*$//' > ${IPA_INSTANCE_LIST_FILE}.$namespace
 
-  cluster_instances | while read index name public_dns public_ip private_ip instance_type; do
-    printf "%-40s %-55s %-15s %-15s %-9s\n" "$name" "$public_dns" "$public_ip" "$private_ip" "$(is_stoppable cluster $index)"
+  cluster_instances | cluster_attr name public_dns public_ip private_ip is_stoppable | \
+  while read name public_dns public_ip private_ip is_stoppable; do
+    printf "%-40s %-55s %-15s %-15s %-9s\n" "$name" "$public_dns" "$public_ip" "$private_ip" "$is_stoppable"
   done | sed 's/\([^ ]*-\)\([0-9]*\)\( .*\)/\1\2\3 \2/' | sort -k4n | sed 's/ [0-9]*$//' > ${INSTANCE_LIST_FILE}.$namespace
 
   if [ -s ${WEB_INSTANCE_LIST_FILE}.$namespace ]; then
@@ -98,7 +106,7 @@ function show_details() {
     fi
   fi
 
-  if [ "$summary_only" != "no" ]; then
+  if [ "$show_summary" == "yes" ]; then
     printf "%-25s %-30s %-30s %10d  %8s  %9s %s\n" "$namespace" "$web_server" "$(awk 'NR==1{print $2}' ${INSTANCE_LIST_FILE}.$namespace)" "$(cat ${INSTANCE_LIST_FILE}.$namespace | wc -l)" "$enddate" "$remaining_days" "$warning"
   else
     if [ -s "$TF_VAR_web_ssh_private_key" ]; then
@@ -148,7 +156,7 @@ function show_details() {
     printf "%-40s %-55s %-15s %-15s %-9s\n" "Cluster Name" "Public DNS Name" "Public IP" "Private IP" "Stoppable"
     cat ${INSTANCE_LIST_FILE}.$namespace
 
-    if [[ $summary_only == "no" ]]; then
+    if [[ $show_summary == "no" ]]; then
       show_costs
     fi
 

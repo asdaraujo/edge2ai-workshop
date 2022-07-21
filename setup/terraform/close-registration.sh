@@ -2,7 +2,7 @@
 set -o errexit
 set -o nounset
 BASE_DIR=$(cd $(dirname $0); pwd -L)
-source $BASE_DIR/common-basics.sh
+source $BASE_DIR/lib/common-basics.sh
 
 if [ $# -lt 1 ]; then
   echo "Syntax: $0 <namespace>"
@@ -11,8 +11,8 @@ if [ $# -lt 1 ]; then
 fi
 NAMESPACE=$1
 
-source $BASE_DIR/common.sh
-load_env $NAMESPACE
+NEED_CLOUD_SESSION=1
+source $BASE_DIR/lib/common.sh
 
 echo "Closing public access to the web server"
 web_sg=$(security_groups web)
