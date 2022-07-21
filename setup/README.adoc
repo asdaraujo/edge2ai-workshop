@@ -305,7 +305,7 @@ cp -r edge2ai-workshop/setup/terraform/resources /tmp
 cd /tmp/resources
 ----
 
-. Edit the `stack.cdp716p.sh` file that exists in the `resources` folder and update the following variables with your CDP credentials:
+. Edit the `stack.cdp717p.sh` file that exists in the `resources` folder and update the following variables with your CDP credentials:
 +
 [source,properties]
 ----
@@ -317,15 +317,15 @@ REMOTE_REPO_PWD=<YOUR_PASSWORD_HERE>
 +
 [source,shell]
 ----
-sudo bash -x ./setup.sh <CLOUD_PROVIDER> <SSH_USER> <SSH_PWD> cdp716p <DOCKER_DEVICE>
+sudo bash -x ./setup.sh <CLOUD_PROVIDER> <SSH_USER> <SSH_PWD> cdp717p <DOCKER_DEVICE>
 ----
 
 where:
 
-* `CLOUD_PROVIDER` can be one of `aws`, `gcp` or `other`. For private cloud VMs, choose `other`.
+* `CLOUD_PROVIDER` can be one of `aws`, `gcp`, `aliyun`, `generic` or `local`. For private cloud VMs, choose `other`.
 * `SSH_USER` is the user you'll use to connect. This user must have passwordless sudo to root
 * `SSH_PWD` is the password that the setup script will set for this user. You don't need to set this up for this user.
-* `"cdp716p"`, this is the name of the stack. Do not change this, unless you know what you're doing.
+* `"cdp717p"`, this is the name of the stack. Do not change this, unless you know what you're doing.
 * `DOCKER_DEVICE` path of the device created in step 1. Something like `/dev/<devname>`
 
 == Running locally without Docker
