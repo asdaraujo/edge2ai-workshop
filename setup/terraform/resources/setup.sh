@@ -451,19 +451,19 @@ case "${CLOUD_PROVIDER}" in
           sed -i.bak '/server 169.254.169.123/ d' /etc/chrony.conf
           echo "server 169.254.169.123 prefer iburst minpoll 4 maxpoll 4" >> /etc/chrony.conf
           systemctl restart chronyd
-          export PUBLIC_DNS=cdp.${PUBLIC_IP}.nip.io
           export PRIVATE_DNS=$(curl http://169.254.169.254/latest/meta-data/local-hostname)
           export PRIVATE_IP=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)
+          export PUBLIC_DNS=cdp.${PUBLIC_IP}.nip.io
           ;;
       azure)
-          export PUBLIC_DNS=cdp.${PUBLIC_IP}.nip.io
           export PRIVATE_DNS="$(cat /etc/hostname).$(grep search /etc/resolv.conf | awk '{print $2}')"
           export PRIVATE_IP=$(hostname -I | awk '{print $1}')
+          export PUBLIC_DNS=cdp.${PUBLIC_IP}.nip.io
           ;;
       gcp)
           export PRIVATE_DNS=$(curl -H "Metadata-Flavor: Google" http://169.254.169.254/computeMetadata/v1/instance/hostname)
-          export PUBLIC_DNS=$PRIVATE_DNS
           export PRIVATE_IP=$(curl -s -H "Metadata-Flavor: Google" http://169.254.169.254/computeMetadata/v1/instance/network-interfaces/0/ip)
+          export PUBLIC_DNS=$PRIVATE_DNS
           ;;
       aliyun)
           export PRIVATE_DNS=$(curl -s http://100.100.100.200/latest/meta-data/hostname)
@@ -471,11 +471,16 @@ case "${CLOUD_PROVIDER}" in
           export PRIVATE_IP=$(curl -s http://100.100.100.200/latest/meta-data/private-ipv4)
           export PUBLIC_DNS=cdp.${PRIVATE_IP}.nip.io
           ;;
+      generic)
+          export PRIVATE_DNS="$(cat /etc/hostname).$(grep search /etc/resolv.conf | awk '{print $2}')"
+          export PRIVATE_IP=$(hostname -I | awk '{print $1}')
+          export PUBLIC_DNS=cdp.${PRIVATE_IP}.nip.io
+          ;;
       *)
           export PRIVATE_DNS=$(hostname -f)
           [[ "$PRIVATE_DNS" == *"."* ]] || PRIVATE_DNS="${PRIVATE_DNS}.local"
-          export PUBLIC_DNS=$PRIVATE_DNS
           export PRIVATE_IP=$(hostname -I | awk '{print $1}')
+          export PUBLIC_DNS=$PRIVATE_DNS
 esac
 
 if [ "$PUBLIC_DNS" == "" ]; then
