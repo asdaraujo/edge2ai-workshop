@@ -20,6 +20,11 @@ CM_PRINCIPAL=cloudera-scm
 USERS_GROUP=cdp-users
 ADMINS_GROUP=cdp-admins
 
+function log_status() {
+  local msg=$1
+  echo "STATUS:$msg"
+}
+
 # Often yum connection to Cloudera repo fails and causes the instance create to fail.
 # yum timeout and retries options don't see to help in this type of failure.
 # We explicitly retry a few times to make sure the build continues when these timeouts happen.
@@ -94,7 +99,7 @@ EOF
   done
 }
 
-# Set hostname
+log_status "Setting host and domain names"
 export PRIVATE_IP=$(hostname -I | awk '{print $1}')
 export LOCAL_HOSTNAME=$(hostname -f)
 export PUBLIC_IP=$(curl -s http://ifconfig.me || curl -s http://api.ipify.org/)
@@ -113,7 +118,7 @@ if [[ -f /etc/sysconfig/network ]]; then
 fi
 echo "HOSTNAME=${PUBLIC_DNS}" >> /etc/sysconfig/network
 
-# Server install
+log_status "Installing IPA server"
 yum erase -y epel-release || true; rm -f /etc/yum.repos.r/epel* || true
 yum_install epel-release
 # The EPEL repo has intermittent refresh issues that cause errors like the one below.
@@ -128,41 +133,44 @@ ipa-server-install --hostname=$(hostname -f) -r $REALM_NAME -n $(hostname -d) -a
 # authenticate as admin
 echo "${IPA_ADMIN_PASSWORD}" | kinit admin >/dev/null
 
-# create groups
+log_status "Creating groups"
 add_groups $USERS_GROUP $ADMINS_GROUP shadow supergroup
 
-# create CM principal user and add to admins group
+log_status "Creating Cloudera Manager principal user and adding it to admins group"
 add_user admin /home/admin admins $ADMINS_GROUP "trust admins" shadow supergroup
 
 kinit -kt "${KEYTABS_DIR}/admin.keytab" admin
 ipa krbtpolicy-mod --maxlife=3600 --maxrenew=604800 || true
 
-# Add LDAP bind user
+log_status "Creating LDAP bind user"
 add_user ldap_bind_user /home/ldap_bind_user
 
-# Add users
+log_status "Creating other users"
 add_user workshop /home/workshop $USERS_GROUP
 add_user alice /home/alice $USERS_GROUP
 add_user bob /home/bob $USERS_GROUP
 
+log_status "Adding required roles"
 # Add this role to avoid racing conditions between multiple CMs coming up at the same time
 ipa role-add cmadminrole
 ipa role-add-privilege cmadminrole --privileges="Service Administrators"
 
+log_status "Starting the IPA service"
 systemctl restart krb5kdc
 systemctl enable ipa
 
-# configure and start rng-tools
+log_status "Configuring and starting rng-tools"
 grep rdrand /proc/cpuinfo || echo 'EXTRAOPTIONS="-r /dev/urandom"' >> /etc/sysconfig/rngd
 systemctl start rngd
 
-# Ensure that selinux is turned off now and at reboot
+log_status "Ensuring that SElinux is turned off now and at reboot"
 setenforce 0
 sed -i 's/SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
 
-# Make keytabs and CA cert available through the web server
+log_status "Making keytabs and CA cert available through the web server"
 ln -s /keytabs /var/www/html/keytabs
 ln -s /etc/ipa/ca.crt /var/www/html/ca.crt
 
 figlet -f small -w 300  "IPA server deployed successfully"'!' | cowsay -n -f "$(ls -1 /usr/share/cowsay | grep "\.cow" | sed 's/\.cow//' | egrep -v "bong|head-in|sodomized|telebears" | shuf -n 1)"
 echo "Completed successfully: IPA"
+log_status "IPA server installed successfully."

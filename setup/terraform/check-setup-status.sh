@@ -69,7 +69,7 @@ function check_instance_status() {
       set +e;
       timeout 60 "ssh -q -o StrictHostKeyChecking=no -i '$pvt_key' centos@$ip '$cmd'" > "${STATUS_FILE_PREFIX}.${id}.tmp"
       if [[ $? == 0 ]]; then
-        awk -v IP=$ip -v ID=$id -v KEY=$pvt_key '{print $1" "ID" "IP" "KEY}' "${STATUS_FILE_PREFIX}.${id}.tmp" > "${STATUS_FILE_PREFIX}.${id}"
+        awk -v IP=$ip -v ID=$id -v KEY=$pvt_key '{status=$1; gsub(/.*STATUS:/, "STATUS:"); print status" "ID" "IP" "KEY" "$0}' "${STATUS_FILE_PREFIX}.${id}.tmp" > "${STATUS_FILE_PREFIX}.${id}"
         awk '{print $1}' "${STATUS_FILE_PREFIX}.${id}"
       fi
       rm -f "${STATUS_FILE_PREFIX}.${id}.tmp"
@@ -141,7 +141,7 @@ function print_header() {
   echo "        ${C_NORMAL}${STATUS_FETCHING} = Fetching status, ${STATUS_RUNNING} = Running, ${STATUS_STALE} = Stale status" >&2
   echo "        ${STATUS_COMPLETED} = Completed, ${STATUS_FAILED} = Failed, ${STATUS_UNKNOWN} = Unknown" >&2
   echo "${C_WHITE}$line1" >&2
-  echo "$line2  Elapsed Time" >&2
+  echo "$line2  Elapsed Time  Status" >&2
   echo -n "${C_NORMAL}" >&2
 }
 
@@ -172,21 +172,32 @@ function get_instance_status() {
   echo $status
 }
 
+function get_active_status_message() {
+  local id=$1
+  local status_file="${STATUS_FILE_PREFIX}.${id}"
+  local status=$(awk '{print $1}' $status_file)
+  awk -v ID=$id '$1 != "completed" && $1 != "failed" && /STATUS:/{gsub(/.*STATUS:/, "["ID"] "); print}' $status_file
+}
+
 function get_status() {
   local line="$(date +%Y-%m-%d\ %H:%M:%S)  "
+  local status_msg=""
   for ip in $(web_instance | web_attr public_ip); do
     line="${line}$(get_instance_status W)"
+    [[ $status_msg == "" ]] && status_msg=$(get_active_status_message W)
   done
 
   for ip in $(ipa_instance | ipa_attr public_ip); do
     line="${line}$(get_instance_status I)"
+    [[ $status_msg == "" ]] && status_msg=$(get_active_status_message I)
   done
 
   for index in $(cluster_instances | sort -k1n | cluster_attr index); do
     line="${line}$(get_instance_status $index)"
+    [[ $status_msg == "" ]] && status_msg=$(get_active_status_message $index)
   done
 
-  echo "$line  $(printf "%12s" $(elapsed_time $START_TIME))"
+  printf "%s  %12s  %s\n" "$line" "$(elapsed_time $START_TIME)" "$status_msg"
 }
 
 function total_instances() {

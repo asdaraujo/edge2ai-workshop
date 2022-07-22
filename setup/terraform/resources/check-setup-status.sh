@@ -10,14 +10,16 @@ fi
 SCRIPT_NAME=$1
 LOG_PATH=$2
 
+LAST_STATUS=$(grep -o "STATUS:.*" $LOG_PATH | tail -1)
+
 CNT=$(ps -ef | grep "$SCRIPT_NAME" | egrep -v "$0|grep" | wc -l)
 if [[ $CNT -gt 0 ]]; then
-  echo running
+  echo "running $LAST_STATUS"
 else
   CNT=$(grep 'Setup return code: 0' $LOG_PATH 2> /dev/null | wc -l)
   if [[ $CNT -eq 0 ]]; then
-    echo failed
+    echo "failed $LAST_STATUS"
   else
-    echo completed
+    echo "completed $LAST_STATUS"
   fi
 fi

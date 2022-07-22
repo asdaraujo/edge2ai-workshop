@@ -6,14 +6,14 @@ set -o xtrace
 trap 'echo Setup return code: $?' 0
 BASE_DIR=$(cd "$(dirname $0)"; pwd -L)
 
-echo "-- Starting OneNodeCluster Setup Script"
-
 if [ "$USER" != "root" ]; then
   echo "ERROR: This script ($0) must be executed by root"
   exit 1
 fi
 
 source $BASE_DIR/common.sh
+
+log_status "Starting OneNodeCluster Setup Script"
 
 #########  Set variables upfront
 
@@ -64,7 +64,7 @@ function enable_py3() {
 
 #########  Start Packer Installation
 
-echo "-- Ensure SElinux is disabled"
+log_status "Ensuring SElinux is disabled"
 setenforce 0 || true
 if [[ -f /etc/selinux/config ]]; then
   sed -i 's/SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
@@ -78,10 +78,10 @@ else
   curl_basic_auth=""
 fi
 
-echo "-- Testing if this is a pre-packed image by looking for existing Cloudera Manager repo"
+log_status "Testing if this is a pre-packed image by looking for existing Cloudera Manager repo"
 if [[ ! -f $PREINSTALL_COMPLETED_FLAG ]]; then
-  echo "-- Cloudera Manager repo not found, assuming not prepacked"
-  echo "-- Installing EPEL repo"
+  log_status "Cloudera Manager repo not found, assuming not prepacked"
+  log_status "Installing EPEL repo"
   yum erase -y epel-release || true; rm -f /etc/yum.repos.r/epel* || true
   yum_install epel-release
   # The EPEL repo has intermittent refresh issues that cause errors like the one below.
@@ -102,7 +102,7 @@ if [[ ! -f $PREINSTALL_COMPLETED_FLAG ]]; then
     yum repolist
   fi
 
-  echo "-- Installing base dependencies"
+  log_status "Installing base dependencies"
   # nodejs, npm and forever are SMM dependencies
   curl -sL https://rpm.nodesource.com/setup_10.x | sed -E '/(script_deprecation_warning|node_deprecation_warning)$/d' | sudo bash -
   yum_install ${JAVA_PACKAGE_NAME} vim wget curl git bind-utils centos-release-scl figlet cowsay
@@ -112,12 +112,7 @@ if [[ ! -f $PREINSTALL_COMPLETED_FLAG ]]; then
   # For troubleshooting purposes, when needed
   yum_install sysstat strace iotop lsof
 
-  #echo "-- Installing redis (for SSB)"
-  #yum_install redis
-  #sudo systemctl start redis
-  #sudo systemctl enable redis
-
-  echo "-- Install CM repo"
+  log_status "Installing CM repo"
   if [ "${CM_REPO_AS_TARBALL_URL:-}" == "" ]; then
     retry_if_needed 5 5 "wget --progress=dot:giga $wget_basic_auth '${CM_REPO_FILE_URL}' -O '$CM_REPO_FILE'"
   else
@@ -150,30 +145,30 @@ gpgcheck = 0
 EOF
   fi
 
-  echo "-- Install Postgresql repo"
+  log_status "Installing Postgresql repo"
   if [[ $(rpm -qa | grep pgdg-redhat-repo- | wc -l) -eq 0 ]]; then
     yum_install https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
   fi
 
-  echo "-- Clean repos"
+  log_status "Cleaning repo cache"
   yum clean all
   rm -rf /var/cache/yum/
   # Force makecache to ensure GPG keys are loaded and accepted
   yum makecache -y || true
   yum repolist
 
-  echo "-- Install and disable Cloudera Manager"
+  log_status "Installing and disable Cloudera Manager"
   # NOTE: must disable PG repos for this install due to some weird dependencies on psycopg2,
   # which maps to Python 3 on the PG repo, but to Python 2 on base.
   yum_install --disablerepo="pgdg*" cloudera-manager-daemons cloudera-manager-agent cloudera-manager-server
   systemctl disable cloudera-scm-agent
   systemctl disable cloudera-scm-server
 
-  echo "-- Install and disable PostgreSQL"
+  log_status "Installing and disable PostgreSQL"
   yum_install postgresql10-server postgresql10 postgresql10-contrib postgresql-jdbc
   systemctl disable postgresql-10
 
-  echo "-- Handle additional installs"
+  log_status "Handling additional installs"
   # NPM install is flaky and fails intermittently so we will retry if needed
   retry_if_needed 5 5 "npm install --quiet forever -g"
   enable_py3
@@ -196,11 +191,11 @@ EOF
   ln -s /opt/rh/rh-python36/root/bin/python3 /usr/bin/python3
   ln -s /opt/rh/rh-python36/root/bin/pip3 /usr/bin/pip3
 
-  echo "-- Install JDBC connector"
+  log_status "Installing JDBC connector"
   cp /usr/share/java/postgresql-jdbc.jar /usr/share/java/postgresql-connector-java.jar
   chmod 644 /usr/share/java/postgresql-connector-java.jar
 
-  echo "-- Install Maven"
+  log_status "Installing Maven"
   retry_if_needed 5 5 "curl '$MAVEN_BINARY_URL' > /tmp/apache-maven-bin.tar.gz"
 
   tar -C "$(get_homedir $SSH_USER)" -zxvf /tmp/apache-maven-bin.tar.gz
@@ -209,7 +204,7 @@ EOF
   echo "export PATH=\$PATH:$MAVEN_BIN" >> "$(get_homedir $SSH_USER)"/.bash_profile
 
   if [[ ${HAS_CEM:-} == "1" ]]; then
-    echo "-- Get and extract CEM tarball to /opt/cloudera/cem"
+    log_status "Fetching and extracting CEM tarball to /opt/cloudera/cem"
     mkdir -p /opt/cloudera/cem
     if [ "${CEM_URL:-}" != "" ]; then
       CEM_TARBALL_NAME=$(basename ${CEM_URL%%\?*})
@@ -227,7 +222,7 @@ EOF
 
     EFM_TARBALL=$(find /opt/cloudera/cem/ -name "efm-*-bin.tar.gz" | sort | tail -1)
     if [[ ${EFM_TARBALL:-} != "" ]]; then
-      echo "-- Install and configure EFM"
+      log_status "Installing and configure EFM"
       EFM_BASE_NAME=$(basename $EFM_TARBALL | sed 's/-bin.tar.gz//')
       tar -zxf ${EFM_TARBALL} -C /opt/cloudera/cem
       rm -f /opt/cloudera/cem/efm /etc/init.d/efm
@@ -241,7 +236,7 @@ EOF
 
     MINIFI_TARBALL=$(find /opt/cloudera/cem/ -name "minifi-[0-9]*-bin.tar.gz" | sort | tail -1)
     if [[ ${MINIFI_TARBALL:-} != "" ]]; then
-      echo "-- Install and configure MiNiFi Java"
+      log_status "Installing and configure MiNiFi Java"
       MINIFI_BASE_NAME=$(basename $MINIFI_TARBALL | sed 's/-bin.tar.gz//')
       tar -zxf ${MINIFI_TARBALL} -C /opt/cloudera/cem
       rm -f /opt/cloudera/cem/minifi
@@ -250,10 +245,10 @@ EOF
 
       /opt/cloudera/cem/minifi/bin/minifi.sh install
 
-      echo "-- Disable services here for packer images - will reenable later"
+      # Disabling services here for packer images - will reenable later
       systemctl disable minifi
 
-      echo "-- Download and install MQTT Processor NAR file"
+      log_status "Downloading and installing MQTT Processor NAR file"
       retry_if_needed 5 5 "wget --progress=dot:giga https://repo1.maven.org/maven2/org/apache/nifi/nifi-mqtt-nar/1.8.0/nifi-mqtt-nar-1.8.0.nar -P /opt/cloudera/cem/minifi/lib"
       chown root:root /opt/cloudera/cem/minifi/lib/nifi-mqtt-nar-1.8.0.nar
       chmod 660 /opt/cloudera/cem/minifi/lib/nifi-mqtt-nar-1.8.0.nar
@@ -262,7 +257,7 @@ EOF
     if [[ $MINIFI_TARBALL == "" ]]; then
       CPP_MINIFI_TARBALL=$(find /opt/cloudera/cem/ -name "nifi-minifi-cpp-*-bin*.tar.gz" | sort | tail -1)
       if [[ ${CPP_MINIFI_TARBALL:-} != "" ]]; then
-        echo "-- Install and configure MiNiFi CPP"
+        log_status "Installing and configuring MiNiFi CPP"
         CPP_MINIFI_BASE_NAME=$(basename $CPP_MINIFI_TARBALL | sed 's/-bin.*tar.gz//')
         tar -zxf ${CPP_MINIFI_TARBALL} -C /opt/cloudera/cem
         rm -f /opt/cloudera/cem/minifi
@@ -271,18 +266,18 @@ EOF
 
         /opt/cloudera/cem/minifi/bin/minifi.sh install
 
-        echo "-- Disable services here for packer images - will reenable later"
+        # Disabling services here for packer images - will reenable later
         systemctl disable minifi
       fi
     fi
   fi
 
-  echo "-- Preloading large Parcels to /opt/cloudera/parcel-repo"
   mkdir -p /opt/cloudera/parcel-repo
   mkdir -p /opt/cloudera/parcels
   # We want to execute ln -s within the parcels directory for preloading
   cd "/opt/cloudera/parcels"
   if [ "${#PARCEL_URLS[@]}" -gt 0 ]; then
+    log_status "Preloading parcels to /opt/cloudera/parcel-repo"
     set -- "${PARCEL_URLS[@]}"
     while [ $# -gt 0 ]; do
       component=$1
@@ -313,7 +308,7 @@ EOF
       tar zxf "$parcel_file" -C "/opt/cloudera/parcels" &
     done
     wait
-    # Pre-activate parcels
+    log_status "Pre-activating parcels"
     for parcel_file in /opt/cloudera/parcel-repo/*.parcel; do
       parcel_name="$(basename "$parcel_file")"
       product_name="${parcel_name%%-*}"
@@ -325,8 +320,8 @@ EOF
   # return to BASE_DIR for continued execution
   cd "${BASE_DIR}"
 
-  echo "-- Install CSDs"
   if [[ ${CSD_URLS[@]:-} != "" ]]; then
+    log_status "Installing CSDs"
     for url in "${CSD_URLS[@]}"; do
       echo "---- Downloading $url"
       file_name=$(basename "${url%%\?*}")
@@ -366,52 +361,53 @@ EOF
   # Disable EPEL repo to avoid issues during agent deployment
   sed -i 's/enabled=1/enabled=0/' /etc/yum.repos.d/epel*
 
-  echo "-- Finished image preinstall"
+  log_status "Finished image preinstall"
   touch "${PREINSTALL_COMPLETED_FLAG}"
 else
-  echo "-- Cloudera Manager repo already present, assuming this is a prewarmed image"
+  log_status "Cloudera Manager repo already present, assuming this is a pre-warmed image"
+  log_status "Cleaning up previous install"
   set +e
   clean_all
   set -e
 fi
 ####### Finish packer build
 
-echo "-- Checking if executing packer build"
+log_status "Checking if executing packer build"
 if [[ ! -z ${PACKER_BUILD:+x} ]]; then
-  echo "-- Packer build detected, exiting with success"
+  log_status "Packer build detected, exiting with success"
   sleep 2
   exit 0
 else
-  echo "-- Packer build not detected, continuing with installation"
+  log_status "Packer build not detected, continuing with installation"
   sleep 2
 fi
 
 ##### Start install
 
-echo "-- Set cluster identity"
+log_status "Setting cluster identity"
 if [[ -f $BASE_DIR/clusters_metadata.sh ]]; then
   cat $BASE_DIR/clusters_metadata.sh >> /etc/profile
 fi
 
-echo "-- Make scripts executable"
+log_status "Making scripts executable"
 chmod +x $BASE_DIR/*.sh
 
-echo "-- Prewarm parcels directory"
+log_status "Pre-warming parcels directory"
 for parcel_file in $(find /opt/cloudera/parcel-repo -type f); do
   dd if="$parcel_file" of=/dev/null bs=10M &
 done
 # Prewarm distributed parcels
 $(find /opt/cloudera/parcels -type f | xargs -n 1 -P $(nproc --all) -I{} dd if={} of=/dev/null bs=10M status=none) &
 
-echo "-- Configure and optimize the OS"
-echo "-- Ensure there's plenty of entropy"
+log_status "Configuring and optimize the OS"
+log_status "Ensuring there's plenty of entropy"
 systemctl enable rngd
 systemctl start rngd
 
 # Enable Python3
 enable_py3
 
-echo "-- Configure kernel parameters"
+log_status "Configuring kernel parameters"
 echo never > /sys/kernel/mm/transparent_hugepage/enabled
 echo never > /sys/kernel/mm/transparent_hugepage/defrag
 echo "echo never > /sys/kernel/mm/transparent_hugepage/enabled" >> /etc/rc.d/rc.local
@@ -426,7 +422,7 @@ EOF
 sysctl -p
 timedatectl set-timezone UTC
 
-echo "-- Disable firewalls"
+log_status "Disabling firewalls"
 iptables-save > $BASE_DIR/firewall.rules
 FWD_STATUS=$(systemctl is-active firewalld || true)
 if [[ "${FWD_STATUS}" != "unknown" ]]; then
@@ -435,17 +431,17 @@ if [[ "${FWD_STATUS}" != "unknown" ]]; then
 fi
 
 if [ "$(grep 3333 /etc/httpd/conf/httpd.conf > /dev/null && echo ok || echo no)" == "ok" ]; then
-  echo "-- Enable httpd to serve local repository"
+  log_status "Enabling httpd to serve local repository"
   systemctl restart httpd
 fi
 
-echo "-- Enable password authentication"
+log_status "Enabling password authentication"
 sed -i.bak 's/PasswordAuthentication *no/PasswordAuthentication yes/' /etc/ssh/sshd_config
 
-echo "-- Reset SSH user password"
+log_status "Resetting SSH user password"
 echo "$SSH_PWD" | sudo passwd --stdin "$SSH_USER"
 
-echo "-- Handle cases for cloud provider customisations"
+log_status "Handling cloud provider specific settings"
 case "${CLOUD_PROVIDER}" in
       aws)
           sed -i.bak '/server 169.254.169.123/ d' /etc/chrony.conf
@@ -490,7 +486,8 @@ fi
 export CLUSTER_HOST=$PUBLIC_DNS
 export CDSW_DOMAIN=cdsw${PUBLIC_DNS#cdp}
 
-echo "-- Set /etc/hosts - Public DNS must come first"
+log_status "Setting up /etc/hosts"
+# Public DNS must come first"
 sed -i.bak "/${LOCAL_HOSTNAME}/d;/^${PRIVATE_IP}/d;/^::1/d" /etc/hosts
 echo "$PRIVATE_IP $PUBLIC_DNS $PRIVATE_DNS $LOCAL_HOSTNAME" >> /etc/hosts
 if [[ $IPA_HOST != "" ]]; then
@@ -500,12 +497,12 @@ if [[ $IPA_HOST != "" ]]; then
   fi
 fi
 
-echo "-- Force domain name"
+log_status "Setting domain name"
 sed -i.bak '/kernel.domainname/d' /etc/sysctl.conf
 echo "kernel.domainname=${PUBLIC_DNS#*.}" >> /etc/sysctl.conf
 sysctl -p
 
-echo "-- Configure networking"
+log_status "Configuring networking"
 hostnamectl set-hostname $CLUSTER_HOST
 if [[ -f /etc/sysconfig/network ]]; then
   sed -i "/HOSTNAME=/ d" /etc/sysconfig/network
@@ -514,25 +511,26 @@ echo "HOSTNAME=${CLUSTER_HOST}" >> /etc/sysconfig/network
 
 if [ "$(is_kerberos_enabled)" == "yes" ]; then
   if [[ ${KERBEROS_TYPE} == "MIT" ]]; then
-    echo "-- Install Kerberos KDC"
+    log_status "Installing Kerberos KDC"
     install_kerberos
   else
-    echo "-- Install IPA client"
+    log_status "Installing IPA client"
     install_ipa_client "$IPA_HOST"
-    echo "-- Ensure user homedirs are created when using IPA"
   fi
 fi
 
-echo "-- Add users - after Kerberos installation so that principals are also created correctly, if needed"
+log_status "Adding users"
+# After Kerberos installation so that principals are also created correctly, if needed
 add_user workshop /home/workshop cdp-users
 add_user admin /home/admin cdp-admins,shadow,supergroup
 add_user alice /home/alice cdp-users
 add_user bob /home/bob cdp-users
 
-echo "-- Create certs. This is done even if ENABLE_TLS == no, since ShellInABox always needs a cert"
+log_status "Creating TLS certificates"
+# This is done even if ENABLE_TLS == no, since ShellInABox always needs a cert
 create_certs "$IPA_HOST"
 
-echo "-- Enable and start ShelInABox"
+log_status "Enabling and starting ShelInABox"
 systemctl enable shellinaboxd
 systemctl restart shellinaboxd
 # Patch ShellInABox's JS to allow for multi-line pastes
@@ -560,7 +558,7 @@ else
     echo "CDSW is not selected, skipping CDSW installation";
 fi
 
-echo "-- Configure PostgreSQL"
+log_status "Configuring PostgreSQL"
 echo 'LC_ALL="en_US.UTF-8"' >> /etc/locale.conf
 /usr/pgsql-10/bin/postgresql-10-setup initdb
 sed -i '/host *all *all *127.0.0.1\/32 *ident/ d' /var/lib/pgsql/10/data/pg_hba.conf
@@ -579,7 +577,7 @@ wal_buffers = 8MB
 checkpoint_completion_target = 0.9
 EOF
 
-echo "-- Configure postgresql for Debezium use"
+log_status "Configuring PostgreSQL for Debezium use"
 sed -i '/^[ #]*\(wal_level\|max_wal_senders\|max_replication_slots\) *=.*/ d' /var/lib/pgsql/10/data/postgresql.conf
 cat >> /var/lib/pgsql/10/data/postgresql.conf <<EOF
 wal_level = logical
@@ -587,14 +585,14 @@ max_wal_senders = 10
 max_replication_slots = 10
 EOF
 
-echo "-- Start PostgreSQL"
+log_status "Starting PostgreSQL"
 systemctl enable postgresql-10
 systemctl start postgresql-10
 
-echo "-- Create DBs required by CM"
+log_status "Creating required databases"
 sudo -u postgres psql -v the_pwd="${THE_PWD}" < ${BASE_DIR}/create_db_pg.sql
 
-echo "-- Prepare CM database 'scm'"
+log_status "Preparing Cloudera Manager database"
 if [[ $CM_MAJOR_VERSION != 5 ]]; then
   SCM_PREP_DB=/opt/cloudera/cm/schema/scm_prepare_database.sh
 else
@@ -602,13 +600,13 @@ else
 fi
 $SCM_PREP_DB postgresql scm scm "${THE_PWD}"
 
-echo "-- Install additional CSDs"
+log_status "Installing additional CSDs, if any"
 for csd in $(find $BASE_DIR/csds -name "*.jar"); do
   echo "---- Copying $csd"
   cp $csd /opt/cloudera/csd/
 done
 
-echo "-- Install additional parcels"
+log_status "Installing additional parcels, if any"
 for parcel in $(find $BASE_DIR/parcels -name "*.parcel"); do
   echo "---- Copying ${parcel}"
   cp ${parcel} /opt/cloudera/parcel-repo/
@@ -616,16 +614,16 @@ for parcel in $(find $BASE_DIR/parcels -name "*.parcel"); do
   cp ${parcel}.sha /opt/cloudera/parcel-repo/
 done
 
-echo "-- Set CSDs and parcel repo permissions"
+log_status "Setting CSDs and parcel repo permissions"
 chown -R cloudera-scm:cloudera-scm /opt/cloudera/csd /opt/cloudera/parcel-repo
 chmod 644 $(find /opt/cloudera/csd /opt/cloudera/parcel-repo -type f)
 
-echo "-- Start CM, it takes about 2 minutes to be ready"
+log_status "Starting Cloudera Manager"
 systemctl enable cloudera-scm-server
 systemctl enable cloudera-scm-agent
 systemctl start cloudera-scm-server
 
-echo "-- Enable passwordless root login via rsa key"
+log_status "Enabling password-less root login"
 rm -f $KEY_FILE
 ssh-keygen -f $KEY_FILE -t rsa -N ""
 mkdir -p ~/.ssh
@@ -635,27 +633,28 @@ chmod 400 ~/.ssh/authorized_keys
 ssh-keyscan -H $(hostname) >> ~/.ssh/known_hosts
 systemctl restart sshd
 
-echo "-- Check for additional parcels"
+log_status "Checking for additional parcels"
 chmod +x ${BASE_DIR}/check-for-parcels.sh
 
+log_status "Waiting for Cloudera Manager to be ready"
 wait_for_cm
 
-echo "-- Reset CM admin password"
+log_status "Resetting Cloudera Manager admin password"
 sudo -u postgres psql -d scm -c "update users set password_hash = '${THE_PWD_HASH}', password_salt = ${THE_PWD_SALT} where user_name = 'admin'"
 
 enable_py3
 if [[ ${HAS_FLINK:-0} == 1 ]]; then
-  echo "-- Install SSB dependencies"
+  log_status "Installing SSB dependencies"
   mkdir -p /usr/share/python3
   pip3 install \
     mysql-connector-python==8.0.23 psycopg2-binary==2.8.5 \
     -t /usr/share/python3
 fi
 
-echo "-- Generate cluster template"
+log_status "Generating cluster template"
 python -u $BASE_DIR/cm_template.py --cdh-major-version $CDH_MAJOR_VERSION $CM_SERVICES > $TEMPLATE_FILE
 
-echo "-- Create cluster"
+log_status "Creating cluster"
 if [[ $(is_kerberos_enabled) == "yes" ]]; then
   KERBEROS_OPTION="--use-kerberos --kerberos-type $KERBEROS_TYPE"
 else
@@ -679,7 +678,7 @@ CM_REPO_URL=$(grep baseurl $CM_REPO_FILE | sed 's/.*=//;s/ //g')
 NETSTAT_PID=$!
 trap "kill -9 $NETSTAT_PID;"' echo Setup return code: $?' 0
 
-echo "-- Setup Cloudera Manager"
+log_status "Configuring Cloudera Manager"
 python -u $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
   --setup-cm \
     --key-file $KEY_FILE \
@@ -688,10 +687,10 @@ python -u $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
     $KERBEROS_OPTION \
     $(get_create_cluster_tls_option)
 
-echo "-- Restart CM"
+log_status "Restarting Cloudera Manager"
 systemctl restart cloudera-scm-server
 
-echo "-- Reconfigure agent"
+log_status "Configuring Cloudera Manager agent"
 if [[ ! -f /etc/cloudera-scm-agent/config.ini.original ]]; then
   cp /etc/cloudera-scm-agent/config.ini /etc/cloudera-scm-agent/config.ini.original
 fi
@@ -708,18 +707,18 @@ if [ "$(is_tls_enabled)" == "yes" ]; then
      /etc/cloudera-scm-agent/config.ini
 fi
 
-echo "-- Restart agent"
+log_status "Restarting agent"
 systemctl restart cloudera-scm-agent
 
-echo "-- Wait for CM to be ready"
+log_status "Waiting for Cloudera Manager to be ready"
 wait_for_cm
 
-echo "-- Create external accounts"
 if [[ ${HAS_SRM:-0} == 1 ]]; then
+  log_status "Creating external accounts"
   create_peer_kafka_external_account
 fi
 
-echo "-- Create cluster"
+log_status "Creating cluster"
 python -u $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
   --create-cluster \
     --template $TEMPLATE_FILE \
@@ -729,26 +728,25 @@ python -u $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
 kill -9 $NETSTAT_PID || true
 trap 'echo Setup return code: $?' 0
 
-echo "-- Set shadow permissions - needed by Knox when using PAM authentication"
 chgrp shadow /etc/shadow
 chmod g+r /etc/shadow
 id knox > /dev/null 2>&1 && usermod -G knox,hadoop,shadow knox || echo "User knox does not exist. Skipping usermod"
 if [[ ${HAS_KNOX:-0} == 1 ]]; then
+  log_status "Setting shadow permissions - needed by Knox when using PAM authentication"
   curl -k -L -X POST -u admin:${THE_PWD} "$(get_cm_base_url)/api/v19/clusters/OneNodeCluster/services/knox/commands/restart"
 fi
 
-echo "-- Ensure Zepellin is on the shadow group for PAM auth to work (service needs restarting)"
 id zeppelin > /dev/null 2>&1 && usermod -G shadow zeppelin || echo "User zeppelin does not exist. Skipping usermod"
 if [[ ${HAS_ZEPPELIN:-0} == 1 ]]; then
+  log_status "Ensuring Zepellin is on the shadow group for PAM auth to work (service needs restarting)"
   curl -k -L -X POST -u admin:${THE_PWD} "$(get_cm_base_url)/api/v19/clusters/OneNodeCluster/services/zeppelin/commands/restart"
 fi
 
-echo "-- Tighten permissions"
 if [[ "$(is_tls_enabled)" == "yes" ]]; then
+  log_status "Tightening permissions"
   tighten_keystores_permissions
 fi
 
-echo "-- Set Ranger policies for NiFi"
 if [[ ${HAS_RANGER:-0} == 1 && ${HAS_NIFI:-0} == 1 ]]; then
   JOB_ID=$(curl -s -k -L -X POST -u admin:"${THE_PWD}" "$(get_cm_base_url)/api/v19/clusters/OneNodeCluster/services/ranger/commands/restart" | jq '.id')
   while true; do
@@ -756,11 +754,12 @@ if [[ ${HAS_RANGER:-0} == 1 && ${HAS_NIFI:-0} == 1 ]]; then
     echo "Waiting for Ranger to restart"
     sleep 1
   done
+  log_status "Setting Ranger policies for NiFi"
   $BASE_DIR/ranger_policies.sh "$(is_tls_enabled)"
 fi
 
 if [[ ${HAS_CEM:-} == "1" ]]; then
-  echo "-- Configure and start EFM"
+  log_status "Configuring and starting EFM"
   sed -i.bak \
 's#^efm.server.address=.*#efm.server.address='"${CLUSTER_HOST}"'#;'\
 's#^efm.server.port=.*#efm.server.port=10088#;'\
@@ -817,8 +816,8 @@ if [[ ${HAS_CEM:-} == "1" ]]; then
     echo "Retrying to start EFM ($retries)"
   done
 
-  echo "-- Configure and start MiNiFi"
   if [[ -f /opt/cloudera/cem/minifi/conf/bootstrap.conf ]]; then
+    log_status "Configuring and starting MiNiFi"
     # MiNiFi Java
     sed -i.bak \
 's%^[ #]*nifi.minifi.sensitive.props.key *=.*%nifi.minifi.sensitive.props.key=clouderaclouderacloudera%;'\
@@ -897,11 +896,11 @@ if [[ ${HAS_CEM:-} == "1" ]]; then
   fi
 fi
 
-echo "-- Enable and start MQTT broker"
+log_status "Enabling and starting MQTT broker"
 systemctl enable mosquitto
 systemctl start mosquitto
 
-echo "-- Copy demo files to a public directory"
+log_status "Copying demo files to a public directory"
 mkdir -p /opt/demo
 cp -f $BASE_DIR/simulate.py /opt/demo/
 cp -f $BASE_DIR/spark.iot.py /opt/demo/
@@ -910,7 +909,7 @@ chmod -R 775 /opt/demo
 # TODO: Implement Ranger DB and Setup in template
 # TODO: Fix kafka topic creation once Ranger security is setup
 if [[ ${HAS_KAFKA:-0} == 1 ]]; then
-  echo "-- Create Kafka topic (iot)"
+  log_status "Creating Kafka topics"
   auth admin
   # Avoid timeouts right after the cluster was created, which we have seen in some environments that have slow disks.
   echo "request.timeout.ms=60000" >> $KAFKA_CLIENT_PROPERTIES
@@ -935,7 +934,7 @@ if [[ ${HAS_ATLAS:-0} == 1 ]]; then
     ATLAS_PORT=31000
   fi
   while [[ $RETRIES -gt 0 ]]; do
-    echo "-- Wait for Atlas to be ready ($RETRIES retries left)"
+    log_status "Wait for Atlas to be ready ($RETRIES retries left)"
     set +e
     ret_code=$(curl -w '%{http_code}' -s -o /dev/null -k --location -u admin:${THE_PWD} "${ATLAS_PROTO}://${CLUSTER_HOST}:${ATLAS_PORT}/api/atlas/v2/types/typedefs")
     set -e
@@ -948,7 +947,7 @@ if [[ ${HAS_ATLAS:-0} == 1 ]]; then
   done
 
   if [[ $ATLAS_OK -eq 1 ]]; then
-    echo "-- Load Flink entities in Atlas"
+    log_status "Loading Flink entities in Atlas"
     curl \
       -k --location \
       -u admin:${THE_PWD} \
@@ -1024,7 +1023,7 @@ if [[ ${HAS_ATLAS:-0} == 1 ]]; then
 
 
   if [[ ${HAS_NIFI:-0} == 1 ]]; then
-    echo "-- Restart NiFi Default Atlas Reporting Task"
+    log_status "Restarting NiFi Default Atlas Reporting Task"
     nifi_reporting_task_state "Default Atlas Reporting Task" "STOPPED"
     sleep 1
     nifi_reporting_task_state "Default Atlas Reporting Task" "RUNNING"
@@ -1032,14 +1031,15 @@ if [[ ${HAS_ATLAS:-0} == 1 ]]; then
 fi
 
 if [[ ${HAS_FLINK:-0} == 1 ]]; then
-  echo "-- Flink: extra workaround due to CSA-116"
+  # Flink: extra workaround due to CSA-116
+  log_status "Setting HDFS permissions for Flink"
   auth admin
   retry_if_needed 60 1 "hdfs dfs -chown flink:flink /user/flink"
   retry_if_needed 60 1 "hdfs dfs -mkdir /user/admin"
   retry_if_needed 60 1 "hdfs dfs -chown admin:admin /user/admin"
   unauth
 
-  echo "-- Runs a quick Flink WordCount to ensure everything is ok"
+  log_status "Running a quick Flink WordCount to ensure everything is ok"
   if [[ $(is_kerberos_enabled) == "yes" ]]; then
     FLINK_KRB_OPTIONS="-yD security.kerberos.login.keytab=/keytabs/admin.keytab -yD security.kerberos.login.principal=admin"
   else
@@ -1059,17 +1059,18 @@ if [[ ${HAS_FLINK:-0} == 1 ]]; then
 fi
 
 if [ "${HAS_CDSW:-}" == "1" ]; then
-  echo "-- Initiate CDSW setup in the background",
+  log_status "Initiating CDSW setup in the background",
   nohup python -u /tmp/resources/cdsw_setup.py $(echo "$PUBLIC_DNS" | sed -E 's/cdp.(.*).nip.io/\1/') /tmp/resources/iot_model.pkl /tmp/resources/the_pwd.txt > /tmp/resources/cdsw_setup.log 2>&1 &
 fi
 
-echo "-- Cleaning up"
+log_status "Cleaning up"
 rm -f $BASE_DIR/stack.*.sh* $BASE_DIR/stack.sh*
 
 if [[ -f /etc/workshop.conf ]]; then
   source /etc/workshop.conf
-  echo "-- At this point you can login into Cloudera Manager host on port 7180 and follow the deployment of the cluster"
+  echo "At this point you can login into Cloudera Manager host on port 7180 and follow the deployment of the cluster"
   figlet -f small -w 300  "Cluster  ${CLUSTER_ID:-???}  deployed successfully"'!' | cowsay -n -f "$(ls -1 /usr/share/cowsay | grep "\.cow" | sed 's/\.cow//' | egrep -v "bong|head-in|sodomized|telebears" | shuf -n 1)"
   echo "Completed successfully: CLUSTER ${CLUSTER_ID:-???}"
+  log_status "Cluster deployed successfully"
 fi
 

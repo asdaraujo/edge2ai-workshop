@@ -11,6 +11,11 @@ DB_NAME=workshop
 DB_USER=workshop
 DB_PWD=supersecret1
 
+function log_status() {
+  local msg=$1
+  echo "STATUS:$msg"
+}
+
 # Often yum connection to Cloudera repo fails and causes the instance create to fail.
 # yum timeout and retries options don't see to help in this type of failure.
 # We explicitly retry a few times to make sure the build continues when these timeouts happen.
@@ -35,12 +40,12 @@ function yum_install() {
   done
 }
 
-# Disable SElinux
+log_status "Disabling SElinux"
 sudo setenforce 0
 sudo sed -i.bak 's/^ *SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
 sudo sestatus
 
-## MariaDB 10.8 repo file
+log_status "Creating MariaDB 10.8 repo file"
 sudo bash -c "
 cat > /etc/yum.repos.d/MariaDB.repo <<EOF
 [mariadb]
@@ -51,7 +56,7 @@ gpgcheck=1
 EOF
 "
 
-# Install stuff
+log_status "Installing what we need"
 sudo yum erase -y epel-release || true
 rm -f /etc/yum.repos.r/epel* || true
 yum_install epel-release
@@ -62,7 +67,7 @@ sudo sed -i 's/metalink=/#metalink=/;s/#*baseurl=/baseurl=/' /etc/yum.repos.d/ep
 
 yum_install python36-pip python36 supervisor nginx MariaDB-server MariaDB-client figlet cowsay
 
-# Start MariaDB
+log_status "Starting MariaDB"
 sudo bash -c "
 cat > /etc/my.cnf <<EOF
 [mysqld]
@@ -105,7 +110,7 @@ EOF
 sudo systemctl enable mariadb
 sudo systemctl start mariadb
 
-# Create databases
+log_status "Creating databases"
 sudo mysql -u root <<EOF
 create database ${DB_NAME} character set utf8 collate utf8_bin;
 create user '${DB_USER}'@'${DB_HOST}' identified by '${DB_PWD}';
@@ -113,7 +118,7 @@ grant all privileges on ${DB_NAME}.* to '${DB_USER}'@'${DB_HOST}';
 flush privileges;
 EOF
 
-# Secure MariaDB
+log_status "Securing MariaDB"
 sudo mysql -u root <<EOF
 SET PASSWORD = PASSWORD('${DB_PWD}');
 DELETE FROM mysql.user WHERE User='';
@@ -122,26 +127,26 @@ DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';
 FLUSH PRIVILEGES;
 EOF
 
-# Prepare virtualenv
+log_status "Preparing virtualenv"
 python3 -m venv $BASE_DIR/env
 source $BASE_DIR/env/bin/activate
 pip install --quiet --upgrade pip virtualenv
 pip install --progress-bar off -r $BASE_DIR/requirements.txt
 pip install --progress-bar off gunicorn pymysql
 
-# Setup env
+log_status "Setting up environment"
 cat > $BASE_DIR/.env <<EOF
 SECRET_KEY=$(python3 -c "import uuid; print(uuid.uuid4().hex)")
 DATABASE_URL=mysql+pymysql://workshop:${DB_PWD}@${DB_HOST}:3306/${DB_NAME}
 EOF
 
-# Initialize database tables
+log_status "Initializing database tables"
 rm -rf $BASE_DIR/app.db $BASE_DIR/migrations
 flask db init
 flask db migrate -m "initial tables"
 flask db upgrade
 
-# Setup supervisord
+log_status "Setting up supervisord"
 sudo bash -c "
 cat > /etc/supervisord.d/workshop.ini <<EOF
 [program:workshop]
@@ -155,19 +160,19 @@ killasgroup=true
 EOF
 "
 
-# Start supervisord
+log_status "Starting supervisord"
 sudo systemctl enable supervisord
 sudo systemctl start supervisord
 sudo /usr/bin/supervisorctl reload
 
-# Create nginx certs
+log_status "Creating nginx certificates"
 sudo -u nginx mkdir -p /var/lib/nginx/certs
 sudo -u nginx chown nginx:nginx /var/lib/nginx/certs
 sudo -u nginx chmod 700 /var/lib/nginx/certs
 sudo -u nginx openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 -keyout /var/lib/nginx/certs/key.pem \
   -out /var/lib/nginx/certs/cert.pem -subj "/C=US/ST=California/L=San Francisco/O=Cloudera/OU=DIM/CN=$(hostname -f)"
 
-# Configure nginx
+log_status "Configuring nginx"
 sudo bash -c '
 cat > /etc/nginx/conf.d/workshop.conf <<'\''EOF'\''
 server {
@@ -261,14 +266,14 @@ http {
 EOF
 '
 
-# Relax homedir permissions so that nginx can access static files
+# Relaxing homedir permissions so that nginx can access static files
 chmod 755 $HOME
 
-# Start nginx
+log_status "Starting nginx"
 sudo systemctl enable nginx
 sudo systemctl start nginx
 sudo systemctl reload nginx
 
-# Completed
+log_status "Setup completed"
 figlet -f small -w 300  "Web server deployed successfully"'!' | cowsay -n -f "$(ls -1 /usr/share/cowsay | grep "\.cow" | sed 's/\.cow//' | egrep -v "bong|head-in|sodomized|telebears" | shuf -n 1)"
 echo "Completed successfully: WEB"

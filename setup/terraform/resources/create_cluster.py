@@ -31,7 +31,7 @@ def print_cmd(cmd, indent=0):
     details = [
         'Cluster: ' + (
             cmd.cluster_ref.display_name if cmd.cluster_ref.display_name else cmd.cluster_ref.cluster_name) if cmd.cluster_ref else '',
-        'Service: ' + cmd.service_ref.service_name if cmd.service_ref else '',
+        'Service: ' + (cmd.service_ref.service_display_name if cmd.service_ref.service_display_name else cmd.service_ref.service_name) if cmd.service_ref else '',
         'Role: ' + cmd.role_ref.role_name if cmd.role_ref else '',
         'Host: ' + cmd.host_ref.hostname if cmd.host_ref else '',
     ]
@@ -42,9 +42,17 @@ def print_cmd(cmd, indent=0):
         details = ''
     msg = '%sCmd ID: %s, Name: %s, Status: %s%s %s' % (indent_str, cmd_id, cmd_name, cmd_status, cmd_msg, details)
     print(msg)
+    latest_child_details = None
     if cmd.children and cmd.children.items:
-        for child in sorted(cmd.children.items, key=lambda x: x.id):
-            print_cmd(child, indent + 2)
+        is_child_active = False
+        for child in sorted(cmd.children.items, key=lambda x: (x.end_time or '9999', x.start_time or '9999')):
+            _, child_details = print_cmd(child, indent + 2)
+            if not is_child_active:
+                is_child_active = child.active
+                latest_child_details = child_details
+    if latest_child_details:
+        latest_child_details = '-> %s' % (latest_child_details,)
+    return cmd_status, ' '.join(item for item in [cmd_name, details, latest_child_details] if item)
 
 
 def _get_parser():
@@ -249,7 +257,8 @@ class ClusterCreator:
             while True:
                 cmd = self.command_api.read_command(int(cmd.id))
                 print(datetime.strftime(datetime.now(), '%c'))
-                print_cmd(cmd)
+                status, details = print_cmd(cmd)
+                print('STATUS:%s: %s' % (status, details))
                 if not cmd.active:
                     return cmd
 
