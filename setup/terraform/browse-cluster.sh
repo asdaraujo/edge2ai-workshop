@@ -6,7 +6,7 @@ BASE_DIR=$(cd $(dirname $0); pwd -L)
 source $BASE_DIR/lib/common-basics.sh
 
 if [ $# != 2 -a $# != 3 ]; then
-  echo "Syntax: $0 <namespace> <cluster_number>"
+  echo "Syntax: $0 <namespace> <cluster_number> [socks_proxy_port]"
   show_namespaces
   exit 1
 fi
@@ -17,16 +17,27 @@ PROXY_PORT=${3:-}
 export NO_DOCKER_EXEC=1
 source $BASE_DIR/lib/common.sh
 
-PUBLIC_DNS=$(try_in_docker $NAMESPACE public_dns $CLUSTER_ID)
-if [ "$PUBLIC_DNS" == "" ]; then
-  echo "ERROR: Cluster ID $CLUSTER_ID not found."
+SERVICE_URLS=$(try_in_docker $NAMESPACE 'source $BASE_DIR/resources/common.sh; validate_stack $NAMESPACE $BASE_DIR/resources; get_service_urls')
+if [ "$SERVICE_URLS" == "" ]; then
+  echo "ERROR: Couldn't retrieve the service URLs for namespace $NAMESPACE."
   exit 1
 fi
 
-PUBLIC_IP=$(try_in_docker $NAMESPACE public_ip $CLUSTER_ID)
+PUBLIC_DNS=$(try_in_docker $NAMESPACE "public_dns $CLUSTER_ID")
+PUBLIC_IP=$(try_in_docker $NAMESPACE "public_ip $CLUSTER_ID")
 if [ "$PROXY_PORT" != "" ]; then
   PROXY_PORT="--proxy-server=socks5://localhost:$PROXY_PORT"
 fi
+
+CM_URL=$(url_for_ip $(echo "$SERVICE_URLS" | service_url CM) $PUBLIC_IP)
+EFM_URL=$(url_for_ip $(echo "$SERVICE_URLS" | service_url EFM) $PUBLIC_IP)
+NIFI_URL=$(url_for_ip $(echo "$SERVICE_URLS" | service_url NIFI) $PUBLIC_IP)
+NIFIREG_URL=$(url_for_ip $(echo "$SERVICE_URLS" | service_url NIFIREG) $PUBLIC_IP)
+SR_URL=$(url_for_ip $(echo "$SERVICE_URLS" | service_url SR) $PUBLIC_IP)
+SMM_URL=$(url_for_ip $(echo "$SERVICE_URLS" | service_url SMM) $PUBLIC_IP)
+HUE_URL=$(url_for_ip $(echo "$SERVICE_URLS" | service_url HUE) $PUBLIC_IP)
+SSB_URL=$(url_for_ip $(echo "$SERVICE_URLS" | service_url SSB) $PUBLIC_IP)
+CDSW_URL=$(url_for_ip $(echo "$SERVICE_URLS" | service_url CDSW) $PUBLIC_IP)
 
 #kerb_auth_for_cluster $CLUSTER_ID
 
@@ -41,13 +52,13 @@ touch "${BROWSER_DIR}/First Run"
   --auth-server-whitelist="$PUBLIC_DNS" \
   --auth-negotiate-delegatewhitelist="$PUBLIC_DNS" \
   $PROXY_PORT \
-  http://$PUBLIC_DNS:7180 \
-  http://$PUBLIC_DNS:10088/efm/ui \
-  http://$PUBLIC_DNS:8080/nifi/ \
-  http://$PUBLIC_DNS:18080/nifi-registry \
-  http://$PUBLIC_DNS:7788 \
-  http://$PUBLIC_DNS:9991 \
-  http://$PUBLIC_DNS:8888 \
-  http://cdsw.$PUBLIC_IP.nip.io \
-  http://$PUBLIC_DNS:8000
+  $CM_URL \
+  $EFM_URL \
+  $NIFI_URL \
+  $NIFIREG_URL \
+  $SR_URL \
+  $SMM_URL \
+  $HUE_URL \
+  $CDSW_URL \
+  $SSB_URL
 

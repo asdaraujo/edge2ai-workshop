@@ -14,6 +14,7 @@ from app.models import User, Cluster, Config
 
 basic_auth = HTTPBasicAuth()
 
+
 @basic_auth.verify_password
 def verify_password(email, pwd):
     """Verify the admin password, given the admin email and a password candidate
@@ -21,6 +22,7 @@ def verify_password(email, pwd):
     user = User.query.filter_by(email=email).first()
     if user is not None and user.check_password(pwd):
         return user
+
 
 @app.route('/')
 @app.route('/index')
@@ -31,7 +33,8 @@ def index_page():
     urls = []
     if current_user.cluster:
         urls = service_urls(current_user.cluster.namespace)
-    return render_template('index.html', title='Home', service_urls=urls, user=current_user)\
+    return render_template('index.html', title='Home', service_urls=urls, user=current_user)
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login_page():
@@ -47,7 +50,8 @@ def login_page():
             reg_code = Config.query.get(Config.REGISTRATION_CODE)
             if reg_code is None or not reg_code.check_hash(form.password.data):
                 flash('Invalid username or password.')
-                app.logger.warn("Invalid registration for user {} from IP {}".format(form.email.data, get_real_ip(request)))
+                app.logger.warn(
+                    "Invalid registration for user {} from IP {}".format(form.email.data, get_real_ip(request)))
                 return redirect(url_for('login_page'))
             return redirect(url_for('register_and_login_page', next=next_page), code=307)
         else:
@@ -67,6 +71,7 @@ def login_page():
             next_page = url_for('index_page')
         return redirect(next_page)
     return render_template('login.html', title='Sign In', form=form)
+
 
 @app.route('/passwordreset', methods=['POST'])
 def password_reset_page():
@@ -89,6 +94,7 @@ def password_reset_page():
             next_page = url_for('index_page')
         return redirect(next_page)
     return render_template('password.html', title='Reset Password', form=form)
+
 
 @app.route('/register', methods=['POST'])
 def register_and_login_page():
@@ -118,6 +124,7 @@ def register_and_login_page():
         return redirect(next_page)
     return render_template('register.html', title='Sign In', form=form)
 
+
 @app.route('/logout')
 @login_required
 def logout_page():
@@ -125,6 +132,7 @@ def logout_page():
     """
     logout_user()
     return redirect(url_for('login_page'))
+
 
 @app.route('/download/<cluster_id>')
 @login_required
@@ -138,6 +146,7 @@ def download_page(cluster_id):
             mimetype="text/json",
             headers={"Content-disposition": "attachment; filename=workshop.pem"})
     return None
+
 
 @app.route('/users', methods=['GET', 'POST'])
 @login_required
@@ -164,6 +173,7 @@ def users_page():
     users = User.query.all()
     return render_template('users.html', users=users)
 
+
 @app.route('/clusters', methods=['GET', 'POST'])
 @login_required
 def clusters_page():
@@ -179,6 +189,7 @@ def clusters_page():
         return redirect(url_for('clusters_page'), code=303)
     clusters = Cluster.query.all()
     return render_template('clusters.html', clusters=clusters, code=303)
+
 
 # REST
 
@@ -208,6 +219,7 @@ def create_admin():
     db.session.commit()
     return jsonify({'success': True, 'message': 'Admin user created successfully.'})
 
+
 @app.route('/api/clusters', methods=['POST'])
 @basic_auth.login_required
 def add_cluster():
@@ -225,7 +237,7 @@ def add_cluster():
     has_ssh_pk = 'ssh_private_key' in request.json and \
                  isinstance(request.json['ssh_private_key'], str)
     if not request.json or not has_ip_address or not has_namespace or not has_instance_id or \
-       not has_hostname or not has_ssh_user or not has_ssh_pwd or not has_ssh_pk:
+            not has_hostname or not has_ssh_user or not has_ssh_pwd or not has_ssh_pk:
         return jsonify({'success': False, 'message': 'No JSON payload or payload is invalid'}), 400
     try:
         cluster = Cluster(ip_address=request.json['ip_address'],
@@ -241,9 +253,10 @@ def add_cluster():
     except IntegrityError as exc:
         if isinstance(exc.orig, PyMysqlIntegrityError) and isinstance(exc.orig.args, tuple) and len(exc.orig.args) == 2:
             code, msg = exc.orig.args
-            if code == 1062: # duplicated cluster
+            if code == 1062:  # duplicated cluster
                 return jsonify({'success': False, 'message': msg}), 400
         raise exc
+
 
 @app.route('/api/config', methods=['POST', 'DELETE'])
 @basic_auth.login_required
@@ -287,6 +300,7 @@ def config():
         except IntegrityError as exc:
             raise exc
 
+
 @app.route('/api/ips', methods=['GET'])
 @basic_auth.login_required
 def ips():
@@ -298,11 +312,13 @@ def ips():
     all_ips = set([u.last_remote_ip for u in User.query.all() if u.last_remote_ip])
     return jsonify({'success': True, 'ips': list(all_ips)})
 
+
 @app.route('/api/ping', methods=['GET'])
 def ping():
     """Respond to a ping
     """
     return jsonify({'success': True, 'message': 'Pong!'})
+
 
 def get_real_ip(request):
     """Get client IP
@@ -311,10 +327,11 @@ def get_real_ip(request):
         return request.headers['X-Real-Ip']
     return request.remote_addr
 
+
 def service_urls(namespace):
     """Return the service URLs
     """
     urls = Config.query.get(Config.NAMESPACE_URLS_PREFIX + namespace)
     if urls:
-        return [s.split('=') for s in urls.value.split(',')]
+        return [s.split('=')[1:] for s in urls.value.split(',')]
     return []

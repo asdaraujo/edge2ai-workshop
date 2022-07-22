@@ -256,9 +256,9 @@ function try_in_docker() {
       -e NO_LOG_FETCH=${NO_LOG_FETCH:-} \
       -e HOSTS_ADD=$(basename $PUBLIC_IPS_FILE) \
       $docker_img \
-      /bin/bash -c "cd /edge2ai-workshop/setup/terraform; export BASE_DIR=\$PWD; export NO_DOCKER_MSG=1; source lib/common.sh; load_env $namespace; ${cmd[@]}"
+      /bin/bash -c "cd /edge2ai-workshop/setup/terraform; export BASE_DIR=\$PWD; export NO_DOCKER_MSG=1; source lib/common.sh; load_env $namespace; ${cmd[*]}"
   else
-    (load_env $namespace; "${cmd[@]}")
+    (load_env $namespace; eval "${cmd[*]}")
   fi
 }
 
@@ -1092,6 +1092,18 @@ function update_web_server() {
          "sensitive": '"$sensitive"'
         }' \
     "http://${web_ip_address}/api/config" 2>/dev/null
+}
+
+function service_url() {
+  local service_id=$1
+  grep -o "${service_id}=[^=,]*=[^=,]*" | sed 's/.*=//'
+}
+
+function url_for_ip() {
+  local url=$1
+  local ip=$2
+  local host="cdp.$ip.nip.io"
+  echo "$url" | sed "s/{host}/$host/;s/{ip_address}/$ip/"
 }
 
 #

@@ -22,7 +22,7 @@ AVAILABLE_SCRIPTS=(
   upload-instance-details
   #
   rsync-resources
-  tf-show
+  tf-admin
 )
 
 EC2_PRICES_URL_TEMPLATE=https://raw.githubusercontent.com/yeo/ec2.shop/master/data/REGION-ondemand.json

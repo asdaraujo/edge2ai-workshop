@@ -23,7 +23,7 @@ AVAILABLE_SCRIPTS=(
   #
   test
   launch2
-  tf-show
+  tf-admin
 )
 
 AZURE_PRICES_URL_TEMPLATE='https://prices.azure.com/api/retail/prices?$filter=serviceName%20eq%20%27Virtual%20Machines%27and%20armRegionName%20eq%20%27REGION%27%20and%20armSkuName%20eq%20%27INSTANCE_TYPE%27'

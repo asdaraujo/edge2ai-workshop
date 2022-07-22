@@ -20,33 +20,47 @@ function cleanup() {
 }
 
 function get_model_status() {
-  local ip=$1
-  CDSW_API="cdsw.$ip.nip.io/api/v1"
-  CDSW_ALTUS_API="cdsw.$ip.nip.io/api/altus-ds-1"
-  status=""
-  for scheme in http https; do
-    token=$(timeout 5 "${CURL[*]} -X POST --cookie-jar .curl.cj-model.$$ --cookie .curl.cj-model.$$ -H 'Content-Type: application/json' --data '{"\""_local"\"":false,"\""login"\"":"\""admin"\"","\""password"\"":"\""${THE_PWD}"\""}' '$scheme://$CDSW_API/authenticate'" 2>/dev/null | jq -r '.auth_token // empty' 2> /dev/null)
-    [[ ! -n $token ]] && continue
-    status=$(timeout 5 "${CURL[*]} -X POST --cookie-jar .curl.cj-model.$$ --cookie .curl.cj-model.$$ -H 'Content-Type: application/json' -H 'Authorization: Bearer $token' --data '{"\""projectOwnerName"\"":"\""admin"\"","\""latestModelDeployment"\"":true,"\""latestModelBuild"\"":true}' '$scheme://$CDSW_ALTUS_API/models/list-models'" 2>/dev/null | jq -r '.[].latestModelDeployment | select(.model.name == "IoT Prediction Model").status' 2>/dev/null)
-    [[ -n $status ]] && break
-  done
-  echo -n $status
+  local cdsw_api_url=$1
+  local cdsw_altus_api_url=$2
+  token=$(timeout 5 "${CURL[*]} -X POST --cookie-jar .curl.cj-model.$$ --cookie .curl.cj-model.$$ -H 'Content-Type: application/json' --data '{"\""_local"\"":false,"\""login"\"":"\""admin"\"","\""password"\"":"\""${THE_PWD}"\""}' '${cdsw_api_url}/authenticate'" 2>/dev/null | jq -r '.auth_token // empty' 2> /dev/null)
+  [[ ! -n $token ]] && return
+  timeout 5 "${CURL[*]} -X POST --cookie-jar .curl.cj-model.$$ --cookie .curl.cj-model.$$ -H 'Content-Type: application/json' -H 'Authorization: Bearer $token' --data '{"\""projectOwnerName"\"":"\""admin"\"","\""latestModelDeployment"\"":true,"\""latestModelBuild"\"":true}' '${cdsw_altus_api_url}/models/list-models'" 2>/dev/null | jq -r '.[].latestModelDeployment | select(.model.name == "IoT Prediction Model").status' 2>/dev/null
 }
 
 function get_viz_status() {
-  local ip=$1
-  CDSW_API="cdsw.$ip.nip.io/api/v1"
-  status=""
-  for scheme in http https; do
-    token=$(timeout 5 "${CURL[*]} -X POST --cookie-jar .curl.cj-viz.$$ --cookie .curl.cj-viz.$$ -H 'Content-Type: application/json' --data '{"\""_local"\"":false,"\""login"\"":"\""admin"\"","\""password"\"":"\""${THE_PWD}"\""}' '$scheme://$CDSW_API/authenticate'" 2>/dev/null | jq -r '.auth_token // empty' 2> /dev/null)
-    [[ ! -n $token ]] && continue
-    status=$(timeout 5 "${CURL[*]} -X GET --cookie-jar .curl.cj-viz.$$ --cookie .curl.cj-viz.$$ -H 'Content-Type: application/json' -H 'Authorization: Bearer $token' '$scheme://$CDSW_API/projects/admin/vizapps-workshop/applications'" 2>/dev/null | jq -r '.[0].status // empty' 2>/dev/null)
-    [[ -n $status ]] && break
-  done
-  echo -n $status
+  local cdsw_api_url=$1
+  token=$(timeout 5 "${CURL[*]} -X POST --cookie-jar .curl.cj-viz.$$ --cookie .curl.cj-viz.$$ -H 'Content-Type: application/json' --data '{"\""_local"\"":false,"\""login"\"":"\""admin"\"","\""password"\"":"\""${THE_PWD}"\""}' '${cdsw_api_url}/authenticate'" 2>/dev/null | jq -r '.auth_token // empty' 2> /dev/null)
+  [[ ! -n $token ]] && return
+  timeout 5 "${CURL[*]} -X GET --cookie-jar .curl.cj-viz.$$ --cookie .curl.cj-viz.$$ -H 'Content-Type: application/json' -H 'Authorization: Bearer $token' '${cdsw_api_url}/projects/admin/vizapps-workshop/applications'" 2>/dev/null | jq -r '.[0].status // empty' 2>/dev/null
 }
 
-printf "%-40s %-20s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-14s %s\n" "instance" "ip address" "WEB" "CM" "CEM" "NIFI" "NREG" "SREG" "SMM" "HUE" "CDSW" "Model Status" "Viz Status"
+function check_url() {
+  local url_template=$1
+  local ip=$2
+  local ok_pattern=$3
+  timeout 5 "${CURL[*]} $(url_for_ip $url_template $ip)" 2>/dev/null | egrep "$ok_pattern" > /dev/null 2>&1 && echo Ok
+}
+
+# need to load the stack for calling get_service_urls
+source $BASE_DIR/resources/common.sh
+validate_stack $NAMESPACE $BASE_DIR/resources
+
+SERVICE_URLS=$(get_service_urls)
+WEB_URL='http://{host}/api/ping'
+CM_URL=$(echo "$SERVICE_URLS" | service_url CM)
+EFM_URL=$(echo "$SERVICE_URLS" | service_url EFM)
+NIFI_URL=$(echo "$SERVICE_URLS" | service_url NIFI)
+NREG_URL=$(echo "$SERVICE_URLS" | service_url NIFIREG)
+SREG_URL=$(echo "$SERVICE_URLS" | service_url SR)
+SMM_URL=$(echo "$SERVICE_URLS" | service_url SMM)
+HUE_URL=$(echo "$SERVICE_URLS" | service_url HUE)
+SSB_URL=$(echo "$SERVICE_URLS" | service_url SSB)
+CDSW_URL=$(echo "$SERVICE_URLS" | service_url CDSW)
+
+CDSW_API_URL="${CDSW_URL%/}/api/v1"
+CDSW_ALTUS_API_URL="${CDSW_URL%/}/api/altus-ds-1"
+
+printf "%-40s %-20s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-14s %s\n" "instance" "ip address" "WEB" "CM" "EFM" "NIFI" "NREG" "SREG" "SMM" "HUE" "SSB" "CDSW" "Model Status" "Viz Status"
 ensure_tf_json_file
 if [ -s $TF_JSON_FILE ]; then
   (
@@ -54,21 +68,24 @@ if [ -s $TF_JSON_FILE ]; then
     cluster_instances | cluster_attr long_id public_ip
   ) | \
   while read instance ip; do
-    host="cdp.$ip.nip.io"
-    CDSW_API="http://cdsw.$ip.nip.io/api/v1"
-    CDSW_ALTUS_API="http://cdsw.$ip.nip.io/api/altus-ds-1"
-    (timeout 5 "${CURL[*]} http://$host/api/ping" 2>/dev/null | grep 'Pong!' > /dev/null 2>&1 && echo Ok) > .curl.web.$$ &
-    (timeout 5 "${CURL[*]} http://$host:7180/cmf/login" 2>/dev/null | grep "<title>Cloudera Manager</title>" > /dev/null 2>&1 && echo Ok) > .curl.cm.$$ &
-    ((timeout 5 "${CURL[*]} http://$host:10088/efm/ui/"        ;  timeout 5 "${CURL[*]} https://$host:10088/efm/ui/")        2>/dev/null | egrep "<title>(CEM|KnoxSSO - Sign In)</title>" > /dev/null 2>&1 && echo Ok) > .curl.cem.$$ &
-    ((timeout 5 "${CURL[*]} http://$host:8080/nifi/"           || timeout 5 "${CURL[*]} https://$host:8443/nifi/")           2>/dev/null | grep "<title>NiFi</title>" > /dev/null 2>&1 && echo Ok) > .curl.nifi.$$ &
-    ((timeout 5 "${CURL[*]} http://$host:18080/nifi-registry/" || timeout 5 "${CURL[*]} https://$host:18433/nifi-registry/") 2>/dev/null | grep "<title>NiFi Registry</title>" > /dev/null 2>&1 && echo Ok) > .curl.nifireg.$$ &
-    ((timeout 5 "${CURL[*]} http://$host:7788/"                || timeout 5 "${CURL[*]} https://$host:7790/")                2>/dev/null | egrep "<title>Schema Registry</title>|Error 401 Authentication required" > /dev/null 2>&1 && echo Ok) > .curl.schreg.$$ &
-    ((timeout 5 "${CURL[*]} http://$host:9991/"                || timeout 5 "${CURL[*]} https://$host:9991/")                2>/dev/null | grep "<title>STREAMS MESSAGING MANAGER</title>" > /dev/null 2>&1 && echo Ok) > .curl.smm.$$ &
-    ((timeout 5 "${CURL[*]} http://$host:8888/"                ;  timeout 5 "${CURL[*]} https://$host:8889/")                2>/dev/null | grep "<title>Hue" > /dev/null 2>&1 && echo Ok) > .curl.hue.$$ &
-    ((timeout 5 "${CURL[*]} http://cdsw.$ip.nip.io/"           || timeout 5 "${CURL[*]} https://cdsw.$ip.nip.io/")           2>/dev/null | egrep "(Cloudera Machine Learning|Cloudera Data Science Workbench)" > /dev/null 2>&1 && echo Ok) > .curl.cml.$$ &
-    (get_model_status $ip) > .curl.model.$$ &
-    (get_viz_status $ip) > .curl.viz.$$ &
+    check_url "$WEB_URL"           $ip 'Pong!' > .curl.web.$$ &
+    check_url "${CM_URL}cmf/login" $ip "<title>Cloudera Manager</title>" > .curl.cm.$$ &
+    check_url "$EFM_URL"           $ip "<title>(CEM|KnoxSSO - Sign In)</title>" > .curl.cem.$$ &
+    check_url "$NIFI_URL"          $ip "<title>NiFi</title>" > .curl.nifi.$$ &
+    check_url "$NREG_URL"          $ip "<title>NiFi Registry</title>" > .curl.nifireg.$$ &
+    check_url "$SREG_URL"          $ip "<title>Schema Registry</title>|Error 401 Authentication required" > .curl.schreg.$$ &
+    check_url "$SMM_URL"           $ip "<title>STREAMS MESSAGING MANAGER</title>" > .curl.smm.$$ &
+    check_url "$HUE_URL"           $ip "<title>Hue" > .curl.hue.$$ &
+    check_url "$SSB_URL"           $ip "<title>Streaming SQL Console</title>" > .curl.ssb.$$ &
+    check_url "$CDSW_URL"          $ip "(Cloudera Machine Learning|Cloudera Data Science Workbench)" > .curl.cdsw.$$ &
+    cdsw_api_url=$(url_for_ip "$CDSW_API_URL" $ip)
+    cdsw_altus_api_url=$(url_for_ip "$CDSW_ALTUS_API_URL" $ip)
+    (get_model_status $cdsw_api_url $cdsw_altus_api_url) > .curl.model.$$ &
+    (get_viz_status $cdsw_api_url) > .curl.viz.$$ &
     wait
-    printf "%-40s %-20s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-14s %s\n" "$instance" "$ip" "$(cat .curl.web.$$)" "$(cat .curl.cm.$$)" "$(cat .curl.cem.$$)" "$(cat .curl.nifi.$$)" "$(cat .curl.nifireg.$$)" "$(cat .curl.schreg.$$)" "$(cat .curl.smm.$$)" "$(cat .curl.hue.$$)" "$(cat .curl.cml.$$)" "$(cat .curl.model.$$)" "$(cat .curl.viz.$$)"
+    printf "%-40s %-20s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-14s %s\n" "$instance" "$ip" \
+      "$(cat .curl.web.$$)" "$(cat .curl.cm.$$)" "$(cat .curl.cem.$$)" "$(cat .curl.nifi.$$)" \
+      "$(cat .curl.nifireg.$$)" "$(cat .curl.schreg.$$)" "$(cat .curl.smm.$$)" "$(cat .curl.hue.$$)" \
+      "$(cat .curl.ssb.$$)" "$(cat .curl.cdsw.$$)" "$(cat .curl.model.$$)" "$(cat .curl.viz.$$)"
   done | sort -t\[ -k1,1r -k2,2n
 fi
