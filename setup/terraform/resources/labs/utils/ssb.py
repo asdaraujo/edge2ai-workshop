@@ -37,11 +37,17 @@ def _get_csrf_token(txt, quiet=True):
 
 
 def _get_ui_port():
-    return '8001' if is_tls_enabled() else '8000'
+    if is_csa17_or_later():
+        return '8470' if is_tls_enabled() else '8070'
+    else:
+        return '8001' if is_tls_enabled() else '8000'
 
 
 def _get_api_url():
-    return '{}://{}:{}/api/v1'.format(get_url_scheme(), get_hostname(), _get_ui_port())
+    if is_csa17_or_later():
+        return '{}://{}:{}'.format(get_url_scheme(), get_hostname(), _get_ui_port())
+    else:
+        return '{}://{}:{}/api/v1'.format(get_url_scheme(), get_hostname(), _get_ui_port())
 
 
 def _get_rest_api_url():
@@ -61,16 +67,16 @@ def _get_url(api_type):
         return _get_rest_api_url()
 
 
-def _api_call(func, path, data=None, files=None, headers=None, api_type=_API_INTERNAL, token=False):
+def _api_call(func, path, data=None, files=None, headers=None, api_type=_API_INTERNAL, token=False, auth=None):
     global _SSB_CSRF_TOKEN
     if not headers:
         headers = {}
     if api_type != _API_UI:
         headers['Content-Type'] = 'application/json'
         data = json.dumps(data)
-    auth = None
     if is_kerberos_enabled():
-        auth = HTTPKerberosAuth(mutual_authentication=DISABLED)
+        if not auth:
+            auth = HTTPKerberosAuth(mutual_authentication=DISABLED)
     else:
         headers['Username'] = 'admin'
     if token:
@@ -87,8 +93,8 @@ def _api_call(func, path, data=None, files=None, headers=None, api_type=_API_INT
     return resp
 
 
-def _api_get(path, data=None, api_type=_API_INTERNAL, token=False):
-    return _api_call(_get_session().get, path, data=data, api_type=api_type, token=token)
+def _api_get(path, data=None, headers=None, api_type=_API_INTERNAL, token=False, auth=None):
+    return _api_call(_get_session().get, path, data=data, headers=headers, api_type=api_type, token=token, auth=auth)
 
 
 def _api_post(path, data=None, files=None, headers=None, api_type=_API_INTERNAL, token=False):
@@ -107,7 +113,10 @@ def _get_session():
             _SSB_SESSION.verify = get_truststore_path()
 
         _api_get('/login', api_type=_API_UI)
-        _api_post('/login', {'next': '', 'login': _SSB_USER, 'password': get_the_pwd()}, api_type=_API_UI, token=True)
+        if is_csa17_or_later():
+            _api_get('/internal/user/current', auth=(_SSB_USER, get_the_pwd()))
+        else:
+            _api_post('/login', {'next': '', 'login': _SSB_USER, 'password': get_the_pwd()}, api_type=_API_UI, token=True)
     return _SSB_SESSION
 
 
@@ -126,6 +135,10 @@ def _get_csa_version():
 
 def is_csa16_or_later():
     return _get_csa_version() >= [1, 6]
+
+
+def is_csa17_or_later():
+    return _get_csa_version() >= [1, 7]
 
 
 def is_ssb_installed():
