@@ -861,6 +861,8 @@ function tighten_keystores_permissions() {
   sudo setfacl -m user:kudu:r--,group:kudu:r-- $KEY_PEM
   sudo setfacl -m user:streamsmsgmgr:r--,group:streamsmsgmgr:r-- $KEY_PEM
   sudo setfacl -m user:ssb:r--,group:ssb:r-- $KEY_PEM
+
+  sudo setfacl -m user:ssb:r--,group:ssb:r-- ${SEC_BASE}/x509/pwfile
   set -e
 }
 
@@ -946,15 +948,22 @@ function get_service_urls() {
 
   local cm_port=$([[ $ENABLE_TLS == "yes" ]] && echo 7183 || echo 7180)
   local protocol=$([[ $ENABLE_TLS == "yes" ]] && echo https || echo http)
+  echo $
   (
     echo "CM=Cloudera Manager=${protocol}://{host}:${cm_port}/"
     (
-      echo "EFM=Edge Flow Manager=http://{host}:10088/efm/ui/"
+      if [[ $CDH_VERSION < "7.1.7" ]]; then
+        echo "EFM=Edge Flow Manager=http://{host}:10088/efm/ui/"
+      else
+        echo "EFM=Edge Flow Manager=${protocol}://{host}:10088/efm/ui/"
+      fi
       if [[ ${HAS_FLINK:-0} == 1 ]]; then
+        local flink_version=$(jq -r '.products[] | select(.product == "FLINK").version' $tmp_template_file | sed 's/.*csa//;s/-.*//')
+        local is_ge_17=$([[ $(echo -e "1.7.0.0\n$flink_version" | sort -t. -k1n -k2n -k3n -k4n | head -1) == "1.7.0.0" ]] && echo yes || echo no)
         local flink_port=$(service_port $tmp_template_file FLINK FLINK_HISTORY_SERVER historyserver_web_port)
         echo "FLINK=Flink Dashboard=${protocol}://{host}:${flink_port}/"
-        local ssb_port=$(service_port $tmp_template_file SQL_STREAM_BUILDER LOAD_BALANCER ssb.sse.loadbalancer.server.port ssb.sse.loadbalancer.server.secure.port)
-        [[ $ssb_port == "" ]] && ssb_port=$(service_port $tmp_template_file SQL_STREAM_BUILDER STREAMING_SQL_ENGINE server.port server.port)
+        local ssb_port=""
+        [[ $is_ge_17 == "yes" ]] && ssb_port=$(service_port $tmp_template_file SQL_STREAM_BUILDER STREAMING_SQL_ENGINE server.port server.port)
         [[ $ssb_port == "" ]] && ssb_port=$(service_port $tmp_template_file SQL_STREAM_BUILDER STREAMING_SQL_CONSOLE console.port console.secure.port)
         echo "SSB=SQL Stream Builder=${protocol}://{host}:${ssb_port}/"
       fi
@@ -1034,6 +1043,7 @@ function clean_all() {
   dd if=/dev/zero of=$DOCKER_DEVICE bs=1M count=100
 
   echo "$THE_PWD" | kinit admin
+  ipa host-remove-principal $(hostname -f) host/edge2ai-0.dim.local
   ipa host-del $(hostname -f)
   ipa-client-install --uninstall --unattended
 

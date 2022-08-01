@@ -293,9 +293,11 @@ EOF
       # Create the hash file
       hash=$(jq -r '.parcels[] | select(.parcelName | contains("'"$version"'-el7.parcel")) | select(.components[] | .name == "'"$component"'").hash' /tmp/manifest.json)
       echo "$hash" > "/opt/cloudera/parcel-repo/${parcel_name}.sha"
-      # Download the parcel file - in the background
-      parcel_url="$(check_for_presigned_url "${url%%/}/${parcel_name}")"
-      retry_if_needed 5 5 "wget --continue --progress=dot:giga $wget_basic_auth '${parcel_url}' -O '/opt/cloudera/parcel-repo/${parcel_name}'" &
+      if [[ ! -f "/opt/cloudera/parcel-repo/${parcel_name}" || $(sha1sum "/opt/cloudera/parcel-repo/${parcel_name}" 2> /dev/null || true) != "$hash" ]]; then
+        # Download the parcel file - in the background
+        parcel_url="$(check_for_presigned_url "${url%%/}/${parcel_name}")"
+        retry_if_needed 5 5 "wget --continue --progress=dot:giga $wget_basic_auth '${parcel_url}' -O '/opt/cloudera/parcel-repo/${parcel_name}'" &
+      fi
     done
     wait
     # Create the torrent file for the parcel
@@ -337,6 +339,23 @@ EOF
         sed -i 's/"max" *: *"6"/"max" : "7"/g' descriptor/service.sdl
         jar uvf /opt/cloudera/csd/CLOUDERA_DATA_SCIENCE_WORKBENCH-*.jar descriptor/service.sdl
         rm -rf descriptor
+      fi
+      # Patch SSB CSD due to CSA-3630 and CSA-3750
+      if [[ -f /opt/cloudera/csd/SQL_STREAM_BUILDER-1.14.0-csa1.7.0.1-cdh7.1.7.0-551-29340707.jar ]]; then
+        rm -rf /tmp/ssb_csd
+        mkdir -p /tmp/ssb_csd
+        pushd /tmp/ssb_csd
+        jar xvf /opt/cloudera/csd/SQL_STREAM_BUILDER-1.14.0-csa1.7.0.1-cdh7.1.7.0-551-29340707.jar
+        sed -i \
+'s#${CONF_DIR}/cm-auto-host_cert_chain.pem#/opt/cloudera/security/x509/host.pem#;'\
+'s#${CONF_DIR}/cm-auto-host_key.pem#/opt/cloudera/security/x509/key.pem#;'\
+'s#${CONF_DIR}/cm-auto-host_key.pw#/opt/cloudera/security/x509/pwfile#;'\
+'s#${NGINX_CONF_DIR}/logs/error.log#/var/log/ssb/load_balancer-error.log#;'\
+'s#${NGINX_CONF_DIR}/logs/access.log#/var/log/ssb/load_balancer-access.log#' ./scripts/set-dependencies.sh
+        jar cvf /opt/cloudera/csd/SQL_STREAM_BUILDER-1.14.0-csa1.7.0.1-cdh7.1.7.0-551-29340707.jar *
+        chown cloudera-scm:cloudera-scm /opt/cloudera/csd/SQL_STREAM_BUILDER-1.14.0-csa1.7.0.1-cdh7.1.7.0-551-29340707.jar
+        popd
+        rm -rf /tmp/ssb_csd
       fi
     done
   fi

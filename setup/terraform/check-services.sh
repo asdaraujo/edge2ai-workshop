@@ -4,12 +4,13 @@ set -o nounset
 BASE_DIR=$(cd $(dirname $0); pwd -L)
 source $BASE_DIR/lib/common-basics.sh
 
-if [ $# != 1 ]; then
-  echo "Syntax: $0 <namespace>"
+if [[ $# -ne 1 && ! ($# -eq 2 && $2 == "--compact") ]]; then
+  echo "Syntax: $0 <namespace> [--compact]"
   show_namespaces
   exit 1
 fi
 NAMESPACE=$1
+COMPACT=${2:-}
 
 source $BASE_DIR/lib/common.sh
 
@@ -60,7 +61,13 @@ CDSW_URL=$(echo "$SERVICE_URLS" | service_url CDSW)
 CDSW_API_URL="${CDSW_URL%/}/api/v1"
 CDSW_ALTUS_API_URL="${CDSW_URL%/}/api/altus-ds-1"
 
-printf "%-40s %-20s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-14s %s\n" "instance" "ip address" "WEB" "CM" "EFM" "NIFI" "NREG" "SREG" "SMM" "HUE" "SSB" "CDSW" "Model Status" "Viz Status"
+if [[ $COMPACT == "--compact" ]]; then
+  FORMAT="%s %s %s:%s:%s:%s:%s:%s:%s:%s:%s:%s:%s:%s\n"
+else
+  FORMAT="%-40s %-20s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-14s %s\n"
+fi
+
+printf "$FORMAT" "instance" "ip address" "WEB" "CM" "EFM" "NIFI" "NREG" "SREG" "SMM" "HUE" "SSB" "CDSW" "Model Status" "Viz Status"
 ensure_tf_json_file
 if [ -s $TF_JSON_FILE ]; then
   (
@@ -76,14 +83,14 @@ if [ -s $TF_JSON_FILE ]; then
     check_url "$SREG_URL"          $ip "<title>Schema Registry</title>|Error 401 Authentication required" > .curl.schreg.$$ &
     check_url "$SMM_URL"           $ip "<title>STREAMS MESSAGING MANAGER</title>" > .curl.smm.$$ &
     check_url "$HUE_URL"           $ip "<title>Hue" > .curl.hue.$$ &
-    check_url "$SSB_URL"           $ip "<title>Streaming SQL Console</title>" > .curl.ssb.$$ &
+    check_url "$SSB_URL"           $ip "<title>Streaming SQL Console" > .curl.ssb.$$ &
     check_url "$CDSW_URL"          $ip "(Cloudera Machine Learning|Cloudera Data Science Workbench)" > .curl.cdsw.$$ &
     cdsw_api_url=$(url_for_ip "$CDSW_API_URL" $ip)
     cdsw_altus_api_url=$(url_for_ip "$CDSW_ALTUS_API_URL" $ip)
     (get_model_status $cdsw_api_url $cdsw_altus_api_url) > .curl.model.$$ &
     (get_viz_status $cdsw_api_url) > .curl.viz.$$ &
     wait
-    printf "%-40s %-20s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-5s %-14s %s\n" "$instance" "$ip" \
+    printf "$FORMAT" "$instance" "$ip" \
       "$(cat .curl.web.$$)" "$(cat .curl.cm.$$)" "$(cat .curl.cem.$$)" "$(cat .curl.nifi.$$)" \
       "$(cat .curl.nifireg.$$)" "$(cat .curl.schreg.$$)" "$(cat .curl.smm.$$)" "$(cat .curl.hue.$$)" \
       "$(cat .curl.ssb.$$)" "$(cat .curl.cdsw.$$)" "$(cat .curl.model.$$)" "$(cat .curl.viz.$$)"
