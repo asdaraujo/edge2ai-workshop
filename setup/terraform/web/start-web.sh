@@ -9,7 +9,7 @@ BASE_DIR=$(cd $(dirname $0); pwd -L)
 DB_HOST=localhost
 DB_NAME=workshop
 DB_USER=workshop
-DB_PWD=supersecret1
+DB_PWD=Supersecret1
 
 function log_status() {
   local msg=$1

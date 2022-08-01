@@ -264,7 +264,7 @@ A few helper scripts are provided to help managing the clusters. Cluster numbers
 
 == Use the environment
 
-* Once the script returns, you can open Cloudera Manager at http://<public_dns>:7180. The default credentials are `admin/supersecret1`.
+* Once the script returns, you can open Cloudera Manager at http://<public_dns>:7180. The default credentials are `admin/Supersecret1`.
 
 * Wait for about 10-20 mins for CDSW to be ready. You can monitor the status of CDSW by issuing the `cdsw status` command.
 

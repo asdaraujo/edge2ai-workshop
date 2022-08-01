@@ -37,7 +37,7 @@ Before you can start querying data from Kafka topics you need to register the Ka
 
 . Click on the *SQLStreamBuilder Console* link to open the SSB UI.
 
-. On the logon screen, authenticate with user `admin` and password `supersecret1`.
+. On the logon screen, authenticate with user `admin` and password `Supersecret1`.
 
 . You will notice that SSB already has a Kafka cluster registered as a data provider, named `CDP Kafka`. This provider is created automatically for SSB when it is installed on a cluster that also has a Kafka service:
 +

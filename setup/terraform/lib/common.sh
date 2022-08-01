@@ -15,7 +15,7 @@ PUBLIC_IPS_FILE=$BASE_DIR/.hosts.$$
 
 BASE_PROVIDER_DIR=$BASE_DIR/providers
 
-THE_PWD=supersecret1
+THE_PWD=Supersecret1
 
 OPTIONAL_VARS="TF_VAR_registration_code|TF_VAR_aws_profile|TF_VAR_aws_access_key_id|TF_VAR_aws_secret_access_key|TF_VAR_azure_subscription_id|TF_VAR_azure_tenant_id"
 

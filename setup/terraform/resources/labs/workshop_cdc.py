@@ -40,7 +40,7 @@ CREATE TABLE transactions_cdc (
   'connector' = 'postgres-cdc',
   'hostname' = '{hostname}',
   'username' = 'cdc_user',
-  'password' = 'supersecret1',
+  'password' = '{pwd}',
   'database-name' = 'cdc_test',
   'table-name' = 'transactions',
   'schema-name' = 'public',
@@ -49,7 +49,7 @@ CREATE TABLE transactions_cdc (
   'debezium.slot.name' = 'flink',
   'debezium.snapshot.mode' = 'initial'
 );
-'''.format(hostname=get_hostname())
+'''.format(pwd=get_the_pwd(), hostname=get_hostname())
 
 LAB3_TRANSACTIONS = '''
 INSERT INTO transactions

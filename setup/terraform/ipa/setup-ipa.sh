@@ -6,7 +6,7 @@ set -o xtrace
 trap 'echo Setup return code: $?' 0
 BASE_DIR=$(cd $(dirname $0); pwd -L)
 
-THE_PWD=supersecret1
+THE_PWD=Supersecret1
 
 KEYTABS_DIR=/keytabs
 REALM_NAME=WORKSHOP.COM

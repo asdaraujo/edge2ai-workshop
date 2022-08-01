@@ -4,7 +4,7 @@ KEYTABS_DIR=/keytabs
 KAFKA_CLIENT_PROPERTIES=${KEYTABS_DIR}/kafka-client.properties
 KRB_REALM=WORKSHOP.COM
 
-export THE_PWD=supersecret1
+export THE_PWD=Supersecret1
 export THE_PWD_HASH=2221f4b716722c14a16f02edc6a3dbeb3a12e63affa9bde99f9ac79f2bbcb276
 export THE_PWD_SALT=7690128891203708887
 

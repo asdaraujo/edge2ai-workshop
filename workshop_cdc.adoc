@@ -88,7 +88,7 @@ The command below creates the `cdc_user` user/role as a _superuser_:
 [source,sql]
 ----
 -- Create cdc_user as a superuser
-CREATE ROLE cdc_user WITH SUPERUSER CREATEDB CREATEROLE LOGIN ENCRYPTED PASSWORD 'supersecret1';
+CREATE ROLE cdc_user WITH SUPERUSER CREATEDB CREATEROLE LOGIN ENCRYPTED PASSWORD 'Supersecret1';
 ----
 
 Alternatively, you can ask the database administrator to set the database up so that the Debezium user does not need to be a superuser and only has the privileges to connect and capture changelogs from specific databases.
@@ -98,7 +98,7 @@ The commands below creates the `cdc_user` user/role as a _superuser_:
 [source,sql]
 ----
 -- Create cdc_user user with only LOGIN and REPLICATION privileges
-CREATE ROLE cdc_user WITH REPLICATION LOGIN PASSWORD 'supersecret1';
+CREATE ROLE cdc_user WITH REPLICATION LOGIN PASSWORD 'Supersecret1';
 -- Grant privileges on the cdc_test database to the cdc_user
 GRANT CONNECT ON DATABASE cdc_test TO cdc_user;
 -- Connect to the cdc_test database
@@ -137,7 +137,7 @@ Let's start by connecting to PostgreSQL and creating the table.
 
 . Connect to your cluster host using SSH
 
-. Execute the following command to connect to the `cdc_test` database as `cdc_user`. The password for this user is `supersecret1`.
+. Execute the following command to connect to the `cdc_test` database as `cdc_user`. The password for this user is `Supersecret1`.
 +
 [source,shell]
 ----
@@ -186,7 +186,7 @@ SELECT * FROM transactions;
 
 In this lab you will set up an SSB table to capture the changelog stream for the `transactions` table.
 
-. In the SSB UI, if you haven't authenticated yet, log in with user `admin` and password `supersecret1`.
+. In the SSB UI, if you haven't authenticated yet, log in with user `admin` and password `Supersecret1`.
 
 . Create a new job and call it `cdc_labs`.
 
@@ -241,7 +241,7 @@ connector:     postgres-cdc
 database-name: cdc_test
 hostname:      <CLUSTER_HOSTNAME>
 username:      cdc_user
-password:      supersecret1
+password:      Supersecret1
 schema-name:   public
 table-name:    transactions
 ----
@@ -269,7 +269,7 @@ CREATE TABLE transactions_cdc (
   'connector' = 'postgres-cdc',
   'hostname' = '<CLUSTER_HOSTNAME>',
   'username' = 'cdc_user',
-  'password' = 'supersecret1',
+  'password' = 'Supersecret1',
   'database-name' = 'cdc_test',
   'schema-name' = 'public',
   'table-name' = 'transactions',
@@ -422,7 +422,7 @@ connector:  jdbc
 url:        jdbc:postgresql://<CLUSTER_HOSTNAME>:5432/cdc_test
 table-name: trans_replica
 username:   cdc_user
-password:   supersecret1
+password:   Supersecret1
 driver:     org.postgresql.Driver
 ----
 
