@@ -49,9 +49,9 @@ image::images/ssb/register-kafka-provider.png[width=800]
 +
 [source,yaml]
 ----
-Name:                           edge2ai-kafka
-Brokers:                        <CLUSTER_HOSTNAME>:9092
-Connection protocol:            PLAINTEXT
+Name:                edge2ai-kafka
+Brokers:             <CLUSTER_HOSTNAME>:9092
+Connection protocol: PLAINTEXT
 ----
 +
 image::images/ssb/add-kafka-provider.png[width=400]
@@ -114,7 +114,7 @@ image::images/ssb/source-transformations.png[width=400]
 +
 To do this, click on the *Event Time* tab and configure the following properties:
 +
-[source]
+[source,yaml]
 ----
 Use Kafka Timestamps:   Uncheck it
 Input Timestamp Column: sensor_ts
@@ -183,7 +183,7 @@ Select and copy the contents of the page.
 
 . Complete the schema creation by filling the following properties and save the schema.
 +
-[source]
+[source,yaml]
 ----
 Name:          iot_enriched_avro
 Description:   Schema for the data in the iot_enriched_avro topic
@@ -201,7 +201,7 @@ image::images/ssb/add-catalog-sr.png[width=800]
 
 . In the *Catalog* dialog box, enter the following details:
 +
-[source]
+[source,yaml]
 ----
 Name:                sr
 Catalog Type:        Schema Registry
@@ -212,7 +212,7 @@ Enable TLS:          No
 
 . Click on the *Add Filter* button and enter the following configuration for the filter:
 +
-[source]
+[source,yaml]
 ----
 Database Filter: .*
 Table Filter:    iot.*
@@ -410,7 +410,7 @@ On the job page, click the *Stop* button to pause the job.
 
 . Click on the *Materialized View* button and enter the following properties:
 +
-[source,python]
+[source,yaml]
 ----
 Enable MV:             Yes
 Recreate on Job Start: No

@@ -38,7 +38,7 @@ def _get_csrf_token(txt, quiet=True):
 
 def _get_ui_port():
     if is_csa17_or_later():
-        return '8470' if is_tls_enabled() else '8070'
+        return '18121'
     else:
         return '8001' if is_tls_enabled() else '8000'
 
@@ -114,7 +114,11 @@ def _get_session():
 
         _api_get('/login', api_type=_API_UI)
         if is_csa17_or_later():
-            _api_get('/internal/user/current', auth=(_SSB_USER, get_the_pwd()))
+            if is_kerberos_enabled():
+                auth = HTTPKerberosAuth(mutual_authentication=DISABLED)
+            else:
+                auth = (_SSB_USER, get_the_pwd())
+            _api_get('/internal/user/current', auth=auth)
         else:
             _api_post('/login', {'next': '', 'login': _SSB_USER, 'password': get_the_pwd()}, api_type=_API_UI, token=True)
     return _SSB_SESSION

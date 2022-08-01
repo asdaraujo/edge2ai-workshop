@@ -148,7 +148,7 @@ When connected you should see the `psql` prompt, with the database name, as show
 +
 [source]
 ----
-cdc_test=#
+cdc_test=>
 ----
 
 . Run the following commands to create your test table:
@@ -186,17 +186,24 @@ SELECT * FROM transactions;
 
 In this lab you will set up an SSB table to capture the changelog stream for the `transactions` table.
 
-. In the SSB UI, click on *Console* (on the left bar) *> Compose*.
+. In the SSB UI, if you haven't authenticated yet, log in with user `admin` and password `supersecret1`.
 
-. Click on *Templates > postgres-cdc*
-+
-image::images/cdc/postgres-cdc-template.png[width=800]
-+
-You will notice that the SQL editor box will be filled with a generic template of a statement to create a table using the `postgres-cdc` connector.
-+
-In the next steps you will tailor this statement to match the structure of the PostgreSQL's `transaction` table and configure it with the necessary properties.
+. Create a new job and call it `cdc_labs`.
 
-. The `transactions` table you created in step 1 has two columns: `id`, of type `integer`, and `name`, of type `text`.
+. In the SQL editor, click on *Templates > postgres-cdc*
++
+image::images/cdc/postgres-cdc-template.png[width=150]
++
+A CREATE TABLE statement template, using the `postgres-cdc` connector, will be added to the SQL editor.
++
+In the next steps you will customize this statement to match the structure of the PostgreSQL's `transaction` table and configure it with the necessary properties.
+
+. The `transactions` table you created in step 1 has two columns:
++
+--
+* `id`: `integer`
+* `name`: `text`.
+--
 +
 In the Flink ANSI SQL dialect, the equivalent data types of the ones above are the following:
 +
@@ -221,7 +228,7 @@ CREATE TABLE transactions_cdc (
 ----
 
 . The template has lots of properties inside the `WITH` clause that allow you to configure the table to connect to your database and table.
-There are properties that must be specified and others that are optional and are commented out in the template.
+There are some properties that must be specified and others that are optional and are commented out in the template.
 +
 In this lab you will set all the required properties plus a few of the optional ones.
 You can ignore the other optional properties.
@@ -231,12 +238,12 @@ Set the following required properties in your statement:
 [source,yaml]
 ----
 connector:     postgres-cdc
+database-name: cdc_test
 hostname:      <CLUSTER_HOSTNAME>
 username:      cdc_user
 password:      supersecret1
-database-name: cdc_test
-table-name:    transactions
 schema-name:   public
+table-name:    transactions
 ----
 
 . _Uncomment_ and set the following optional properties in your statement.
@@ -245,9 +252,10 @@ NOTE: Make sure your final statement has all the commas separating the property 
 +
 [source,yaml]
 ----
-decoding.plugin.name: pgoutput
+decoding.plugin.name:      pgoutput
 debezium.publication.name: dbz_publication
-debezium.slot.name: flink
+debezium.snapshot.mode:    initial
+slot.name:                 flink
 ----
 +
 Your final `CREATE TABLE` statement should look like the one below:
@@ -263,20 +271,20 @@ CREATE TABLE transactions_cdc (
   'username' = 'cdc_user',
   'password' = 'supersecret1',
   'database-name' = 'cdc_test',
-  'table-name' = 'transactions',
   'schema-name' = 'public',
-  'decoding.plugin.name' = 'pgoutput',
+  'table-name' = 'transactions',
   'debezium.publication.name' = 'dbz_publication',
-  'debezium.slot.name' = 'flink',
   'debezium.snapshot.mode' = 'initial'
+  'decoding.plugin.name' = 'pgoutput',
+  'slot.name' = 'flink'
 );
 ----
 
 . Click on the *Execute* button to execute the statement and create the `transactions_cdc` table.
 
-. Click on the *Tables* tab and navigate to the newly created table to verify its details:
+. On the *Virtual Tables* pane you can inspect the details of the newly created table:
 +
-image::images/cdc/transactions-cdc-details.png[width=600]
+image::images/cdc/transactions-cdc-details.png[width=300]
 
 [[lab_3, Lab 3]]
 == Lab 3 - Capturing table changes
