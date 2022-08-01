@@ -144,6 +144,12 @@
           "name": "database_type",
           "value": "postgresql"
         }
+{% if CSA_VERSION is ge('1.7.0.0') %}
+        ,{
+          "name": "loadbalancer.url",
+          "value": "{{CLUSTER_HOST}}"
+        }
+{% endif %}
       ],
       "roleConfigGroups": [
         {
@@ -151,17 +157,18 @@
           "roleType": "STREAMING_SQL_ENGINE",
           "base": true,
           "configs": [
-{% if CSA_VERSION is ge('1.6') %}
             {
+              "name": "server.port",
+              "value": "18121"
+            }
+{% if CSA_VERSION is ge('1.6') %}
+            ,{
               "name": "default.admin.password",
               "value": "{{THE_PWD}}"
             }
 {% endif %}
-{% if CSA_VERSION is ge('1.6') and ENABLE_TLS == 'yes' %}
-            ,
-{% endif %}
 {% if ENABLE_TLS == 'yes' %}
-            {
+            ,{
               "name": "ssl_client_truststore_location",
               "value": "/opt/cloudera/security/jks/truststore.jks"
             },
@@ -287,10 +294,6 @@
           "roleType": "LOAD_BALANCER",
           "base": true,
           "configs": [
-            {
-              "name": "loadbalancer.url",
-              "value": "{{CLUSTER_HOST}}"
-            },
             {
               "name": "ssb.mve.loadbalancer.server.port",
               "value": "8071"
