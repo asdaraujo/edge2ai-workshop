@@ -322,6 +322,67 @@ EOF
   # return to BASE_DIR for continued execution
   cd "${BASE_DIR}"
 
+  # TODO: Remove patch below when/if no longer needed
+  # Add additional Knox service definitions for SSB (required for CDH 7.1.7.x parcels)
+  if [[ $(readlink -f /opt/cloudera/parcels/CDH | fgrep 7.1.7 | wc -l) -eq 1 ]]; then
+    knox_tarball=/tmp/ssb-knox-services.tar.gz
+    cat <<EOF | base64 -d > $knox_tarball
+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
+/wPF5pTmAKAAAA==
+EOF
+    target_dir=/opt/cloudera/parcels/CDH/lib/knox/data/services
+    for svc in ssb-mve-api-lb  ssb-sse-api  ssb-sse-ui  ssb-sse-ui-lb  ssb-sse-ws  ssb-sse-ws-lb; do
+      target_path=$target_dir/$svc
+      if [[ ! -d $target_path ]]; then
+        umask 022
+        tar -C $target_dir -zxvf $knox_tarball $svc
+        chown -R cloudera-scm:cloudera-scm $target_path
+      fi
+    done
+    # Ensure the new services show up with a nice icon
+    ssb_icon=/opt/cloudera/parcels/CDH/lib/knox/data/applications/home/app/assets/service-logos/ssb-ssc-ui.png
+    if [[ -f $ssb_icon ]]; then
+      target_dirs=$(find /opt/cloudera/parcels/CDH/lib/knox/data -name service-logos -type d 2>/dev/null || true)
+      target_names=(ssb-sse-ui.png ssb-sse-ui-lb.png)
+      for target_dir in $target_dirs; do
+        for target_name in "${target_names[@]}"; do
+          target_path="${target_dir}/${target_name}"
+          [[ ! -f "${target_path}" ]] && cp -p "${ssb_icon}" "${target_path}"
+          chmod 644 "${target_path}"
+          chown cloudera-scm:cloudera-scm "${target_path}"
+        done
+      done
+    fi
+  fi
+
   if [[ ${CSD_URLS[@]:-} != "" ]]; then
     log_status "Installing CSDs"
     for url in "${CSD_URLS[@]}"; do
@@ -340,6 +401,7 @@ EOF
         jar uvf /opt/cloudera/csd/CLOUDERA_DATA_SCIENCE_WORKBENCH-*.jar descriptor/service.sdl
         rm -rf descriptor
       fi
+      # TODO: Remove patch below when no longer needed
       # Patch SSB CSD due to CSA-3630 and CSA-3750
       if [[ -f /opt/cloudera/csd/SQL_STREAM_BUILDER-1.14.0-csa1.7.0.1-cdh7.1.7.0-551-29340707.jar ]]; then
         rm -rf /tmp/ssb_csd
@@ -695,7 +757,7 @@ CM_REPO_URL=$(grep baseurl $CM_REPO_FILE | sed 's/.*=//;s/ //g')
 # TODO: For debug purposes. Remove this when no longer needed
 (set +e; set +x; while true; do echo "--"; date; netstat -anp | grep ":8081 .*LISTEN" > /tmp/.netstat; cat /tmp/.netstat; ps -ef | awk '$2~/('"$(grep "LISTEN " /tmp/.netstat | awk '{gsub(/\/.*/, "", $NF); print $NF}' | tr "\n" "|")"'dummy)/'; sleep .5; done) > /tmp/netstat.log &
 NETSTAT_PID=$!
-trap "kill -9 $NETSTAT_PID;"' echo Setup return code: $?' 0
+trap 'RET=$?; kill -9 '"$NETSTAT_PID"'; echo Setup return code: $RET' 0
 
 log_status "Configuring Cloudera Manager"
 python -u $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
@@ -708,6 +770,25 @@ python -u $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
 
 log_status "Restarting Cloudera Manager"
 systemctl restart cloudera-scm-server
+
+log_status "Create shadow group"
+chgrp shadow /etc/shadow
+chmod g+r /etc/shadow
+
+if [[ ${HAS_KNOX:-0} == 1 ]]; then
+  log_status "Setting shadow permissions for Knox - needed for PAM authentication"
+  id knox > /dev/null 2>&1 && usermod -G knox,hadoop,shadow knox || echo "User knox does not exist. Skipping usermod"
+fi
+
+if [[ ${HAS_ZEPPELIN:-0} == 1 ]]; then
+  log_status "Ensuring Zepellin is on the shadow group for PAM auth to work (service needs restarting)"
+  id zeppelin > /dev/null 2>&1 && usermod -G shadow zeppelin || echo "User zeppelin does not exist. Skipping usermod"
+fi
+
+if [[ "$(is_tls_enabled)" == "yes" ]]; then
+  log_status "Tightening permissions"
+  tighten_keystores_permissions
+fi
 
 log_status "Configuring Cloudera Manager agent"
 if [[ ! -f /etc/cloudera-scm-agent/config.ini.original ]]; then
@@ -746,25 +827,6 @@ python -u $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
 # TODO: remove this when no longer needed (see previous TODO)
 kill -9 $NETSTAT_PID || true
 trap 'echo Setup return code: $?' 0
-
-chgrp shadow /etc/shadow
-chmod g+r /etc/shadow
-id knox > /dev/null 2>&1 && usermod -G knox,hadoop,shadow knox || echo "User knox does not exist. Skipping usermod"
-if [[ ${HAS_KNOX:-0} == 1 ]]; then
-  log_status "Setting shadow permissions - needed by Knox when using PAM authentication"
-  curl -k -L -X POST -u admin:${THE_PWD} "$(get_cm_base_url)/api/v19/clusters/OneNodeCluster/services/knox/commands/restart"
-fi
-
-id zeppelin > /dev/null 2>&1 && usermod -G shadow zeppelin || echo "User zeppelin does not exist. Skipping usermod"
-if [[ ${HAS_ZEPPELIN:-0} == 1 ]]; then
-  log_status "Ensuring Zepellin is on the shadow group for PAM auth to work (service needs restarting)"
-  curl -k -L -X POST -u admin:${THE_PWD} "$(get_cm_base_url)/api/v19/clusters/OneNodeCluster/services/zeppelin/commands/restart"
-fi
-
-if [[ "$(is_tls_enabled)" == "yes" ]]; then
-  log_status "Tightening permissions"
-  tighten_keystores_permissions
-fi
 
 if [[ ${HAS_RANGER:-0} == 1 && ${HAS_NIFI:-0} == 1 ]]; then
   JOB_ID=$(curl -s -k -L -X POST -u admin:"${THE_PWD}" "$(get_cm_base_url)/api/v19/clusters/OneNodeCluster/services/ranger/commands/restart" | jq '.id')
