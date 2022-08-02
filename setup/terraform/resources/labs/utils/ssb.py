@@ -71,7 +71,7 @@ def _api_call(func, path, data=None, files=None, headers=None, api_type=_API_INT
     global _SSB_CSRF_TOKEN
     if not headers:
         headers = {}
-    if api_type != _API_UI:
+    if api_type != _API_UI and not files:
         headers['Content-Type'] = 'application/json'
         data = json.dumps(data)
     if is_kerberos_enabled():
@@ -308,9 +308,27 @@ def stop_all_jobs():
 
 def upload_keytab(principal, keytab_file):
     global _SSB_CSRF_TOKEN
-    data = {
-        'keytab_principal': principal,
-        'csrf_token': _SSB_CSRF_TOKEN,
-    }
-    files = {'keytab_file': (os.path.basename(keytab_file), open(keytab_file, 'rb'), 'application/octet-stream')}
-    return _api_post('/keytab/upload', api_type=_API_UI, data=data, files=files, token=True)
+    if is_csa17_or_later():
+        data = {
+            'principal': principal,
+        }
+        files = {'file': (os.path.basename(keytab_file), open(keytab_file, 'rb'), 'application/octet-stream')}
+        return _api_post('/internal/user/upload-keytab', data=data, files=files)
+    else:
+        data = {
+            'keytab_principal': principal,
+            'csrf_token': _SSB_CSRF_TOKEN,
+        }
+        files = {'keytab_file': (os.path.basename(keytab_file), open(keytab_file, 'rb'), 'application/octet-stream')}
+        return _api_post('/keytab/upload', api_type=_API_UI, data=data, files=files, token=True)
+
+
+def generate_keytab(principal, password):
+    if is_csa17_or_later():
+        data = {
+            'principal': principal,
+            'password': password,
+        }
+        return _api_post('/internal/user/generate-keytab', data=data)
+    else:
+        raise RuntimeError('This feature is only implemented for CSA 1.7 and later.')

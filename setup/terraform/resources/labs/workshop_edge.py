@@ -145,8 +145,8 @@ class EdgeWorkshop(AbstractWorkshop):
                 {
                     'Regex Mode': 'true',
                     'Include Capture Group 0': 'true',
-                    'sensor_0': '"sensor_0"\s*:\s*([0-9.]+)',
-                    'sensor_1': '"sensor_1"\s*:\s*([0-9.]+)',
+                    'sensor_0': r'"sensor_0"\s*:\s*([0-9.]+)',
+                    'sensor_1': r'"sensor_1"\s*:\s*([0-9.]+)',
                 },
                 auto_terminate=[])
             matched_relationship = 'success'
