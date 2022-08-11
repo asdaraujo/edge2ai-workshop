@@ -2,11 +2,18 @@
 
 In this workshop you'll use a Spark job to read data from Kafka and write it to a Kudu table and then use Kudu to perform fast analytics on that data.
 
-== Prerequisites
+== Preparation
 
-This workshop requires that you already have sensor data being produced to a Kafka topic, as implemented in the workshop link:streaming.adoc[From Edge to Streams Processing]. Please complete that workshop before starting this one.
+This workshop builds upon the content developed in the link:workshop_edge.adoc[Edge Workshop].
 
-You should also stop the `PutKudu` NiFi processor from that workshop to make it easier to verify your results here.
+To clean your environment and reset to the beginning of this lab, please SSH to your cluster host and run the following command:
+
+NOTE: The command below will undo everything done in the cluster in previous workshops.
+
+[source,shell]
+----
+/tmp/resources/reset-to-lab.sh nifi 4
+----
 
 == Labs summary
 
@@ -19,8 +26,6 @@ You should also stop the `PutKudu` NiFi processor from that workshop to make it 
 Spark Streaming is a processing framework for (near) real-time data. In this lab, you will use Spark to consume Kafka messages which contains the IoT data from the machine, and call a CDSW model API endpoint to predict whether, with those IoT values the machine sent, the machine is likely to break. You'll then save the results to Kudu for fast analytics.
 
 ==== Create the Kudu table
-
-NOTE: If you already created this table in a previous workshop, please skip the table creation here.
 
 . Go to the Hue Web UI and login. The first user to login to a Hue installation is automatically created and granted admin privileges in Hue.
 
@@ -72,15 +77,10 @@ image::images/spark/model_access_key.png[width=800]
 ----
 ACCESS_KEY=<put here your cdsw model access key>
 
-cd ~
-wget https://repo.maven.apache.org/maven2/org/apache/kudu/kudu-spark2_2.11/1.9.0/kudu-spark2_2.11-1.9.0.jar
-wget https://raw.githubusercontent.com/swordsmanliu/SparkStreamingHbase/master/lib/spark-core_2.11-1.5.2.logging.jar
-
-rm -rf ~/.m2 ~/.ivy2/
+rm -rf ~/.m2 ~/.ivy2 /tmp/checkpoints
 spark-submit \
   --master local[2] \
-  --jars kudu-spark2_2.11-1.9.0.jar,spark-core_2.11-1.5.2.logging.jar \
-  --packages org.apache.spark:spark-streaming-kafka_2.11:1.6.3 \
+  --jars /opt/cloudera/parcels/CDH/lib/kudu/kudu-spark2_2.11.jar \
   /opt/demo/spark.iot.py $ACCESS_KEY
 ----
 +
