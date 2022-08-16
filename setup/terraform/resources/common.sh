@@ -948,7 +948,6 @@ function get_service_urls() {
 
   local cm_port=$([[ $ENABLE_TLS == "yes" ]] && echo 7183 || echo 7180)
   local protocol=$([[ $ENABLE_TLS == "yes" ]] && echo https || echo http)
-  echo $
   (
     echo "CM=Cloudera Manager=${protocol}://{host}:${cm_port}/"
     (

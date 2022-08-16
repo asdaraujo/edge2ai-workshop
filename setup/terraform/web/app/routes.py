@@ -6,7 +6,7 @@ from flask import flash, jsonify, redirect, render_template, request, Response, 
 from flask_httpauth import HTTPBasicAuth
 from flask_login import current_user, login_user, logout_user, login_required
 from sqlalchemy.exc import IntegrityError
-from pymysql.err import IntegrityError as PyMysqlIntegrityError
+from psycopg2.errors import UniqueViolation
 from werkzeug.urls import url_parse
 from app import app, db
 from app.forms import LoginForm, RegistrationForm, PasswordResetForm
@@ -251,10 +251,9 @@ def add_cluster():
         db.session.commit()
         return jsonify({'success': True, 'message': 'Cluster created successfully.'})
     except IntegrityError as exc:
-        if isinstance(exc.orig, PyMysqlIntegrityError) and isinstance(exc.orig.args, tuple) and len(exc.orig.args) == 2:
-            code, msg = exc.orig.args
-            if code == 1062:  # duplicated cluster
-                return jsonify({'success': False, 'message': msg}), 400
+        if isinstance(exc.orig, UniqueViolation) and isinstance(exc.orig.args, tuple) and len(exc.orig.args) == 1:
+            msg = exc.orig.args
+            return jsonify({'success': False, 'message': msg}), 400
         raise exc
 
 

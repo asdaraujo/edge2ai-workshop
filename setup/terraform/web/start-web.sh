@@ -5,11 +5,13 @@ set -o pipefail
 set -o xtrace
 trap 'echo Setup return code: $?' 0
 BASE_DIR=$(cd $(dirname $0); pwd -L)
+cd $BASE_DIR
 
-DB_HOST=localhost
+DB_HOST=$(hostname -f)
 DB_NAME=workshop
 DB_USER=workshop
 DB_PWD=Supersecret1
+PRIVATE_IP=$(hostname -I | awk '{print $1}')
 
 function log_status() {
   local msg=$1
@@ -45,86 +47,51 @@ sudo setenforce 0
 sudo sed -i.bak 's/^ *SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
 sudo sestatus
 
-log_status "Creating MariaDB 10.8 repo file"
-sudo bash -c "
-cat > /etc/yum.repos.d/MariaDB.repo <<EOF
-[mariadb]
-name = MariaDB
-baseurl = http://yum.mariadb.org/10.8/centos7-amd64
-gpgkey=https://yum.mariadb.org/RPM-GPG-KEY-MariaDB
-gpgcheck=1
-EOF
-"
-
 log_status "Installing what we need"
 sudo yum erase -y epel-release || true
 rm -f /etc/yum.repos.r/epel* || true
 yum_install epel-release
+
+# Installing Postgresql repo
+if [[ $(rpm -qa | grep pgdg-redhat-repo- | wc -l) -eq 0 ]]; then
+  yum_install https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+fi
+
 # The EPEL repo has intermittent refresh issues that cause errors like the one below.
 # Switch to baseurl to avoid those issues when using the metalink option.
 # Error: https://.../repomd.xml: [Errno -1] repomd.xml does not match metalink for epel
 sudo sed -i 's/metalink=/#metalink=/;s/#*baseurl=/baseurl=/' /etc/yum.repos.d/epel*.repo
 
-yum_install python36-pip python36 supervisor nginx MariaDB-server MariaDB-client figlet cowsay
+yum_install python36-pip python36 supervisor nginx postgresql10-server postgresql10 postgresql10-contrib figlet cowsay
 
-log_status "Starting MariaDB"
-sudo bash -c "
-cat > /etc/my.cnf <<EOF
-[mysqld]
-datadir=/var/lib/mysql
-socket=/var/lib/mysql/mysql.sock
-transaction-isolation = READ-COMMITTED
-symbolic-links = 0
-key_buffer = 16M
-key_buffer_size = 32M
-max_allowed_packet = 32M
-thread_stack = 256K
-thread_cache_size = 64
-query_cache_limit = 8M
-query_cache_size = 64M
-query_cache_type = 1
-max_connections = 550
-#log_bin=/var/lib/mysql/mysql_binary_log
-server_id=1
-binlog_format = mixed
-read_buffer_size = 2M
-read_rnd_buffer_size = 16M
-sort_buffer_size = 8M
-join_buffer_size = 8M
-innodb_file_per_table = 1
-innodb_flush_log_at_trx_commit  = 2
-innodb_log_buffer_size = 64M
-innodb_buffer_pool_size = 4G
-innodb_thread_concurrency = 8
-innodb_flush_method = O_DIRECT
-innodb_log_file_size = 512M
-
-[mysqld_safe]
-etc/my.cnf.d/mariadb.pidg
-log-error=/var/log/mariadb/mariadb.log
-pid-file=/var/run/mariadb/mariadb.pid
-
-!includedir /etc/my.cnf.d
+log_status "Configuring PostgreSQL"
+sudo bash -c 'echo '\''LC_ALL="en_US.UTF-8"'\'' >> /etc/locale.conf'
+sudo /usr/pgsql-10/bin/postgresql-10-setup initdb
+sudo sed -i '/host *all *all *127.0.0.1\/32 *ident/ d' /var/lib/pgsql/10/data/pg_hba.conf
+sudo bash -c "cat >> /var/lib/pgsql/10/data/pg_hba.conf <<EOF
+host all all 127.0.0.1/32 md5
+host all all ${PRIVATE_IP}/32 md5
+host all all 127.0.0.1/32 ident
 EOF
 "
-sudo systemctl enable mariadb
-sudo systemctl start mariadb
+sudo sed -i '/^[ #]*\(listen_addresses\|max_connections\|shared_buffers\|wal_buffers\|checkpoint_segments\|checkpoint_completion_target\) *=.*/ d' /var/lib/pgsql/10/data/postgresql.conf
+sudo bash -c "cat >> /var/lib/pgsql/10/data/postgresql.conf <<EOF
+listen_addresses = '*'
+max_connections = 2000
+shared_buffers = 256MB
+wal_buffers = 8MB
+checkpoint_completion_target = 0.9
+EOF
+"
+
+log_status "Starting PostgreSQL"
+sudo systemctl enable postgresql-10
+sudo systemctl start postgresql-10
 
 log_status "Creating databases"
-sudo mysql -u root <<EOF
-create database ${DB_NAME} character set utf8 collate utf8_bin;
-create user '${DB_USER}'@'${DB_HOST}' identified by '${DB_PWD}';
-grant all privileges on ${DB_NAME}.* to '${DB_USER}'@'${DB_HOST}';
-flush privileges;
-EOF
-
-log_status "Securing MariaDB"
-sudo mysql -u root <<EOF
-SET PASSWORD = PASSWORD('${DB_PWD}');
-DELETE FROM mysql.user WHERE User='';
-DROP DATABASE IF EXISTS test;
-DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';
-FLUSH PRIVILEGES;
+sudo -u postgres psql <<EOF
+create role ${DB_USER} login password '${DB_PWD}';
+create database ${DB_NAME} owner ${DB_USER} encoding 'UTF8';
 EOF
 
 log_status "Preparing virtualenv"
@@ -132,25 +99,27 @@ python3 -m venv $BASE_DIR/env
 source $BASE_DIR/env/bin/activate
 pip install --quiet --upgrade pip virtualenv
 pip install --progress-bar off -r $BASE_DIR/requirements.txt
-pip install --progress-bar off gunicorn pymysql
+pip install --progress-bar off gunicorn
 
 log_status "Setting up environment"
 cat > $BASE_DIR/.env <<EOF
 SECRET_KEY=$(python3 -c "import uuid; print(uuid.uuid4().hex)")
-DATABASE_URL=mysql+pymysql://workshop:${DB_PWD}@${DB_HOST}:3306/${DB_NAME}
+DATABASE_URL=postgresql+psycopg2://${DB_USER}:${DB_PWD}@${DB_HOST}:5432/${DB_NAME}
 EOF
 
 log_status "Initializing database tables"
 rm -rf $BASE_DIR/app.db $BASE_DIR/migrations
+pwd
 flask db init
 flask db migrate -m "initial tables"
 flask db upgrade
 
 log_status "Setting up supervisord"
+mkdir -p $BASE_DIR/logs
 sudo bash -c "
 cat > /etc/supervisord.d/workshop.ini <<EOF
 [program:workshop]
-command=$BASE_DIR/env/bin/gunicorn -b 127.0.0.1:8000 -w 4 workshop:app
+command=$BASE_DIR/env/bin/gunicorn -b 127.0.0.1:8000 -w 4 --error-logfile $BASE_DIR/logs/workshop.log --capture-output workshop:app
 directory=$BASE_DIR
 user=$(whoami)
 autostart=true
