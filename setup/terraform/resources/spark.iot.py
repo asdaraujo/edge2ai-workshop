@@ -78,7 +78,21 @@ def main():
     data = events \
         .select(decode("value", "UTF-8").alias("decoded")) \
         .select(from_json("decoded", SCHEMA).alias("data"), "decoded") \
-        .selectExpr("data.*", 'cast(model_lookup(decoded) as int) as is_healthy')
+        .selectExpr("data.sensor_id",
+                    "data.sensor_ts",
+                    "data.sensor_0",
+                    "data.sensor_1",
+                    "data.sensor_2",
+                    "data.sensor_3",
+                    "data.sensor_4",
+                    "data.sensor_5",
+                    "data.sensor_6",
+                    "data.sensor_7",
+                    "data.sensor_8",
+                    "data.sensor_9",
+                    "data.sensor_10",
+                    "data.sensor_11",
+                    'cast(model_lookup(decoded) as int) as is_healthy')
     kudu = data \
         .writeStream \
         .format("kudu") \
