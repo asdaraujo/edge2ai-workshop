@@ -11,7 +11,7 @@
   ],
   "products": [
     {
-      "product": "Anaconda",
+      "product": "{{ANACONDA_PRODUCT}}",
       "version": "{{ANACONDA_VERSION}}"
     },
     {
