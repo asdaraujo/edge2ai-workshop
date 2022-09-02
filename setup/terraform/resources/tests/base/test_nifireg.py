@@ -4,6 +4,9 @@
 Testing NiFi Registry
 """
 from nipyapi import versioning
+from ...labs.utils import nifi
+
+nifi.set_environment()
 
 
 def test_nifi_registry_iot(run_id):

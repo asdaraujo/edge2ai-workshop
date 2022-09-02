@@ -5,8 +5,11 @@ Testing NiFi
 """
 from nipyapi import canvas
 from ...labs import exception_context, retry_test
+from ...labs.utils import nifi
 
 QUEUED_MSG_THRESHOLD = 1
+
+nifi.set_environment()
 
 
 def test_data_flowing():

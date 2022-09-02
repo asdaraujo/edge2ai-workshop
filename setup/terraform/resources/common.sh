@@ -188,7 +188,9 @@ function load_stack() {
   else
     export HAS_CEM=1
   fi
-  export ENABLE_KERBEROS ENABLE_TLS KERBEROS_TYPE USE_IPA TF_VAR_use_ipa PROJECT_ZIP_FILE HAS_CEM
+  # Set default for ANACONDA_PRODUCT, which was introduced late
+  ANACONDA_PRODUCT=${ANACONDA_PRODUCT:-Anaconda}
+  export ENABLE_KERBEROS ENABLE_TLS KERBEROS_TYPE USE_IPA TF_VAR_use_ipa PROJECT_ZIP_FILE HAS_CEM ANACONDA_PRODUCT
   prepare_keytabs_dir
 }
 
@@ -863,6 +865,11 @@ function tighten_keystores_permissions() {
   sudo setfacl -m user:ssb:r--,group:ssb:r-- $KEY_PEM
 
   sudo setfacl -m user:ssb:r--,group:ssb:r-- ${SEC_BASE}/x509/pwfile
+
+  # Due to changes in 7.1.8 Hue needs write permissions on the cert dir
+  # TODO: Remove this when CDPD-44355 gets resolved
+  setfacl -m user:hue:rwx,group:hue:rwx /opt/cloudera/security/x509/
+
   set -e
 }
 

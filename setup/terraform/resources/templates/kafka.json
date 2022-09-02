@@ -128,8 +128,33 @@
           "roleType": "KAFKA_CONNECT",
           "base": true,
           "configs": [
-{% if ENABLE_TLS == 'yes' %}
             {
+              "name" : "bootstrap.servers",
+              "value" : "{{CLUSTER_HOST}}:{% if ENABLE_TLS == 'yes' %}9093{% else %}9092{% endif %}"
+            },
+            {
+              "name" : "config.storage.replication.factor",
+              "value" : "1"
+            }, {
+              "name" : "offset.storage.replication.factor",
+              "value" : "1"
+            },
+            {
+              "name" : "status.storage.replication.factor",
+              "value" : "1"
+            }
+{% if CM_VERSION is ge('7.7.1') %}
+            ,{
+              "name" : "kafka.connect.secret.storage.topic.configs.min.insync.replicas",
+              "value" : "1"
+            },
+            {
+              "name" : "kafka.connect.secret.storage.topic.replication.factor",
+              "value" : "1"
+            }
+{% endif %}
+{% if ENABLE_TLS == 'yes' %}
+            ,{
               "name": "ssl_client_truststore_location",
               "value": "/opt/cloudera/security/jks/truststore.jks"
             },
@@ -152,23 +177,8 @@
             {
               "name": "ssl_server_keystore_password",
               "value": "{{THE_PWD}}"
-            },
-{% endif %}
-            {
-              "name" : "bootstrap.servers",
-              "value" : "{{CLUSTER_HOST}}:{% if ENABLE_TLS == 'yes' %}9093{% else %}9092{% endif %}"
-            },
-            {
-              "name" : "config.storage.replication.factor",
-              "value" : "1"
-            }, {
-              "name" : "offset.storage.replication.factor",
-              "value" : "1"
-            },
-            {
-              "name" : "status.storage.replication.factor",
-              "value" : "1"
             }
+{% endif %}
           ]
         },
 {% endif %}

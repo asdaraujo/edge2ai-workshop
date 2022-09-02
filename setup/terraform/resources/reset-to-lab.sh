@@ -4,7 +4,7 @@ BASE_DIR=$(cd "$(dirname $0)"; pwd -L)
 function suppress_deprecation_warning() {
   egrep -v "from cryptography.hazmat.backends|CryptographyDeprecationWarning"
 }
-source /opt/rh/rh-python36/enable
+source /opt/rh/rh-python38/enable
 
 set -u
 set -e

@@ -56,10 +56,8 @@ if [[ ! $PUBLIC_IP =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
 fi
 
 function enable_py3() {
-  if [[ $(which python) != /opt/rh/rh-python36/root/usr/bin/python ]]; then
-    export MANPATH=
-    source /opt/rh/rh-python36/enable
-  fi
+  export MANPATH=
+  source /opt/rh/rh-python38/enable
 }
 
 #########  Start Packer Installation
@@ -106,7 +104,7 @@ if [[ ! -f $PREINSTALL_COMPLETED_FLAG ]]; then
   # nodejs, npm and forever are SMM dependencies
   curl -sL https://rpm.nodesource.com/setup_10.x | sed -E '/(script_deprecation_warning|node_deprecation_warning)$/d' | sudo bash -
   yum_install ${JAVA_PACKAGE_NAME} vim wget curl git bind-utils centos-release-scl figlet cowsay
-  yum_install nodejs gcc-c++ make shellinabox mosquitto jq transmission-cli rng-tools rh-python36 httpd
+  yum_install nodejs gcc-c++ make shellinabox mosquitto jq transmission-cli rng-tools rh-python38 rh-python38-python-devel httpd
   # Below is needed for secure clusters (required by Impyla)
   yum_install cyrus-sasl-md5 cyrus-sasl-plain cyrus-sasl-gssapi cyrus-sasl-devel
   # For troubleshooting purposes, when needed
@@ -173,6 +171,8 @@ EOF
   retry_if_needed 5 5 "npm install --quiet forever -g"
   enable_py3
   pip install --quiet --upgrade pip
+  # re-source after pip upgrade due to change in path of the pip executable
+  enable_py3
   pip install --progress-bar off \
     cm-client==44.0.3 \
     impyla==0.17.0 \
@@ -180,7 +180,7 @@ EOF
     kerberos==1.3.1 \
     nipyapi==0.17.1 \
     paho-mqtt==1.6.1 \
-    psycopg2-binary==2.9.2 \
+    psycopg2-binary==2.9.3 \
     pytest==6.2.5 \
     PyYAML==6.0 \
     requests-gssapi==1.2.3 \
@@ -188,8 +188,8 @@ EOF
     thrift-sasl==0.4.3
 
   rm -f /usr/bin/python3 /usr/bin/pip3
-  ln -s /opt/rh/rh-python36/root/bin/python3 /usr/bin/python3
-  ln -s /opt/rh/rh-python36/root/bin/pip3 /usr/bin/pip3
+  ln -s /opt/rh/rh-python38/root/bin/python3 /usr/bin/python3
+  ln -s /opt/rh/rh-python38/root/bin/pip3 /usr/bin/pip3
 
   log_status "Installing JDBC connector"
   cp /usr/share/java/postgresql-jdbc.jar /usr/share/java/postgresql-connector-java.jar
@@ -723,16 +723,37 @@ wait_for_cm
 log_status "Resetting Cloudera Manager admin password"
 sudo -u postgres psql -d scm -c "update users set password_hash = '${THE_PWD_HASH}', password_salt = ${THE_PWD_SALT} where user_name = 'admin'"
 
-enable_py3
 if [[ ${HAS_FLINK:-0} == 1 ]]; then
-  log_status "Installing SSB dependencies"
-  mkdir -p /usr/share/python3
-  pip3 install \
-    mysql-connector-python==8.0.23 psycopg2-binary==2.8.5 \
-    -t /usr/share/python3
+  # SSB 1.6.x and earlier need Python database connectors installed separately
+  (
+    export SSB_PYTHON=/opt/cloudera/parcels/FLINK/lib/flink/python
+    export SSB_PYTHON_VENV="$SSB_PYTHON/console_venv"
+    export SSB_PYTHON_BIN="$SSB_PYTHON_VENV/bin"
+    if [[ -f $SSB_PYTHON_BIN/pip3 ]]; then
+      log_status "Installing SSB dependencies"
+
+      if [[ ! -e /usr/share/console_venv ]]; then
+        SSB_VENV_SYMLINK_CREATED=1
+        ln -s $SSB_PYTHON_VENV /usr/share/console_venv
+      fi
+
+      export PATH="$SSB_PYTHON_BIN:$PATH"
+      export LD_LIBRARY_PATH="$SSB_PYTHON/console_venv/lib64"
+      export PYTHONPATH="${LD_LIBRARY_PATH}"
+      export PYTHONHOME="$SSB_PYTHON/console_venv/"
+
+      mkdir -p /usr/share/python3
+      pip3 install mysql-connector-python==8.0.23 psycopg2-binary==2.8.5 -t /usr/share/python3
+
+      if [[ ${SSB_VENV_SYMLINK_CREATED:-0} -eq 1 ]]; then
+        rm -f /usr/share/console_venv
+      fi
+    fi
+  )
 fi
 
 log_status "Generating cluster template"
+enable_py3
 python -u $BASE_DIR/cm_template.py --cdh-major-version $CDH_MAJOR_VERSION $CM_SERVICES > $TEMPLATE_FILE
 
 log_status "Creating cluster"

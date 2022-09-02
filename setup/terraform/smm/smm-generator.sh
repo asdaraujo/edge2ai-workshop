@@ -429,7 +429,7 @@ logger.info("Done!")
 EOF
 
   set +u
-  source /opt/rh/rh-python36/enable
+  source /opt/rh/rh-python38/enable
   set -u
   pip install requests nipyapi
   python $import_script $flow_xml

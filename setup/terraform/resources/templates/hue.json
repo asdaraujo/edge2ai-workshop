@@ -33,6 +33,12 @@
           "name" : "database_port",
           "value" : "5432"
         }
+{% if CDH_VERSION is ge('7.1.8') %}
+        ,{
+          "name" : "hue_service_env_safety_valve",
+          "value" : "PATH=/opt/rh/rh-python38/root/usr/local/bin:/opt/rh/rh-python38/root/usr/bin:/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin:/root/bin"
+        }
+{% endif %}
 {% if USE_IPA %}
         ,{
           "name" : "auth_backend",
