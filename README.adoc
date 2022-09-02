@@ -36,19 +36,27 @@ If you already familiar with the instructions in the README, time to start worki
 
 You instructor will give access to a registration link where you can request a cluster. You should have 2 addresses for you one-node cluster: the public DNS name and the public IP address. With those addresses you can test the following connectivity to your cluster:
 
+NOTE: The credentials for all the services below that require authentication are `admin/Supersecret1` (capital "S").
+
 . Ensure you can connect to the following service using your browser:
 +
 [%autowidth,options="header"]
 |===
-|Service|URL|Credentials
-|Cloudera Manager|http://<public_dns>:7180/|`admin/Supersecret1`
-|Edge Flow Manager|http://<public_dns>:10088/efm/ui/|
-|NiFi|http://<public_dns>:8080/nifi/|
-|NiFi Registry|http://<public_dns>:18080/nifi-registry/|
-|Schema Registry|http://<public_dns>:7788/|
-|SMM|http://<public_dns>:9991/|
-|Hue|http://<public_dns>:8888/|`admin/Supersecret1`
+|Service|URL|Comments
+|Cloudera Manager|http://<public_dns>:7180/|Port 7183 when TLS is enabled
+|Atlas|http://<public_dns>:31000/|Port 31443 when TLS is enabled
 |CDSW|http://cdsw.<public_IP>.nip.io/|`admin/Supersecret1`
+|CDP Data Visualization|http://viz.cdsw.<public_IP>.nip.io/|
+|Edge Flow Manager|http://<public_dns>:10088/efm/ui/|
+|Flink Dashboard|http://<public_dns>:8078/|
+|Hue|http://<public_dns>:8889/|
+|Knox|https://<public_dns>:9443/gateway/homepage/home/|Only when security is enabled
+|NiFi|http://<public_dns>:8080/nifi/|Port 8443 when TLS is enabled
+|NiFi Registry|http://<public_dns>:18080/nifi-registry/|Port 18433 when TLS is enabled
+|Ranger|https://<public_dns>:6182/|Only when security is enabled
+|Schema Registry|http://<public_dns>:7788/|Port 7790 when TLS is enabled
+|SMM|http://<public_dns>:9991/|
+|SQL Stream Builder (SSB)|http://<public_dns>:18121/|For SSB versions older than 1.7 use this instead: http://<public_dns>:18121/
 |===
 . Login into *Cloudera Manager* and familiarize yourself with the services installed
 . Login into *Hue*. As you are the first user to login into Hue, you are granted admin privileges. At this point, you won't need to do anything on Hue, but by logging in, CDH has created your HDFS user and folder, which you will need for the next lab.
