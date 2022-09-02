@@ -524,19 +524,23 @@ def main():
             job_id = resp.json()['id']
             print('Job ID: {}'.format(job_id, ))
 
-            print('# Start job')
-            job_url = '{}/projects/admin/edge2ai-workshop/jobs/{}'.format(CDSW_API, job_id)
-            start_url = '{}/start'.format(job_url, )
-            _cdsw_post(start_url, json={})
-            while True:
-                resp = _cdsw_get(job_url)
-                status = resp.json()['latest']['status']
-                print('Job {} status: {}'.format(job_id, status))
-                if status == 'succeeded':
-                    break
-                elif status == 'failed':
-                    raise RuntimeError('Job failed')
-                time.sleep(10)
+            status = None
+            while status != 'succeeded':
+                print('# Start job')
+                job_url = '{}/projects/admin/edge2ai-workshop/jobs/{}'.format(CDSW_API, job_id)
+                start_url = '{}/start'.format(job_url, )
+                _cdsw_post(start_url, json={})
+                while True:
+                    resp = _cdsw_get(job_url)
+                    status = resp.json()['latest']['status']
+                    print('Job {} status: {}'.format(job_id, status))
+                    if status == 'succeeded':
+                        break
+                    if status == 'failed':
+                        print('# Job failed. Will retry in 5 seconds.')
+                        time.sleep(5)
+                        break
+                    time.sleep(10)
 
             print('# Get engine image to use for model')
             resp = _cdsw_get(CDSW_API + '/projects/admin/edge2ai-workshop/engine-images')
