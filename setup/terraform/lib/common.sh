@@ -1122,7 +1122,7 @@ function yamlize() {
 function timeout() {
   local timeout_secs=$1
   local cmd=$2
-  python -c "import subprocess, sys; r = subprocess.run(sys.argv[2], shell=True, timeout=int(sys.argv[1])); exit(r.returncode)" "$timeout_secs" "$cmd" 2>&1 #/dev/null
+  python -c "import subprocess, sys; r = subprocess.run(sys.argv[2], shell=True, timeout=int(sys.argv[1])); exit(r.returncode)" "$timeout_secs" "$cmd" 2>&1 | grep -v LC_CTYPE
 }
 
 #
