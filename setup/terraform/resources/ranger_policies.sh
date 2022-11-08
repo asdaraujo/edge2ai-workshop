@@ -235,5 +235,12 @@ add_perms_to_policy ":cdp-admins:READ;WRITE;DELETE" "Proxies"  "$NIFI_REGISTRY_S
 
 # Kudu
 
-create_policy "$KUDU_SERVICE" "kudu" "All databases" "database" "*" "table" "*" "column" "*"
-add_perms_to_policy ":cdp-admins:all;alter;create;delete;drop;insert;metadata;select;update" "All databases" "$KUDU_SERVICE"
+DB_POL="all - database"
+DB_TAB_POL="all - database, table"
+DB_TAB_COL_POL="all - database, table, column"
+create_policy "$KUDU_SERVICE" "kudu" "$DB_POL" "database" "*"
+create_policy "$KUDU_SERVICE" "kudu" "$DB_TAB_POL" "database" "*" "table" "*"
+create_policy "$KUDU_SERVICE" "kudu" "$DB_TAB_COL_POL" "database" "*" "table" "*" "column" "*"
+add_perms_to_policy "kudu;ssb:cdp-admins:all;alter;create;delete;drop;insert;metadata;select;update" "$DB_POL" "$KUDU_SERVICE"
+add_perms_to_policy "kudu;ssb:cdp-admins:all;alter;create;delete;drop;insert;metadata;select;update" "$DB_TAB_POL" "$KUDU_SERVICE"
+add_perms_to_policy "kudu;ssb:cdp-admins:all;alter;create;delete;drop;insert;metadata;select;update" "$DB_TAB_COL_POL" "$KUDU_SERVICE"
