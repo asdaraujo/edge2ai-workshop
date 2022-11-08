@@ -312,16 +312,17 @@
             }
 {% if ENABLE_TLS == 'yes' %}
             ,{
-              "name": "ssl_client_truststore_location",
-              "value": "/opt/cloudera/security/jks/truststore.jks"
-            },
-            {
-              "name": "ssl_client_truststore_password",
-              "value": "{{THE_PWD}}"
-            },
-            {
               "name": "ssl_enabled",
               "value": "true"
+            },
+            {
+              "name": "ssl_client_truststore_location",
+              "value": "/opt/cloudera/security/jks/truststore.jks"
+            }
+{% if CSA_VERSION is lt('1.8.0.1') %}
+            ,{
+              "name": "ssl_client_truststore_password",
+              "value": "{{THE_PWD}}"
             },
             {
               "name": "ssl_server_keystore_keypassword",
@@ -335,6 +336,24 @@
               "name": "ssl_server_keystore_password",
               "value": "{{THE_PWD}}"
             }
+{% else %}
+            ,{
+              "name": "ssl_server_certificate_location",
+              "value": "/opt/cloudera/security/x509/cert.pem"
+            },
+            {
+              "name": "ssl_server_privatekey_location",
+              "value": "/opt/cloudera/security/x509/key.pem"
+            },
+            {
+              "name": "ssl_server_privatekey_password",
+              "value": "{{THE_PWD}}"
+            },
+            {
+              "name": "ssl_server_ca_certificate_location",
+              "value": "/opt/cloudera/security/x509/truststore.pem"
+            }
+{% endif %}
 {% endif %}
           ]
         }
