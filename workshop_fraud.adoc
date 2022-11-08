@@ -1,0 +1,30 @@
+= Credit Card Fraud Detection Demo
+
+Currently, this use case is a demo rather than a workshop. You can quickly deploy the demo implementation and demo or play around with it.
+
+There's no step-by-step instructions on how to build this, _yet_. If you are willing to contribute with the workshop content this will be greatly appreciated. Please get in touch.
+
+== Preparation
+
+This demo uses link:https://account.mapbox.com/[MapBox] to show the distribution of fraud occurrences on an interactive map.
+To enable this a MapBox token is required so that Cloudera DataViz can connect to the MapBox service.
+If you don't yet have a token, click on the MapBox link above, sign up for free and create a token for yourself.
+
+To deploy the demo please SSH to your cluster host and run the following command:
+
+NOTE: The command below will undo everything done in the cluster in previous workshops.
+
+[source,shell]
+----
+MAPBOX_TOKEN=<your_mapbox_token> /tmp/resources/reset-to-lab.sh fraud 99
+----
+
+== Demo points
+
+After the demo is deployed you can browse the different components of the use implementation in the following UIs:
+
+* *NiFi* - Generate fake transaction data, processes it and forward it to Kafka and Kudu
+* *Kafka/SMM* - Browse data in Kafka topics
+* *Hue* - Browse data in Kudu tables
+* *SSB/Flink* - Check real-time streaming jobs
+* *CDSR/DataViz* - Browse the Fraud dashboard and datasets
