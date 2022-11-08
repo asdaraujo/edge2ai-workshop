@@ -274,7 +274,7 @@ CREATE TABLE transactions_cdc (
   'schema-name' = 'public',
   'table-name' = 'transactions',
   'debezium.publication.name' = 'dbz_publication',
-  'debezium.snapshot.mode' = 'initial'
+  'debezium.snapshot.mode' = 'initial',
   'decoding.plugin.name' = 'pgoutput',
   'slot.name' = 'flink'
 );

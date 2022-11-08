@@ -21,6 +21,10 @@ If you already familiar with the instructions in the README, time to start worki
 * link:spark_analytics.adoc[Spark and Fast Analytics with Kudu]
 * link:datascience.adoc[CDSW Experiments and Models]
 
+Use cases:
+
+* link:workshop_fraud.adoc[Credit card fraud detection]
+
 === Before you start
 
 * Everything is Case-Sensitive. 
