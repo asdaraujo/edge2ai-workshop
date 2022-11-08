@@ -224,10 +224,10 @@ class AbstractWorkshop(metaclass=AbstractWorkshopMeta):
             return None
         self._setup_prereqs()
         self.before_setup()
-        lab_setup_functions = [(n, f, _get_step_number(n)) for n, f in
-                               getmembers(self.__class__) if _get_step_number(n) is not None]
+        lab_setup_functions = sorted([(_get_step_number(n), n, f) for n, f in
+                                      getmembers(self.__class__) if _get_step_number(n) is not None])
         LOG.debug("Found Lab Setup Functions: %s", str(map(lambda x: x[2], lab_setup_functions)))
-        for func_name, func, lab_number in lab_setup_functions:
+        for lab_number, func_name, func in lab_setup_functions:
             if lab_number < target_lab:
                 LOG.info("Executing {}::{}".format(self.workshop_id(), func_name))
                 try:
