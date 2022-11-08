@@ -184,6 +184,44 @@ def delete_data_provider(provider_name):
             _api_delete('/external-providers/{}'.format(provider['provider_id']))
 
 
+def delete_all_data_providers():
+    for provider in get_data_providers():
+        delete_data_provider(provider['name'])
+
+
+def create_udf(name, description, input_types, output_type, code):
+    data = {
+        'name': name,
+        'description': description,
+        'language': 'JavaScript',
+        'input_types': input_types,
+        'output_type': output_type,
+        'code': code,
+    }
+    return _api_post('/internal/udf', data, api_type=_API_INTERNAL, token=True)
+
+
+def get_udfs(udf_name=None):
+    resp = _api_get('/internal/udf', api_type=_API_INTERNAL)
+    return [f for f in resp.json() if udf_name is None or f['name'].upper() == udf_name.upper()]
+
+
+def delete_udf(udf_name=None, udf_id=None):
+    assert udf_name is not None or udf_id is not None
+    assert udf_name is None or udf_id is None
+    if udf_id is None:
+        udf = get_udfs(udf_name)
+        if not udf:
+            return
+        udf_id = udf[0]['id']
+    _api_delete('/internal/udf/{}'.format(udf_id), api_type=_API_INTERNAL)
+
+
+def delete_all_udfs():
+    for udf in get_udfs():
+        delete_udf(udf_id=udf['id'])
+
+
 def detect_schema(provider_name, topic_name):
     provider_id = get_data_providers(provider_name)[0]['provider_id']
     if is_csa16_or_later():
@@ -313,14 +351,20 @@ def upload_keytab(principal, keytab_file):
             'principal': principal,
         }
         files = {'file': (os.path.basename(keytab_file), open(keytab_file, 'rb'), 'application/octet-stream')}
-        return _api_post('/internal/user/upload-keytab', data=data, files=files)
+
+        try:
+            _api_post('/internal/user/upload-keytab', data=data, files=files)
+        except RuntimeError as exc:
+            if exc.args and 'Keytab already exists' in exc.args[0]:
+                return
+            raise
     else:
         data = {
             'keytab_principal': principal,
             'csrf_token': _SSB_CSRF_TOKEN,
         }
         files = {'keytab_file': (os.path.basename(keytab_file), open(keytab_file, 'rb'), 'application/octet-stream')}
-        return _api_post('/keytab/upload', api_type=_API_UI, data=data, files=files, token=True)
+        _api_post('/keytab/upload', api_type=_API_UI, data=data, files=files, token=True)
 
 
 def generate_keytab(principal, password):
@@ -329,6 +373,11 @@ def generate_keytab(principal, password):
             'principal': principal,
             'password': password,
         }
-        return _api_post('/internal/user/generate-keytab', data=data)
+        try:
+            _api_post('/internal/user/generate-keytab', data=data)
+        except RuntimeError as exc:
+            if exc.args and 'Keytab already exists' in exc.args[0]:
+                return
+            raise
     else:
         raise RuntimeError('This feature is only implemented for CSA 1.7 and later.')

@@ -27,12 +27,40 @@ def api_get(endpoint, expected_codes=None, **kwargs):
     return _api_request('GET', endpoint, expected_codes, **kwargs)
 
 
+def api_post(endpoint, expected_codes=None, **kwargs):
+    return _api_request('POST', endpoint, expected_codes, **kwargs)
+
+
 def get_smm_version():
     resp = api_get('/api/v1/admin/version')
     assert resp.status_code == requests.codes.ok
     version_info = resp.json()
     assert version_info and 'version' in version_info
     return [int(n) for n in re.split(r'[^0-9]', version_info['version'])]
+
+
+def get_topics(topic_name=None):
+    resp = api_get('/api/v1/admin/topics', expected_codes=[requests.codes.ok])
+    return [t for t in resp.json() if topic_name is None or t['name'] == topic_name]
+
+
+def create_topic(topic_name, partitions=1, replication_factor=1, min_isr=1, cleanup_policy='delete'):
+    if get_topics(topic_name):
+        return
+    data = {
+        'newTopics': [
+            {
+                'name': topic_name,
+                'numPartitions': partitions,
+                'replicationFactor': replication_factor,
+                'configs': {
+                    'cleanup.policy': cleanup_policy,
+                    'min.insync.replicas': min_isr
+                }
+            }
+        ]
+    }
+    resp = api_post('/api/v1/admin/topics', expected_codes=[requests.codes.no_content], json=data)
 
 
 def get_aggregation_api_prefix():

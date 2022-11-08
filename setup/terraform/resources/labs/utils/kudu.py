@@ -46,6 +46,10 @@ def _connect_to_impala():
     return connect(host=get_hostname(), port=21050, **params)
 
 
+def get_masters():
+    return get_hostname() + ':7051'
+
+
 def create_table():
     conn = _connect_to_impala()
     cursor = conn.cursor()

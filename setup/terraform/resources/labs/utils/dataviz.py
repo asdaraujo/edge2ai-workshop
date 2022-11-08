@@ -42,6 +42,8 @@ def _api_call(func, path, data=None, files=None, headers=None):
         del headers['X-CSRFToken']
     elif _DATAVIZ_CSRF_TOKEN:
         headers['X-CSRFToken'] = _DATAVIZ_CSRF_TOKEN
+        if data:
+            data['csrfmiddlewaretoken'] = _DATAVIZ_CSRF_TOKEN
     if 'Content-Type' in headers and headers['Content-Type'] is None:
         del headers['Content-Type']
     elif 'Content-Type' not in headers:
@@ -130,14 +132,19 @@ def get_user(username):
     return {}
 
 
-def create_connection(conn_type, conn_name, params):
+def create_connection(conn_type, conn_name, params, username=None, password=None):
+    if username:
+        params = params.copy()
+        params['USERNAME'] = username
     data = {
         'dataconnection_type': conn_type,
         'dataconnection_name': conn_name,
         'dataconnection_info': json.dumps({'PARAMS': params}),
-        'do_validate': True
+        'do_validate': True,
     }
-    resp = _api_post('/datasets/dataconnection', data)
+    if password:
+        data['dataconnection_password'] = password
+    _api_post('/datasets/dataconnection', data)
 
 
 def get_connection(conn_name):
@@ -200,7 +207,6 @@ def import_artifacts2(dc_name, file_name):
         'dataconnection_name': dc_name,
         'workspace_id': workspace['id'],
         'thumbnails_action': 1,  # Import from the file
-        'sanity_check': 'on',
     }
     files = {'import_file': (os.path.basename(file_name), open(file_name, 'r'), 'application/json')}
     headers = {'Content-Type': None}
