@@ -14,7 +14,7 @@ REMOTE_REPO_USR=<YOUR_USERNAME_HERE>
 REMOTE_REPO_PWD=<YOUR_PASSWORD_HERE>
 
 #####  Java Package
-JAVA_PACKAGE_NAME=java-1.8.0-openjdk-devel
+JAVA_PACKAGE_NAME=java-11-openjdk-devel
 
 ##### Maven binary
 MAVEN_BINARY_URL=https://downloads.apache.org/maven/maven-3/3.8.6/binaries/apache-maven-3.8.6-bin.tar.gz
@@ -67,12 +67,12 @@ MINIFI_TARBALL_URL=https://archive.cloudera.com/p/CEM/centos7/1.x/updates/1.2.2.
 MINIFITK_TARBALL_URL=https://archive.cloudera.com/p/CEM/centos7/1.x/updates/1.2.2.0/tars/minifi/minifi-toolkit-0.6.0.1.2.2.0-14-bin.tar.gz
 
 #####   CSA
-CSA_VERSION=1.7.0.1
-FLINK_VERSION=1.14.0
-FLINK_BUILD=1.14.0-csa1.7.0.1-cdh7.1.7.0-551-29340707
-CSA_PARCEL_REPO=https://archive.cloudera.com/p/csa/1.7.0.1/parcels/
-FLINK_CSD_URL=https://archive.cloudera.com/p/csa/1.7.0.1/csd/FLINK-1.14.0-csa1.7.0.1-cdh7.1.7.0-551-29340707.jar
-SSB_CSD_URL=https://archive.cloudera.com/p/csa/1.7.0.1/csd/SQL_STREAM_BUILDER-1.14.0-csa1.7.0.1-cdh7.1.7.0-551-29340707.jar
+CSA_VERSION=1.8.0.0
+FLINK_VERSION=1.15.1
+FLINK_BUILD=1.15.1-csa1.8.0.0-cdh7.1.8.0-801-32294043
+CSA_PARCEL_REPO=https://archive.cloudera.com/p/csa/1.8.0.0/parcels/
+FLINK_CSD_URL=https://archive.cloudera.com/p/csa/1.8.0.0/csd/FLINK-1.15.1-csa1.8.0.0-cdh7.1.8.0-801-32294043.jar
+SSB_CSD_URL=https://archive.cloudera.com/p/csa/1.8.0.0/csd/SQL_STREAM_BUILDER-1.15.1-csa1.8.0.0-cdh7.1.8.0-801-32294043.jar
 
 # Parcels to be pre-downloaded during install.
 # Cloudera Manager will download any parcels that are not already downloaded previously.
