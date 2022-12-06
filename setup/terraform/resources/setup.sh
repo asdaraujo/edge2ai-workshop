@@ -155,14 +155,14 @@ EOF
   yum makecache -y || true
   yum repolist
 
-  log_status "Installing and disable Cloudera Manager"
+  log_status "Installing and disabling Cloudera Manager"
   # NOTE: must disable PG repos for this install due to some weird dependencies on psycopg2,
   # which maps to Python 3 on the PG repo, but to Python 2 on base.
   yum_install --disablerepo="pgdg*" cloudera-manager-daemons cloudera-manager-agent cloudera-manager-server
   systemctl disable cloudera-scm-agent
   systemctl disable cloudera-scm-server
 
-  log_status "Installing and disable PostgreSQL"
+  log_status "Installing and disabling PostgreSQL"
   yum_install postgresql10-server postgresql10 postgresql10-contrib postgresql-jdbc
   systemctl disable postgresql-10
 
@@ -222,7 +222,7 @@ EOF
 
     EFM_TARBALL=$(find /opt/cloudera/cem/ -name "efm-*-bin.tar.gz" | sort | tail -1)
     if [[ ${EFM_TARBALL:-} != "" ]]; then
-      log_status "Installing and configure EFM"
+      log_status "Installing and configuring EFM"
       EFM_BASE_NAME=$(basename $EFM_TARBALL | sed 's/-bin.tar.gz//')
       tar -zxf ${EFM_TARBALL} -C /opt/cloudera/cem
       rm -f /opt/cloudera/cem/efm /etc/init.d/efm
@@ -236,7 +236,7 @@ EOF
 
     MINIFI_TARBALL=$(find /opt/cloudera/cem/ -name "minifi-[0-9]*-bin.tar.gz" | sort | tail -1)
     if [[ ${MINIFI_TARBALL:-} != "" ]]; then
-      log_status "Installing and configure MiNiFi Java"
+      log_status "Installing and configuring MiNiFi Java"
       MINIFI_BASE_NAME=$(basename $MINIFI_TARBALL | sed 's/-bin.tar.gz//')
       tar -zxf ${MINIFI_TARBALL} -C /opt/cloudera/cem
       rm -f /opt/cloudera/cem/minifi
@@ -480,7 +480,7 @@ done
 # Prewarm distributed parcels
 $(find /opt/cloudera/parcels -type f | xargs -n 1 -P $(nproc --all) -I{} dd if={} of=/dev/null bs=10M status=none) &
 
-log_status "Configuring and optimize the OS"
+log_status "Configuring and optimizing the OS"
 log_status "Ensuring there's plenty of entropy"
 systemctl enable rngd
 systemctl start rngd

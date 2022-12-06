@@ -17,38 +17,61 @@ source $BASE_DIR/lib/common.sh
 CURL=(curl -L -k --connect-timeout 5)
 CPIDS=""
 
-STATUS_UNKNOWN="${C_WHITE}?${C_NORMAL}"
-STATUS_FETCHING="${C_WHITE}#${C_NORMAL}"
-STATUS_COMPLETED="${C_BG_GREEN}${C_BLACK}.${C_NORMAL}"
-STATUS_RUNNING="${C_BLUE}r${C_NORMAL}"
-STATUS_STALE="${C_YELLOW}R${C_NORMAL}"
-STATUS_FAILED="${C_BG_RED}${C_BLACK}X${C_NORMAL}"
+ICON_UNKNOWN="${C_BG_MAGENTA}${C_WHITE}?${C_NORMAL}"
+ICON_CONNECTING="${C_WHITE}c${C_NORMAL}"
+ICON_COMPLETED="${C_BG_GREEN}${C_BLACK}.${C_NORMAL}"
+ICON_RUNNING="${C_BLUE}r${C_NORMAL}"
+ICON_FAILED="${C_BG_RED}${C_BLACK}X${C_NORMAL}"
+STATUS_UNKNOWN="unknown"
+STATUS_CONNECTING="connecting"
+STATUS_COMPLETED="completed"
+STATUS_RUNNING="running"
+STATUS_FAILED="failed"
 
 function cleanup() {
+  true
   if [[ ${STATUS_FILE_PREFIX:-} != "" ]]; then
     rm -f "${STATUS_FILE_PREFIX}".*
   fi
-  if [[ ${CPIDS:-} != "" ]]; then
-    kill -9 $CPIDS 2>/dev/null
+  if [[ ${CONTROL_PATH_PREFIX:-} != "" ]]; then
+    for socket in "${CONTROL_PATH_PREFIX}".*; do
+      ssh -O exit -S $socket dummy@host > /dev/null 2>&1
+    done
   fi
 }
 
-function is_check_running() {
-  if [[ ! -f "${STATUS_CHECK_FILE}" ]]; then
-    echo no
+function ensure_control_master() {
+  local id=$1
+  local ip=$2
+  local pvt_key=$3
+  local pid_file="${CONTROL_PATH_PREFIX}.${id}.parent_pid"
+  set +e;
+  ssh -q -O check -S "${CONTROL_PATH_PREFIX}.${id}" centos@$ip > /dev/null 2>&1
+  local ret=$?
+  set -e
+  if [[ $ret == 0 ]]; then
+    echo ready
     return
   fi
-  local check_pid=$(cat "${STATUS_CHECK_FILE}")
-  if [[ $(ps -o pid | awk -v PID=$check_pid 'BEGIN {cnt = 0} $1 == PID {cnt += 1} END {print cnt}') -eq 0 ]]; then
-    rm -f "${STATUS_CHECK_FILE}"
-    echo no
-    return
+
+  check_pid=$(cat "$pid_file" 2>/dev/null || true)
+  if [[ $check_pid != "" ]]; then
+    if [[ $(ps -o pid | awk -v PID=$check_pid 'BEGIN {cnt = 0} $1 == PID {cnt += 1} END {print cnt}') -ne 0 ]]; then
+      # connection still being established
+      return
+    fi
+    rm -f "$pid_file"
   fi
-  echo yes
+
+  (
+    timeout 60 "ssh -q -o StrictHostKeyChecking=no -f -N -M -o ControlPersist=2h -S '${CONTROL_PATH_PREFIX}.${id}' -i '$pvt_key' centos@$ip" &
+    echo $! > "$pid_file"
+    wait
+    rm -f "$pid_file"
+  ) >&2 &
 }
 
-function check_instance_status() {
-  set -x
+function check_instance() {
   local id=$1
   local ip=$2
   local pvt_key=$TF_VAR_ssh_private_key
@@ -59,57 +82,60 @@ function check_instance_status() {
   elif [[ $id == "I" ]]; then
     cmd="bash ./ipa/check-setup-status.sh setup-ipa.sh ipa/setup-ipa.log"
   fi
-  > "${STATUS_FILE_PREFIX}.${id}"
-  while true; do
-    if [[ $(is_check_running) == "no" ]]; then
-      rm -f "${STATUS_FILE_PREFIX}.${id}"
-      break
+
+  ready=$(ensure_control_master "$id" "$ip" "$pvt_key")
+  if [[ $ready != "ready" ]]; then
+    echo "$STATUS_CONNECTING $id $ip $pvt_key STATUS:Connecting"
+    return
+  fi
+
+  ssh -q -S "${CONTROL_PATH_PREFIX}.${id}" centos@$ip "$cmd" > "${STATUS_FILE_PREFIX}.${id}.tmp"
+  if [[ $? == 0 ]]; then
+    awk -v IP="$ip" -v ID="$id" -v KEY="$pvt_key" -v UNKOWN="$STATUS_UNKNOWN" '{status=$1; if (status == "") {status=UNKOWN}; gsub(/.*STATUS:/, "STATUS:"); print status" "ID" "IP" "KEY" "$0}' "${STATUS_FILE_PREFIX}.${id}.tmp"
+  fi
+  rm -f "${STATUS_FILE_PREFIX}.${id}.tmp"
+}
+
+function instance_status() {
+  awk '{print $1}'
+}
+
+function instance_short_status() {
+  instance_status | while read status; do
+    if [[ $status == "$STATUS_RUNNING" ]]; then
+      status="${ICON_RUNNING}"
+    elif [[ $status == "$STATUS_CONNECTING" ]]; then
+      status="${ICON_CONNECTING}"
+    elif [[ $status == "$STATUS_COMPLETED" ]]; then
+      status="${ICON_COMPLETED}"
+    elif [[ $status == "$STATUS_FAILED" ]]; then
+      status="${ICON_FAILED}"
+    else
+      status="${ICON_UNKNOWN}"
     fi
-    local status=$(
-      set +e;
-      timeout 60 "ssh -q -o StrictHostKeyChecking=no -i '$pvt_key' centos@$ip '$cmd'" > "${STATUS_FILE_PREFIX}.${id}.tmp"
-      if [[ $? == 0 ]]; then
-        awk -v IP=$ip -v ID=$id -v KEY=$pvt_key '{status=$1; gsub(/.*STATUS:/, "STATUS:"); print status" "ID" "IP" "KEY" "$0}' "${STATUS_FILE_PREFIX}.${id}.tmp" > "${STATUS_FILE_PREFIX}.${id}"
-        awk '{print $1}' "${STATUS_FILE_PREFIX}.${id}"
-      fi
-      rm -f "${STATUS_FILE_PREFIX}.${id}.tmp"
-    )
-    if [[ $status == "completed" || $status == "failed" ]]; then
-      break
-    fi
-    sleep $((5 + (RANDOM % 5)))
+    echo $status
   done
 }
 
-function start_checks() {
-  echo "$$" > "${STATUS_CHECK_FILE}"
-  for ip in $(web_instance | web_attr public_ip); do
-    > "${STATUS_FILE_PREFIX}.W.log"
-    check_instance_status W $ip 2> "${STATUS_FILE_PREFIX}.W.log" &
-    CPIDS="$CPIDS $!"
-  done
+function instance_id() {
+  awk '{print $2}'
+}
 
-  for ip in $(ipa_instance | ipa_attr public_ip); do
-    > "${STATUS_FILE_PREFIX}.I.log"
-    check_instance_status I $ip 2> "${STATUS_FILE_PREFIX}.I.log" &
-    CPIDS="$CPIDS $!"
-  done
+function instance_ip() {
+  awk '{print $3}'
+}
 
-  cluster_instances | cluster_attr index public_ip | while read index ip; do
-    > "${STATUS_FILE_PREFIX}.${index}.log"
-    check_instance_status $index $ip 2> "${STATUS_FILE_PREFIX}.${index}.log" &
-    CPIDS="$CPIDS $!"
-  done
+function instance_key() {
+  awk '{print $4}'
+}
+
+function instance_status_message() {
+  awk '$1 != "'"$STATUS_COMPLETED"'" && $1 != "'"$STATUS_FAILED"'" && /STATUS:/{gsub(/.*STATUS:/, "["$2"] "); print}'
 }
 
 function elapsed_time() {
   local start_epoch=$1
   python -c 'from datetime import datetime; print(datetime.now() - datetime.fromtimestamp('"$start_epoch"'))' | sed 's/\..*//'
-}
-
-function mod_time() {
-  local path=$1
-  python -c "import os; print(int(os.stat('$path').st_mtime))"
 }
 
 function print_header() {
@@ -138,63 +164,38 @@ function print_header() {
 
   echo "${C_WHITE}" >&2
   echo "Legend: ${C_WHITE}W${C_NORMAL} = Web server, ${C_WHITE}I${C_NORMAL} = IPA server, ${C_WHITE}[0-9]*${C_NORMAL} = Cluster instances" >&2
-  echo "        ${C_NORMAL}${STATUS_FETCHING} = Fetching status, ${STATUS_RUNNING} = Running, ${STATUS_STALE} = Stale status" >&2
-  echo "        ${STATUS_COMPLETED} = Completed, ${STATUS_FAILED} = Failed, ${STATUS_UNKNOWN} = Unknown" >&2
+  echo "        ${C_NORMAL}${ICON_CONNECTING} = Connecting, ${ICON_RUNNING} = Running, ${ICON_COMPLETED} = Completed, ${ICON_FAILED} = Failed, ${ICON_UNKNOWN} = Unknown" >&2
   echo "${C_WHITE}$line1" >&2
   echo "$line2  Elapsed Time  Status" >&2
   echo -n "${C_NORMAL}" >&2
-}
-
-function get_instance_status() {
-  local id=$1
-  status_file="${STATUS_FILE_PREFIX}.${id}"
-  mod_time=$(mod_time "$status_file")
-  now=$(date +%s)
-  local status="${STATUS_UNKNOWN}"
-  if [[ -f $status_file ]]; then
-    local result=$(awk '{print $1}' $status_file)
-    if [[ $result == "" ]]; then
-      status="${STATUS_FETCHING}"
-    elif [[ $result == "completed" ]]; then
-      status="${STATUS_COMPLETED}"
-    elif [[ $result == "running" ]]; then
-      if [[ $mod_time -lt $((now - 60)) ]]; then
-        status="${STATUS_STALE}"
-      else
-        status="${STATUS_RUNNING}"
-      fi
-    elif [[ $result == "failed" ]]; then
-      status="${STATUS_FAILED}"
-    fi
-  else
-    status="${STATUS_FETCHING}"
-  fi
-  echo $status
-}
-
-function get_active_status_message() {
-  local id=$1
-  local status_file="${STATUS_FILE_PREFIX}.${id}"
-  local status=$(awk '{print $1}' $status_file)
-  awk -v ID=$id '$1 != "completed" && $1 != "failed" && /STATUS:/{gsub(/.*STATUS:/, "["ID"] "); print}' $status_file
 }
 
 function get_status() {
   local line="$(date +%Y-%m-%d\ %H:%M:%S)  "
   local status_msg=""
   for ip in $(web_instance | web_attr public_ip); do
-    line="${line}$(get_instance_status W)"
-    [[ $status_msg == "" ]] && status_msg=$(get_active_status_message W)
+    result=$(check_instance W $ip)
+    line="${line}$(echo "$result" | instance_short_status)"
+    [[ $status_msg == "" ]] && status_msg=$(echo "$result" | instance_status_message)
   done
 
   for ip in $(ipa_instance | ipa_attr public_ip); do
-    line="${line}$(get_instance_status I)"
-    [[ $status_msg == "" ]] && status_msg=$(get_active_status_message I)
+    result=$(check_instance I $ip)
+    line="${line}$(echo "$result" | instance_short_status)"
+    [[ $status_msg == "" ]] && status_msg=$(echo "$result" | instance_status_message)
   done
 
-  for index in $(cluster_instances | sort -k1n | cluster_attr index); do
-    line="${line}$(get_instance_status $index)"
-    [[ $status_msg == "" ]] && status_msg=$(get_active_status_message $index)
+  local -a ips
+  local max_index=0
+  while read index ip; do
+    ips[$index]=$ip
+    max_index=$index
+  done <<< "$(cluster_instances | sort -k1n | cluster_attr index public_ip)"
+  for index in $(seq 0 $max_index); do
+    ip=${ips[$index]}
+    result=$(check_instance $index $ip)
+    line="${line}$(echo "$result" | instance_short_status)"
+    [[ $status_msg == "" ]] && status_msg=$(echo "$result" | instance_status_message)
   done
 
   printf "%s  %12s  %s\n" "$line" "$(elapsed_time $START_TIME)" "$status_msg"
@@ -207,7 +208,7 @@ function total_instances() {
 function wait_for_completion() {
   local cnt=0
   local total=$(total_instances)
-  while [[ $(is_check_running) == "yes" ]]; do
+  while true; do
     if [[ $((cnt % 12)) -eq 0 ]]; then
       print_header
     fi
@@ -231,7 +232,7 @@ function wait_for_completion() {
 
 function fetch_logs() {
   echo "Fetching logs for failed instances"
-  set -- $(ls -1 "${STATUS_FILE_PREFIX}".* | grep "${STATUS_FILE_PREFIX}\.[WI0-9][0-9]*$" | xargs awk '$1 != "completed" {print $2" "$3" "$4}')
+  set -- $(ls -1 "${STATUS_FILE_PREFIX}".* | grep "${STATUS_FILE_PREFIX}\.[WI0-9][0-9]*$" | xargs awk '$1 != "'"$STATUS_COMPLETED"'" {print $2" "$3" "$4}')
   while [[ $# -gt 0 ]]; do
     id=$1; shift
     ip=$1; shift
@@ -259,10 +260,9 @@ STATUS_DIR=${BASE_DIR}/.setup-status
 mkdir -p "$STATUS_DIR"
 find "$STATUS_DIR" -type f -mtime +2 -delete # delete old stuff, if any
 TIMESTAMP=$(date +%s)
+CONTROL_PATH_PREFIX="/tmp/control-path.${NAMESPACE}.${TIMESTAMP}"
 STATUS_FILE_PREFIX="$STATUS_DIR/setup-status.${NAMESPACE}.${TIMESTAMP}"
-STATUS_CHECK_FILE="${STATUS_FILE_PREFIX}.checking"
 
-start_checks
 status=$(wait_for_completion)
 if [[ $status == "success" ]]; then
   echo "Instance deployment finished successfully"
