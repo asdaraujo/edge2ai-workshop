@@ -118,7 +118,13 @@ class SqlStreamBuilderWorkshop(AbstractWorkshop):
         schreg.create_schema(
             IOT_ENRICHED_AVRO_TOPIC, 'Schema for the data in the iot_enriched_avro topic', read_schema())
 
-        provider_id = ssb.get_data_providers(KAFKA_PROVIDER_NAME)[0]['provider_id']
+        provider = ssb.get_data_providers(KAFKA_PROVIDER_NAME)[0]
+        # try:
+        #     provider_id = provider['provider_id']
+        # except:
+        #     print(provider)
+        #     raise
+        provider_id = provider.get('provider_id', provider.get('id'))  # property name changed in CSA 1.9
         props = {
             'catalog_type': 'registry',
             'kafka.provider.id': provider_id,

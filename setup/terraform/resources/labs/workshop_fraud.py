@@ -1333,6 +1333,11 @@ CREATE TABLE transactions (
 ;
 '''
 
+SSB_DROP_TABLES_STMT = '''
+DROP TABLE IF EXISTS fraudulent_txn;
+DROP TABLE IF EXISTS transactions;
+'''
+
 UDF_HAVETOKM_CODE = '''function HAVETOKM(lat1,lon1,lat2,lon2) {
   function toRad(x) {
     return x * Math.PI / 180;
@@ -1486,7 +1491,9 @@ class FraudWorkshop(AbstractWorkshop):
             if not failed:
                 break
 
-        ssb.stop_all_jobs()
+        ssb.stop_all_jobs(wait_secs=3)
+        ssb.execute_sql(SSB_DROP_TABLES_STMT, job_name="drop_tables")
+        ssb.delete_all_jobs()
         ssb.delete_all_udfs()
         ssb.delete_all_data_providers()
         nf.delete_all(root_pg)

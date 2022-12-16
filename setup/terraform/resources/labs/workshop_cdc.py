@@ -187,14 +187,14 @@ class ChangeDataCaptureWorkshop(AbstractWorkshop):
         ssb.execute_sql('SELECT * FROM transactions_cdc', job_name='lab3', sample_interval_millis=0)
         postgres.execute_sql(LAB3_TRANSACTIONS, POSTGRES_DB_NAME, POSTGRES_DB_USR, POSTGRES_DB_PWD)
         time.sleep(5)
-        ssb.stop_job('lab3', wait_secs=3)
+        ssb.stop_job(job_name='lab3', wait_secs=3)
 
     def lab4_replicate_changes(self):
         postgres.execute_sql(LAB4_CREATE_TABLE, POSTGRES_DB_NAME, POSTGRES_DB_USR, POSTGRES_DB_PWD)
         ssb.execute_sql(LAB4_CREATE_SSB_TABLE)
         ssb.execute_sql(LAB4_INSERT_INTO_REPLICA, job_name='lab4', sample_interval_millis=0)
         time.sleep(5)
-        ssb.stop_job('lab4', wait_secs=3)
+        ssb.stop_job(job_name='lab4', wait_secs=3)
 
     def lab5_capture_changelog(self):
         ssb.execute_sql(LAB5_CREATE_SSB_TABLE)
@@ -202,4 +202,4 @@ class ChangeDataCaptureWorkshop(AbstractWorkshop):
         time.sleep(2)
         postgres.execute_sql(LAB5_TRANSACTIONS, POSTGRES_DB_NAME, POSTGRES_DB_USR, POSTGRES_DB_PWD)
         time.sleep(5)
-        ssb.stop_job('lab5')
+        ssb.stop_job(job_name='lab5')
