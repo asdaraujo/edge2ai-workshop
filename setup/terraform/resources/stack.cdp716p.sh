@@ -17,7 +17,7 @@ REMOTE_REPO_PWD=<YOUR_PASSWORD_HERE>
 JAVA_PACKAGE_NAME=java-1.8.0-openjdk-devel
 
 ##### Maven binary
-MAVEN_BINARY_URL=https://downloads.apache.org/maven/maven-3/3.8.6/binaries/apache-maven-3.8.6-bin.tar.gz
+MAVEN_BINARY_URL=https://downloads.apache.org/maven/maven-3/3.8.7/binaries/apache-maven-3.8.7-bin.tar.gz
 
 #####  CM
 CM_VERSION=7.3.1
