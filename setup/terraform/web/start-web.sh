@@ -13,6 +13,8 @@ DB_USER=workshop
 DB_PWD=Supersecret1
 PRIVATE_IP=$(hostname -I | awk '{print $1}')
 
+PG_VERSION=15
+
 function log_status() {
   local msg=$1
   echo "STATUS:$msg"
@@ -62,20 +64,20 @@ fi
 # Error: https://.../repomd.xml: [Errno -1] repomd.xml does not match metalink for epel
 sudo sed -i 's/metalink=/#metalink=/;s/#*baseurl=/baseurl=/' /etc/yum.repos.d/epel*.repo
 
-yum_install python36-pip python36 supervisor nginx postgresql10-server postgresql10 postgresql10-contrib figlet cowsay
+yum_install python36-pip python36 supervisor nginx postgresql${PG_VERSION}-server postgresql${PG_VERSION} postgresql${PG_VERSION}-contrib figlet cowsay
 
 log_status "Configuring PostgreSQL"
 sudo bash -c 'echo '\''LC_ALL="en_US.UTF-8"'\'' >> /etc/locale.conf'
-sudo /usr/pgsql-10/bin/postgresql-10-setup initdb
-sudo sed -i '/host *all *all *127.0.0.1\/32 *ident/ d' /var/lib/pgsql/10/data/pg_hba.conf
-sudo bash -c "cat >> /var/lib/pgsql/10/data/pg_hba.conf <<EOF
+sudo /usr/pgsql-${PG_VERSION}/bin/postgresql-${PG_VERSION}-setup initdb
+sudo sed -i '/host *all *all *127.0.0.1\/32 *ident/ d' /var/lib/pgsql/${PG_VERSION}/data/pg_hba.conf
+sudo bash -c "cat >> /var/lib/pgsql/${PG_VERSION}/data/pg_hba.conf <<EOF
 host all all 127.0.0.1/32 md5
 host all all ${PRIVATE_IP}/32 md5
 host all all 127.0.0.1/32 ident
 EOF
 "
-sudo sed -i '/^[ #]*\(listen_addresses\|max_connections\|shared_buffers\|wal_buffers\|checkpoint_segments\|checkpoint_completion_target\) *=.*/ d' /var/lib/pgsql/10/data/postgresql.conf
-sudo bash -c "cat >> /var/lib/pgsql/10/data/postgresql.conf <<EOF
+sudo sed -i '/^[ #]*\(listen_addresses\|max_connections\|shared_buffers\|wal_buffers\|checkpoint_segments\|checkpoint_completion_target\) *=.*/ d' /var/lib/pgsql/${PG_VERSION}/data/postgresql.conf
+sudo bash -c "cat >> /var/lib/pgsql/${PG_VERSION}/data/postgresql.conf <<EOF
 listen_addresses = '*'
 max_connections = 2000
 shared_buffers = 256MB
@@ -85,8 +87,8 @@ EOF
 "
 
 log_status "Starting PostgreSQL"
-sudo systemctl enable postgresql-10
-sudo systemctl start postgresql-10
+sudo systemctl enable postgresql-${PG_VERSION}
+sudo systemctl start postgresql-${PG_VERSION}
 
 log_status "Creating databases"
 sudo -u postgres psql <<EOF

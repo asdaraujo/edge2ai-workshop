@@ -33,6 +33,8 @@ export TRUSTSTORE_PEM=${SEC_BASE}/x509/truststore.pem
 export KEYSTORE_JKS=${SEC_BASE}/jks/keystore.jks
 export TRUSTSTORE_JKS=${SEC_BASE}/jks/truststore.jks
 
+PG_VERSION=15
+
 # Load cluster metadata
 PUBLIC_DNS=${PUBLIC_DNS:-dummy}
 if [[ -f $BASE_DIR/clusters_metadata.sh ]]; then
@@ -1013,7 +1015,7 @@ function get_service_urls() {
 }
 
 function clean_all() {
-  systemctl stop cloudera-scm-server cloudera-scm-agent cloudera-scm-supervisord kadmin krb5kdc chronyd mosquitto postgresql-10 httpd shellinaboxd
+  systemctl stop cloudera-scm-server cloudera-scm-agent cloudera-scm-supervisord kadmin krb5kdc chronyd mosquitto postgresql-${PG_VERSION} httpd shellinaboxd
   service minifi stop
   service efm stop
   pids=$(ps -ef | grep cloudera | grep -v grep | awk '{print $2}')
@@ -1055,7 +1057,7 @@ function clean_all() {
 
   cp -f /etc/cloudera-scm-agent/config.ini.original /etc/cloudera-scm-agent/config.ini
 
-  rm -rf /var/lib/pgsql/10/data/* /var/lib/pgsql/10/initdb.log /var/kerberos/krb5kdc/* /var/lib/{accumulo,cdsw,cloudera-host-monitor,cloudera-scm-agent,cloudera-scm-eventserver,cloudera-scm-server,cloudera-service-monitor,cruise_control,druid,flink,hadoop-hdfs,hadoop-httpfs,hadoop-kms,hadoop-mapreduce,hadoop-yarn,hbase,hive,impala,kafka,knox,kudu,livy,nifi,nifiregistry,nifitoolkit,oozie,phoenix,ranger,rangerraz,schemaregistry,shellinabox,solr,solr-infra,spark,sqoop,streams_messaging_manager,streams_replication_manager,superset,yarn-ce,zeppelin,zookeeper}/* /var/log/{atlas,catalogd,cdsw,cloudera-scm-agent,cloudera-scm-alertpublisher,cloudera-scm-eventserver,cloudera-scm-firehose,cloudera-scm-server,cruisecontrol,flink,hadoop-hdfs,hadoop-httpfs,hadoop-mapreduce,hadoop-yarn,hbase,hive,httpd,hue,hue-httpd,impalad,impala-minidumps,kafka,kudu,livy,nifi,nifiregistry,nifi-registry,oozie,schemaregistry,solr-infra,spark,statestore,streams-messaging-manager,yarn,zeppelin,zookeeper}/* /kudu/*/* /dfs/*/* /var/local/kafka/data/* /var/{lib,run}/docker/* /var/run/cloudera-scm-agent/process/*
+  rm -rf /var/lib/pgsql/${PG_VERSION}/data/* /var/lib/pgsql/${PG_VERSION}/initdb.log /var/kerberos/krb5kdc/* /var/lib/{accumulo,cdsw,cloudera-host-monitor,cloudera-scm-agent,cloudera-scm-eventserver,cloudera-scm-server,cloudera-service-monitor,cruise_control,druid,flink,hadoop-hdfs,hadoop-httpfs,hadoop-kms,hadoop-mapreduce,hadoop-yarn,hbase,hive,impala,kafka,knox,kudu,livy,nifi,nifiregistry,nifitoolkit,oozie,phoenix,ranger,rangerraz,schemaregistry,shellinabox,solr,solr-infra,spark,sqoop,streams_messaging_manager,streams_replication_manager,superset,yarn-ce,zeppelin,zookeeper}/* /var/log/{atlas,catalogd,cdsw,cloudera-scm-agent,cloudera-scm-alertpublisher,cloudera-scm-eventserver,cloudera-scm-firehose,cloudera-scm-server,cruisecontrol,flink,hadoop-hdfs,hadoop-httpfs,hadoop-mapreduce,hadoop-yarn,hbase,hive,httpd,hue,hue-httpd,impalad,impala-minidumps,kafka,kudu,livy,nifi,nifiregistry,nifi-registry,oozie,schemaregistry,solr-infra,spark,statestore,streams-messaging-manager,yarn,zeppelin,zookeeper}/* /kudu/*/* /dfs/*/* /var/local/kafka/data/* /var/{lib,run}/docker/* /var/run/cloudera-scm-agent/process/*
 }
 
 function create_peer_kafka_external_account() {

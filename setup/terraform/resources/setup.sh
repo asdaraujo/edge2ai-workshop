@@ -163,8 +163,8 @@ EOF
   systemctl disable cloudera-scm-server
 
   log_status "Installing and disabling PostgreSQL"
-  yum_install postgresql10-server postgresql10 postgresql10-contrib postgresql-jdbc
-  systemctl disable postgresql-10
+  yum_install postgresql${PG_VERSION}-server postgresql${PG_VERSION} postgresql${PG_VERSION}-contrib postgresql-jdbc
+  systemctl disable postgresql-${PG_VERSION}
 
   log_status "Handling additional installs"
   # NPM install is flaky and fails intermittently so we will retry if needed
@@ -641,16 +641,16 @@ fi
 
 log_status "Configuring PostgreSQL"
 echo 'LC_ALL="en_US.UTF-8"' >> /etc/locale.conf
-/usr/pgsql-10/bin/postgresql-10-setup initdb
-sed -i '/host *all *all *127.0.0.1\/32 *ident/ d' /var/lib/pgsql/10/data/pg_hba.conf
-cat >> /var/lib/pgsql/10/data/pg_hba.conf <<EOF
+/usr/pgsql-${PG_VERSION}/bin/postgresql-${PG_VERSION}-setup initdb
+sed -i '/host *all *all *127.0.0.1\/32 *ident/ d' /var/lib/pgsql/${PG_VERSION}/data/pg_hba.conf
+cat >> /var/lib/pgsql/${PG_VERSION}/data/pg_hba.conf <<EOF
 host all all 127.0.0.1/32 md5
 host all all ${PRIVATE_IP}/32 md5
 host all all 127.0.0.1/32 ident
 host ranger rangeradmin 0.0.0.0/0 md5
 EOF
-sed -i '/^[ #]*\(listen_addresses\|max_connections\|shared_buffers\|wal_buffers\|checkpoint_segments\|checkpoint_completion_target\) *=.*/ d' /var/lib/pgsql/10/data/postgresql.conf
-cat >> /var/lib/pgsql/10/data/postgresql.conf <<EOF
+sed -i '/^[ #]*\(listen_addresses\|max_connections\|shared_buffers\|wal_buffers\|checkpoint_segments\|checkpoint_completion_target\) *=.*/ d' /var/lib/pgsql/${PG_VERSION}/data/postgresql.conf
+cat >> /var/lib/pgsql/${PG_VERSION}/data/postgresql.conf <<EOF
 listen_addresses = '*'
 max_connections = 2000
 shared_buffers = 256MB
@@ -659,16 +659,16 @@ checkpoint_completion_target = 0.9
 EOF
 
 log_status "Configuring PostgreSQL for Debezium use"
-sed -i '/^[ #]*\(wal_level\|max_wal_senders\|max_replication_slots\) *=.*/ d' /var/lib/pgsql/10/data/postgresql.conf
-cat >> /var/lib/pgsql/10/data/postgresql.conf <<EOF
+sed -i '/^[ #]*\(wal_level\|max_wal_senders\|max_replication_slots\) *=.*/ d' /var/lib/pgsql/${PG_VERSION}/data/postgresql.conf
+cat >> /var/lib/pgsql/${PG_VERSION}/data/postgresql.conf <<EOF
 wal_level = logical
 max_wal_senders = 10
 max_replication_slots = 10
 EOF
 
 log_status "Starting PostgreSQL"
-systemctl enable postgresql-10
-systemctl start postgresql-10
+systemctl enable postgresql-${PG_VERSION}
+systemctl start postgresql-${PG_VERSION}
 
 log_status "Creating required databases"
 sudo -u postgres psql -v the_pwd="${THE_PWD}" < ${BASE_DIR}/create_db_pg.sql
