@@ -357,6 +357,18 @@ class ClusterCreator:
         if use_tls:
             self._enable_tls()
 
+        # Wait for Service Monitor to be up before restarting Mgmt Services
+        # Note: This is to avoid corruption of SMON LevelDB files
+        timeout=300
+        while timeout > 0:
+            try:
+                requests.get('http://{}:9997/'.format(local_hostname()))
+                break
+            except:
+                print('STATUS:Waiting for Service Monitor to fully start...')
+                timeout -= 1
+                time.sleep(1)
+
         # Restart Mgmt Services
         cmd = self.mgmt_api.restart_command()
         cmd = self.wait(cmd)
