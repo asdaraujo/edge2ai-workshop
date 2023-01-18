@@ -173,14 +173,15 @@ function print_header() {
 function get_status() {
   local line="$(date +%Y-%m-%d\ %H:%M:%S)  "
   local status_msg=""
+  rm -f "$LATEST_STATUS_FILE"
   for ip in $(web_instance | web_attr public_ip); do
-    result=$(check_instance W $ip)
+    result=$(check_instance W $ip | tee -a "$LATEST_STATUS_FILE")
     line="${line}$(echo "$result" | instance_short_status)"
     [[ $status_msg == "" ]] && status_msg=$(echo "$result" | instance_status_message)
   done
 
   for ip in $(ipa_instance | ipa_attr public_ip); do
-    result=$(check_instance I $ip)
+    result=$(check_instance I $ip | tee -a "$LATEST_STATUS_FILE")
     line="${line}$(echo "$result" | instance_short_status)"
     [[ $status_msg == "" ]] && status_msg=$(echo "$result" | instance_status_message)
   done
@@ -193,7 +194,7 @@ function get_status() {
   done <<< "$(cluster_instances | sort -k1n | cluster_attr index public_ip)"
   for index in $(seq 0 $max_index); do
     ip=${ips[$index]}
-    result=$(check_instance $index $ip)
+    result=$(check_instance $index $ip | tee -a "$LATEST_STATUS_FILE")
     line="${line}$(echo "$result" | instance_short_status)"
     [[ $status_msg == "" ]] && status_msg=$(echo "$result" | instance_status_message)
   done
@@ -216,8 +217,8 @@ function wait_for_completion() {
     echo "$status_line" >&2
 
     # check for completion
-    if [[ $(echo "$status_line " | egrep -o "[?X.]" | wc -l) -eq $total ]]; then
-      if [[ $(echo "$status_line " | egrep -o "[.]" | wc -l) -eq $total ]]; then
+    if [[ $(egrep -c "^(${STATUS_COMPLETED}|${STATUS_FAILED}|${STATUS_UNKNOWN})" "$LATEST_STATUS_FILE") -eq $total ]]; then
+      if [[ $(egrep -c "^${STATUS_COMPLETED}" "$LATEST_STATUS_FILE") -eq $total ]]; then
         echo success
       else
         echo failed
@@ -231,23 +232,27 @@ function wait_for_completion() {
 }
 
 function fetch_logs() {
-  echo "Fetching logs for failed instances"
-  set -- $(ls -1 "${STATUS_FILE_PREFIX}".* | grep "${STATUS_FILE_PREFIX}\.[WI0-9][0-9]*$" | xargs awk '$1 != "'"$STATUS_COMPLETED"'" {print $2" "$3" "$4}')
+  echo "Fetching logs for failed instances. Please wait."
+  set -- $(awk '$1 != "'"$STATUS_COMPLETED"'" {print $2" "$3" "$4}' "$LATEST_STATUS_FILE")
   while [[ $# -gt 0 ]]; do
     id=$1; shift
     ip=$1; shift
     key=$1; shift
     local tmp_dir=/tmp/setup-${NAMESPACE}-${TIMESTAMP}-${id}-logs
     local tar_file=${tmp_dir}.tar.gz
-    cmd="set -x; sudo rm -rf $tmp_dir && sudo mkdir -p $tmp_dir && (sudo cp /var/log/cloudera-scm-server/cloudera-scm-server.log /tmp/resources/setup.log ~centos/ipa/setup-ipa.log ~centos/web/start-web.log $tmp_dir 2>/dev/null || true) && sudo tar -zcf $tar_file $tmp_dir && sudo chmod 444 $tar_file"
+    cmd="sudo rm -rf $tmp_dir && sudo mkdir -p $tmp_dir && (sudo cp /var/log/cloudera-scm-server/cloudera-scm-server.log /tmp/resources/setup.log ~centos/ipa/setup-ipa.log ~centos/web/start-web.log $tmp_dir 2>/dev/null || true) && sudo tar -zcf $tar_file $tmp_dir 2>/dev/null && sudo chmod 444 $tar_file"
     set +e
     timeout 60 "ssh -q -o StrictHostKeyChecking=no -i '$key' centos@$ip '$cmd'"
     if [[ $? != 0 ]]; then
       echo "WARNING: Failed to fetch logs from instance ${id}."
     else
-      timeout 60 "scp -i '$key' centos@$ip:$tar_file $BASE_DIR/logs/"
+      mkdir -p $BASE_DIR/logs/
+      local base_name=$(basename $tar_file)
+      local target_file="${BASE_DIR}/logs/${base_name}"
+      rm -f "$target_file"
+      timeout 60 "scp -i '$key' centos@$ip:$tar_file '$target_file'"
       if [[ $? == 0 ]]; then
-        echo "Logs of instance $id downloaded to ${C_WHITE}logs/$(basename $tar_file)${C_NORMAL}"
+        echo "${C_WHITE}Logs of instance [$id] downloaded to: logs/${base_name}${C_NORMAL}"
       else
         echo "WARNING: Failed to fetch logs from instance ${id}."
       fi
@@ -257,6 +262,7 @@ function fetch_logs() {
 }
 
 STATUS_DIR=${BASE_DIR}/.setup-status
+LATEST_STATUS_FILE=${STATUS_DIR}/latest-status
 mkdir -p "$STATUS_DIR"
 find "$STATUS_DIR" -type f -mtime +2 -delete # delete old stuff, if any
 TIMESTAMP=$(date +%s)
@@ -267,7 +273,10 @@ status=$(wait_for_completion)
 if [[ $status == "success" ]]; then
   echo "Instance deployment finished successfully"
 else
-  echo "${C_RED}WARNING: The deployment of at least one instance failed to complete.${C_NORMAL}"
+  echo "${C_RED}WARNING: The deployment of the following instance(s) failed to complete:${C_NORMAL}"
+  echo -n "${C_YELLOW}"
+  awk '$1 != "completed" {inst=$2; ip=$3; gsub(/.*STATUS:/, ""); printf "Instance: [%s], IP: %s, Latest status: %s\n", inst, ip, $0}' "$LATEST_STATUS_FILE"
+  echo -n "${C_NORMAL}"
   if [[ ${NO_LOG_FETCH:-} == "" ]]; then
     confirm=Y
     if [[ ${NO_PROMPT:-} == "" ]]; then
