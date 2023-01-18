@@ -642,6 +642,7 @@ fi
 log_status "Configuring PostgreSQL"
 echo 'LC_ALL="en_US.UTF-8"' >> /etc/locale.conf
 /usr/pgsql-${PG_VERSION}/bin/postgresql-${PG_VERSION}-setup initdb
+sed -i 's/scram-sha-256 *$/md5/' /var/lib/pgsql/${PG_VERSION}/data/pg_hba.conf
 sed -i '/host *all *all *127.0.0.1\/32 *ident/ d' /var/lib/pgsql/${PG_VERSION}/data/pg_hba.conf
 cat >> /var/lib/pgsql/${PG_VERSION}/data/pg_hba.conf <<EOF
 host all all 127.0.0.1/32 md5
@@ -649,8 +650,9 @@ host all all ${PRIVATE_IP}/32 md5
 host all all 127.0.0.1/32 ident
 host ranger rangeradmin 0.0.0.0/0 md5
 EOF
-sed -i '/^[ #]*\(listen_addresses\|max_connections\|shared_buffers\|wal_buffers\|checkpoint_segments\|checkpoint_completion_target\) *=.*/ d' /var/lib/pgsql/${PG_VERSION}/data/postgresql.conf
+sed -i '/^[ #]*\(password_encryption\|listen_addresses\|max_connections\|shared_buffers\|wal_buffers\|checkpoint_segments\|checkpoint_completion_target\) *=.*/ d' /var/lib/pgsql/${PG_VERSION}/data/postgresql.conf
 cat >> /var/lib/pgsql/${PG_VERSION}/data/postgresql.conf <<EOF
+password_encryption = md5
 listen_addresses = '*'
 max_connections = 2000
 shared_buffers = 256MB
