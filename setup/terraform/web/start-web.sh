@@ -49,6 +49,15 @@ sudo setenforce 0
 sudo sed -i.bak 's/^ *SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
 sudo sestatus
 
+log_status "Disabling IPv6"
+cat <<EOF | sudo tee -a /etc/sysctl.conf
+vm.swappiness = 1
+net.ipv6.conf.all.disable_ipv6 = 1
+net.ipv6.conf.default.disable_ipv6 = 1
+net.ipv6.conf.lo.disable_ipv6 = 1
+EOF
+sudo sysctl -p
+
 log_status "Installing what we need"
 sudo yum erase -y epel-release || true
 rm -f /etc/yum.repos.r/epel* || true
