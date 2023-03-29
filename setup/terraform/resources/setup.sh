@@ -24,17 +24,38 @@ NAMESPACE=${4:-}
 DOCKER_DEVICE=${5:-$(detect_docker_device)}
 IPA_HOST=${6:-}
 IPA_PRIVATE_IP=${7:-}
+ECS_PUBLIC_DNS=${8:-}
+ECS_PRIVATE_IP=${9:-}
 export NAMESPACE DOCKER_DEVICE IPA_HOST
 
-# Save params
-if [[ ! -f $BASE_DIR/.setup.params ]]; then
-  echo "bash -x $0 '$CLOUD_PROVIDER' '$SSH_USER' '$SSH_PWD' '$NAMESPACE' '$DOCKER_DEVICE' '$IPA_HOST' '$IPA_PRIVATE_IP'" > $BASE_DIR/.setup.params
+if [[ ! -z ${CLUSTER_ID:-} ]]; then
+  PEER_CLUSTER_ID=$(( (CLUSTER_ID/2)*2 + (CLUSTER_ID+1)%2 ))
+  PEER_PUBLIC_DNS=$(echo "${CLUSTERS_PUBLIC_DNS:-}" | awk -F, -v pos=$(( PEER_CLUSTER_ID + 1 )) '{print $pos}')
+  PEER_PUBLIC_DNS=${PEER_PUBLIC_DNS:-$PUBLIC_DNS}
+else
+  CLUSTER_ID=0
+  PEER_CLUSTER_ID=0
+  PEER_PUBLIC_DNS=$PUBLIC_DNS
+  LOCAL_HOSTNAME=edge2ai-0.dim.local
 fi
+export CLUSTER_ID PEER_CLUSTER_ID PEER_PUBLIC_DNS LOCAL_HOSTNAME
 
 KEY_FILE=${BASE_DIR}/myRSAkey
 TEMPLATE_FILE=$BASE_DIR/cluster_template.${NAMESPACE}.json
+CM_REPO_FILE=/etc/yum.repos.d/cloudera-manager.repo
+PREINSTALL_COMPLETED_FLAG=${BASE_DIR}/.preinstall.completed
 
+get_public_ip
+resolve_host_addresses
 load_stack $NAMESPACE
+load_credentials
+
+# Save params
+if [[ ! -f $BASE_DIR/.setup.params ]]; then
+  echo "bash -x $0 '$CLOUD_PROVIDER' '$SSH_USER' '$SSH_PWD' '$NAMESPACE' '$DOCKER_DEVICE' '$IPA_HOST' '$IPA_PRIVATE_IP' '$ECS_PUBLIC_DNS' '$ECS_PRIVATE_IP'" > $BASE_DIR/.setup.params
+fi
+
+
 if [[ "$(is_tls_enabled)" == "yes" ]]; then
   touch $BASE_DIR/.enable-tls
 fi
@@ -45,80 +66,30 @@ if [[ ${USE_IPA:-0} -eq 1 ]]; then
   touch $BASE_DIR/.use-ipa
 fi
 
-
-CM_REPO_FILE=/etc/yum.repos.d/cloudera-manager.repo
-PREINSTALL_COMPLETED_FLAG=${BASE_DIR}/.preinstall.completed
-
-export PUBLIC_IP=$(curl -s http://ifconfig.me || curl -s http://api.ipify.org/)
-if [[ ! $PUBLIC_IP =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-  echo "ERROR: Could not retrieve public IP for this instance. Probably a transient error. Please try again."
-  exit 1
+if [ "${REMOTE_REPO_USR:-}" != "" -a "${REMOTE_REPO_PWD:-}" != "" ]; then
+  WGET_BASIC_AUTH="--user '$REMOTE_REPO_USR' --password '$REMOTE_REPO_PWD'"
+  CURL_BASIC_AUTH="-u '${REMOTE_REPO_USR}:${REMOTE_REPO_PWD}'"
+else
+  WGET_BASIC_AUTH=""
+  CURL_BASIC_AUTH=""
 fi
-
-function enable_py3() {
-  export MANPATH=
-  source /opt/rh/rh-python38/enable
-}
 
 #########  Start Packer Installation
 
-log_status "Ensuring SElinux is disabled"
-setenforce 0 || true
-if [[ -f /etc/selinux/config ]]; then
-  sed -i 's/SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
-fi
-
-if [ "${REMOTE_REPO_USR:-}" != "" -a "${REMOTE_REPO_PWD:-}" != "" ]; then
-  wget_basic_auth="--user '$REMOTE_REPO_USR' --password '$REMOTE_REPO_PWD'"
-  curl_basic_auth="-u '${REMOTE_REPO_USR}:${REMOTE_REPO_PWD}'"
-else
-  wget_basic_auth=""
-  curl_basic_auth=""
-fi
-
 log_status "Testing if this is a pre-packed image by looking for existing Cloudera Manager repo"
 if [[ ! -f $PREINSTALL_COMPLETED_FLAG ]]; then
-  log_status "Cloudera Manager repo not found, assuming not prepacked"
-  log_status "Installing EPEL repo"
-  yum erase -y epel-release || true; rm -f /etc/yum.repos.r/epel* || true
-  yum_install epel-release
-  # The EPEL repo has intermittent refresh issues that cause errors like the one below.
-  # Switch to baseurl to avoid those issues when using the metalink option.
-  # Error: https://.../repomd.xml: [Errno -1] repomd.xml does not match metalink for epel
-  sed -i 's/metalink=/#metalink=/;s/#*baseurl=/baseurl=/' /etc/yum.repos.d/epel*.repo
-  yum clean all
-  rm -rf /var/cache/yum/
-  set +e
-  # Load and accept GPG keys
-  yum makecache -y || true
-  yum repolist
-  RET=$?
-  set -e
-  if [[ $RET != 0 ]]; then
-    # baseurl failed, so we'll revert to the original metalink
-    sed -i 's/#*metalink=/metalink=/;s/baseurl=/#baseurl=/' /etc/yum.repos.d/epel*.repo
-    yum repolist
-  fi
-
-  log_status "Installing base dependencies"
-  # nodejs, npm and forever are SMM dependencies
-  curl -sL https://rpm.nodesource.com/setup_10.x | sed -E '/(script_deprecation_warning|node_deprecation_warning)$/d' | sudo bash -
-  yum_install ${JAVA_PACKAGE_NAME} vim wget curl git bind-utils centos-release-scl figlet cowsay
-  yum_install nodejs gcc-c++ make shellinabox mosquitto jq transmission-cli rng-tools rh-python38 rh-python38-python-devel httpd
-  # Below is needed for secure clusters (required by Impyla)
-  yum_install cyrus-sasl-md5 cyrus-sasl-plain cyrus-sasl-gssapi cyrus-sasl-devel
-  # For troubleshooting purposes, when needed
-  yum_install sysstat strace iotop lsof
+  deploy_os_prereqs
+  deploy_cluster_prereqs
 
   log_status "Installing CM repo"
   if [ "${CM_REPO_AS_TARBALL_URL:-}" == "" ]; then
-    retry_if_needed 5 5 "wget --progress=dot:giga $wget_basic_auth '${CM_REPO_FILE_URL}' -O '$CM_REPO_FILE'"
+    paywall_wget "$CM_REPO_FILE_URL" "$CM_REPO_FILE"
   else
     sed -i.bak 's/^ *Listen  *.*/Listen 3333/' /etc/httpd/conf/httpd.conf
     systemctl start httpd
 
     CM_REPO_AS_TARBALL_FILE=/tmp/cm-repo-as-a-tarball.tar.gz
-    retry_if_needed 5 5 "wget --progress=dot:giga $wget_basic_auth '${CM_REPO_AS_TARBALL_URL}' -O '$CM_REPO_AS_TARBALL_FILE'"
+    paywall_wget "$CM_REPO_AS_TARBALL_URL" "$CM_REPO_AS_TARBALL_FILE"
     tar -C /var/www/html -xvf $CM_REPO_AS_TARBALL_FILE
     CM_REPO_ROOT_DIR=$((tar -tvf $CM_REPO_AS_TARBALL_FILE || true) | head -1 | awk '{print $NF}')
     if [[ $CM_MAJOR_VERSION == 5 ]]; then
@@ -131,11 +102,11 @@ if [[ ! -f $PREINSTALL_COMPLETED_FLAG ]]; then
       KEYS_FILE=/var/www/html/${CM_REPO_ROOT_DIR}/allkeys.asc
       if [ ! -f "$KEYS_FILE" ]; then
         KEYS_URL="$(dirname "$(dirname "$CM_REPO_AS_TARBALL_URL")")/allkeys.asc"
-        retry_if_needed 5 5 "wget --progress=dot:giga $wget_basic_auth '${KEYS_URL}' -O '$KEYS_FILE'"
+        paywall_wget "$KEYS_URL" "$KEYS_FILE"
       fi
     fi
 
-    cat > /etc/yum.repos.d/cloudera-manager.repo <<EOF
+    cat > $CM_REPO_FILE <<EOF
 [cloudera-manager]
 name = Cloudera Manager, Version
 baseurl = http://localhost:3333/$CM_REPO_ROOT_DIR
@@ -155,14 +126,14 @@ EOF
   yum makecache -y || true
   yum repolist
 
-  log_status "Installing and disabling Cloudera Manager"
+  log_status "Installing Cloudera Manager"
   # NOTE: must disable PG repos for this install due to some weird dependencies on psycopg2,
   # which maps to Python 3 on the PG repo, but to Python 2 on base.
   yum_install --disablerepo="pgdg*" cloudera-manager-daemons cloudera-manager-agent cloudera-manager-server
   systemctl disable cloudera-scm-agent
   systemctl disable cloudera-scm-server
 
-  log_status "Installing and disabling PostgreSQL"
+  log_status "Installing PostgreSQL"
   yum_install postgresql${PG_VERSION}-server postgresql${PG_VERSION} postgresql${PG_VERSION}-contrib postgresql-jdbc
   systemctl disable postgresql-${PG_VERSION}
 
@@ -209,14 +180,14 @@ EOF
     if [ "${CEM_URL:-}" != "" ]; then
       CEM_TARBALL_NAME=$(basename ${CEM_URL%%\?*})
       CEM_TARBALL_PATH=/opt/cloudera/cem/${CEM_TARBALL_NAME}
-      retry_if_needed 5 5 "wget --progress=dot:giga $wget_basic_auth '${CEM_URL}' -O '$CEM_TARBALL_PATH'"
+      paywall_wget "$CEM_URL" "$CEM_TARBALL_PATH"
       tar -zxf $CEM_TARBALL_PATH -C /opt/cloudera/cem
       rm -f $CEM_TARBALL_PATH
     else
       for url in ${EFM_TARBALL_URL:-} ${MINIFI_TARBALL_URL:-}; do
         TARBALL_NAME=$(basename ${url%%\?*})
         TARBALL_PATH=/opt/cloudera/cem/${TARBALL_NAME}
-        retry_if_needed 5 5 "wget --progress=dot:giga $wget_basic_auth '${url}' -O '$TARBALL_PATH'"
+        paywall_wget "$url" "$TARBALL_PATH"
       done
     fi
 
@@ -272,55 +243,11 @@ EOF
     fi
   fi
 
-  mkdir -p /opt/cloudera/parcel-repo
-  mkdir -p /opt/cloudera/parcels
-  # We want to execute ln -s within the parcels directory for preloading
-  cd "/opt/cloudera/parcels"
-  if [ "${#PARCEL_URLS[@]}" -gt 0 ]; then
-    log_status "Preloading parcels to /opt/cloudera/parcel-repo"
-    set -- "${PARCEL_URLS[@]}"
-    while [ $# -gt 0 ]; do
-      component=$1
-      version=$2
-      url=$3
-      shift 3
-      echo ">>> $component - $version - $url"
-      # Download parcel manifest
-      manifest_url="$(check_for_presigned_url "${url%%/}/manifest.json")"
-      retry_if_needed 5 5 "curl $curl_basic_auth --silent '$manifest_url' > /tmp/manifest.json"
-      # Find the parcel name for the specific component and version
-      parcel_name=$(jq -r '.parcels[] | select(.parcelName | contains("'"$version"'-el7.parcel")) | select(.components[] | .name == "'"$component"'").parcelName' /tmp/manifest.json)
-      # Create the hash file
-      hash=$(jq -r '.parcels[] | select(.parcelName | contains("'"$version"'-el7.parcel")) | select(.components[] | .name == "'"$component"'").hash' /tmp/manifest.json)
-      echo "$hash" > "/opt/cloudera/parcel-repo/${parcel_name}.sha"
-      if [[ ! -f "/opt/cloudera/parcel-repo/${parcel_name}" || $(sha1sum "/opt/cloudera/parcel-repo/${parcel_name}" 2> /dev/null || true) != "$hash" ]]; then
-        # Download the parcel file - in the background
-        parcel_url="$(check_for_presigned_url "${url%%/}/${parcel_name}")"
-        retry_if_needed 5 5 "wget --continue --progress=dot:giga $wget_basic_auth '${parcel_url}' -O '/opt/cloudera/parcel-repo/${parcel_name}'" &
-      fi
-    done
-    wait
-    # Create the torrent file for the parcel
-    for parcel_file in /opt/cloudera/parcel-repo/*.parcel; do
-      transmission-create -s 512 -o "${parcel_file}.torrent" "${parcel_file}" &
-    done
-    wait
-    # Predistribute parcel
-    for parcel_file in /opt/cloudera/parcel-repo/*.parcel; do
-      tar zxf "$parcel_file" -C "/opt/cloudera/parcels" &
-    done
-    wait
-    log_status "Pre-activating parcels"
-    for parcel_file in /opt/cloudera/parcel-repo/*.parcel; do
-      parcel_name="$(basename "$parcel_file")"
-      product_name="${parcel_name%%-*}"
-      rm -f "${product_name}"
-      ln -s "${parcel_name%-*.parcel}" "${product_name}"
-      touch "/opt/cloudera/parcels/${product_name}/.dont_delete"
-    done
+  if [[ ! -z ${CDP_PARCEL_URLS[@]:-} ]]; then
+    log_status "Downloading and distributing CDP parcels to /opt/cloudera/parcel-repo"
+    download_parcels "${CDP_PARCEL_URLS[@]}"
+    distribute_parcels
   fi
-  # return to BASE_DIR for continued execution
-  cd "${BASE_DIR}"
 
   # TODO: Remove patch below when/if no longer needed
   # Add additional Knox service definitions for SSB (required for CDH 7.1.7.x parcels)
@@ -383,43 +310,9 @@ EOF
     fi
   fi
 
-  if [[ ${CSD_URLS[@]:-} != "" ]]; then
+  if [[ ${CDP_CSD_URLS[@]:-} != "" ]]; then
     log_status "Installing CSDs"
-    for url in "${CSD_URLS[@]}"; do
-      echo "---- Downloading $url"
-      file_name=$(basename "${url%%\?*}")
-      if [ "${REMOTE_REPO_USR:-}" != "" -a "${REMOTE_REPO_PWD:-}" != "" ]; then
-        auth="--user '$REMOTE_REPO_USR' --password '$REMOTE_REPO_PWD'"
-      else
-        auth=""
-      fi
-      retry_if_needed 5 5 "wget --progress=dot:giga $wget_basic_auth '${url}' -O '/opt/cloudera/csd/${file_name}'"
-      # Patch CDSW CSD so that we can use it on CDP
-      if [ "${HAS_CDSW:-1}" == "1" -a "$url" == "$CDSW_CSD_URL" -a "$CM_MAJOR_VERSION" == "7" ]; then
-        jar xvf /opt/cloudera/csd/CLOUDERA_DATA_SCIENCE_WORKBENCH-*.jar descriptor/service.sdl
-        sed -i 's/"max" *: *"6"/"max" : "7"/g' descriptor/service.sdl
-        jar uvf /opt/cloudera/csd/CLOUDERA_DATA_SCIENCE_WORKBENCH-*.jar descriptor/service.sdl
-        rm -rf descriptor
-      fi
-      # TODO: Remove patch below when no longer needed
-      # Patch SSB CSD due to CSA-3630 and CSA-3750
-      if [[ -f /opt/cloudera/csd/SQL_STREAM_BUILDER-1.14.0-csa1.7.0.1-cdh7.1.7.0-551-29340707.jar ]]; then
-        rm -rf /tmp/ssb_csd
-        mkdir -p /tmp/ssb_csd
-        pushd /tmp/ssb_csd
-        jar xvf /opt/cloudera/csd/SQL_STREAM_BUILDER-1.14.0-csa1.7.0.1-cdh7.1.7.0-551-29340707.jar
-        sed -i \
-'s#${CONF_DIR}/cm-auto-host_cert_chain.pem#/opt/cloudera/security/x509/host.pem#;'\
-'s#${CONF_DIR}/cm-auto-host_key.pem#/opt/cloudera/security/x509/key.pem#;'\
-'s#${CONF_DIR}/cm-auto-host_key.pw#/opt/cloudera/security/x509/pwfile#;'\
-'s#${NGINX_CONF_DIR}/logs/error.log#/var/log/ssb/load_balancer-error.log#;'\
-'s#${NGINX_CONF_DIR}/logs/access.log#/var/log/ssb/load_balancer-access.log#' ./scripts/set-dependencies.sh
-        jar cvf /opt/cloudera/csd/SQL_STREAM_BUILDER-1.14.0-csa1.7.0.1-cdh7.1.7.0-551-29340707.jar *
-        chown cloudera-scm:cloudera-scm /opt/cloudera/csd/SQL_STREAM_BUILDER-1.14.0-csa1.7.0.1-cdh7.1.7.0-551-29340707.jar
-        popd
-        rm -rf /tmp/ssb_csd
-      fi
-    done
+    install_csds "${CDP_CSD_URLS[@]}"
   fi
 
   chown -R cloudera-scm:cloudera-scm /opt/cloudera
@@ -465,13 +358,10 @@ fi
 
 ##### Start install
 
-log_status "Setting cluster identity"
-if [[ -f $BASE_DIR/clusters_metadata.sh ]]; then
-  cat $BASE_DIR/clusters_metadata.sh >> /etc/profile
-fi
+enable_py3
+complete_host_initialization
 
-log_status "Making scripts executable"
-chmod +x $BASE_DIR/*.sh
+export CDSW_DOMAIN=cdsw${PUBLIC_DNS#cdp}
 
 log_status "Pre-warming parcels directory"
 for parcel_file in $(find /opt/cloudera/parcel-repo -type f); do
@@ -480,115 +370,13 @@ done
 # Prewarm distributed parcels
 $(find /opt/cloudera/parcels -type f | xargs -n 1 -P $(nproc --all) -I{} dd if={} of=/dev/null bs=10M status=none) &
 
-log_status "Configuring and optimizing the OS"
-log_status "Ensuring there's plenty of entropy"
-systemctl enable rngd
-systemctl start rngd
-
-# Enable Python3
-enable_py3
-
-log_status "Configuring kernel parameters"
-echo never > /sys/kernel/mm/transparent_hugepage/enabled
-echo never > /sys/kernel/mm/transparent_hugepage/defrag
-echo "echo never > /sys/kernel/mm/transparent_hugepage/enabled" >> /etc/rc.d/rc.local
-echo "echo never > /sys/kernel/mm/transparent_hugepage/defrag" >> /etc/rc.d/rc.local
-# add tuned optimization https://www.cloudera.com/documentation/enterprise/latest/topics/cdh_admin_performance.html
-cat >> /etc/sysctl.conf <<EOF
-vm.swappiness = 1
-net.ipv6.conf.all.disable_ipv6 = 1
-net.ipv6.conf.default.disable_ipv6 = 1
-net.ipv6.conf.lo.disable_ipv6 = 1
-EOF
-sysctl -p
-timedatectl set-timezone UTC
-
-log_status "Disabling firewalls"
-iptables-save > $BASE_DIR/firewall.rules
-FWD_STATUS=$(systemctl is-active firewalld || true)
-if [[ "${FWD_STATUS}" != "unknown" ]]; then
-  systemctl disable firewalld
-  systemctl stop firewalld
-fi
-
 if [ "$(grep 3333 /etc/httpd/conf/httpd.conf > /dev/null && echo ok || echo no)" == "ok" ]; then
   log_status "Enabling httpd to serve local repository"
   systemctl restart httpd
 fi
 
-log_status "Enabling password authentication"
-sed -i.bak 's/PasswordAuthentication *no/PasswordAuthentication yes/' /etc/ssh/sshd_config
-
-log_status "Resetting SSH user password"
-echo "$SSH_PWD" | sudo passwd --stdin "$SSH_USER"
-
-log_status "Handling cloud provider specific settings"
-case "${CLOUD_PROVIDER}" in
-      aws)
-          sed -i.bak '/server 169.254.169.123/ d' /etc/chrony.conf
-          echo "server 169.254.169.123 prefer iburst minpoll 4 maxpoll 4" >> /etc/chrony.conf
-          systemctl restart chronyd
-          export PRIVATE_DNS=$(curl http://169.254.169.254/latest/meta-data/local-hostname)
-          export PRIVATE_IP=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)
-          export PUBLIC_DNS=cdp.${PUBLIC_IP}.nip.io
-          ;;
-      azure)
-          export PRIVATE_DNS="$(cat /etc/hostname).$(grep search /etc/resolv.conf | awk '{print $2}')"
-          export PRIVATE_IP=$(hostname -I | awk '{print $1}')
-          export PUBLIC_DNS=cdp.${PUBLIC_IP}.nip.io
-          ;;
-      gcp)
-          export PRIVATE_DNS=$(curl -H "Metadata-Flavor: Google" http://169.254.169.254/computeMetadata/v1/instance/hostname)
-          export PRIVATE_IP=$(curl -s -H "Metadata-Flavor: Google" http://169.254.169.254/computeMetadata/v1/instance/network-interfaces/0/ip)
-          export PUBLIC_DNS=$PRIVATE_DNS
-          ;;
-      aliyun)
-          export PRIVATE_DNS=$(curl -s http://100.100.100.200/latest/meta-data/hostname)
-          [[ "$PRIVATE_DNS" == *"."* ]] || PRIVATE_DNS="${PRIVATE_DNS}.local"
-          export PRIVATE_IP=$(curl -s http://100.100.100.200/latest/meta-data/private-ipv4)
-          export PUBLIC_DNS=cdp.${PRIVATE_IP}.nip.io
-          ;;
-      generic)
-          export PRIVATE_DNS="$(cat /etc/hostname).$(grep search /etc/resolv.conf | awk '{print $2}')"
-          export PRIVATE_IP=$(hostname -I | awk '{print $1}')
-          export PUBLIC_DNS=cdp.${PRIVATE_IP}.nip.io
-          ;;
-      *)
-          export PRIVATE_DNS=$(hostname -f)
-          [[ "$PRIVATE_DNS" == *"."* ]] || PRIVATE_DNS="${PRIVATE_DNS}.local"
-          export PRIVATE_IP=$(hostname -I | awk '{print $1}')
-          export PUBLIC_DNS=$PRIVATE_DNS
-esac
-
-if [ "$PUBLIC_DNS" == "" ]; then
-  echo "ERROR: Could not retrieve public DNS for this instance. Probably a transient error. Please try again."
-  exit 1
-fi
-export CLUSTER_HOST=$PUBLIC_DNS
-export CDSW_DOMAIN=cdsw${PUBLIC_DNS#cdp}
-
-log_status "Setting up /etc/hosts"
-# Public DNS must come first"
-sed -i.bak "/${LOCAL_HOSTNAME}/d;/^${PRIVATE_IP}/d;/^::1/d" /etc/hosts
-echo "$PRIVATE_IP $PUBLIC_DNS $PRIVATE_DNS $LOCAL_HOSTNAME" >> /etc/hosts
-if [[ $IPA_HOST != "" ]]; then
-  sed -i.bak "/${IPA_HOST}/d" /etc/hosts
-  if [[ $IPA_PRIVATE_IP != "" ]]; then
-    echo "$IPA_PRIVATE_IP $IPA_HOST" >> /etc/hosts
-  fi
-fi
-
-log_status "Setting domain name"
-sed -i.bak '/kernel.domainname/d' /etc/sysctl.conf
-echo "kernel.domainname=${PUBLIC_DNS#*.}" >> /etc/sysctl.conf
-sysctl -p
-
-log_status "Configuring networking"
-hostnamectl set-hostname $CLUSTER_HOST
-if [[ -f /etc/sysconfig/network ]]; then
-  sed -i "/HOSTNAME=/ d" /etc/sysconfig/network
-fi
-echo "HOSTNAME=${CLUSTER_HOST}" >> /etc/sysconfig/network
+log_status "Update Cloudera Manager repo file with actual hostname"
+sed -i "s/localhost/${CLUSTER_HOST}/" $CM_REPO_FILE
 
 if [ "$(is_kerberos_enabled)" == "yes" ]; then
   if [[ ${KERBEROS_TYPE} == "MIT" ]]; then
@@ -628,8 +416,10 @@ systemctl restart shellinaboxd
 
 if [ "${HAS_CDSW:-}" == "1" ]; then
     echo "CDSW_BUILD is set to '${CDSW_BUILD}'"
-    # CDSW requires Centos 7.5, so we trick it to believe it is...
-    echo "CentOS Linux release 7.9.2009 (Core)" > /etc/redhat-release
+    if ! grep "CentOS Linux release 7.9" /etc/redhat-release > /dev/null 2>&1 ; then
+      # CDSW requires Centos 7.5, so we trick it to believe it is...
+      echo "CentOS Linux release 7.9.2009 (Core)" > /etc/redhat-release
+    fi
     if [[ "${DOCKER_DEVICE}" == "" ]]; then
       echo "ERROR: Could not find any candidate devices."
       exit 1
@@ -650,6 +440,11 @@ host all all ${PRIVATE_IP}/32 md5
 host all all 127.0.0.1/32 ident
 host ranger rangeradmin 0.0.0.0/0 md5
 EOF
+if [[ ! -z ${ECS_PRIVATE_IP:-} ]]; then
+  cat >> /var/lib/pgsql/${PG_VERSION}/data/pg_hba.conf <<EOF
+host all all ${ECS_PRIVATE_IP}/32 md5
+EOF
+fi
 sed -i '/^[ #]*\(password_encryption\|listen_addresses\|max_connections\|shared_buffers\|wal_buffers\|checkpoint_segments\|checkpoint_completion_target\) *=.*/ d' /var/lib/pgsql/${PG_VERSION}/data/postgresql.conf
 cat >> /var/lib/pgsql/${PG_VERSION}/data/postgresql.conf <<EOF
 password_encryption = md5
@@ -667,6 +462,18 @@ wal_level = logical
 max_wal_senders = 10
 max_replication_slots = 10
 EOF
+
+if [[ -f /opt/cloudera/security/x509/key.pem ]]; then
+  log_status "Enabling TLS for PostgreSQL"
+  sed -i '/^[ #]*\(ssl\|ssl_ca_file\|ssl_cert_file\|ssl_key_file\|ssl_passphrase_command\) *=.*/ d' /var/lib/pgsql/${PG_VERSION}/data/postgresql.conf
+  cat >> /var/lib/pgsql/${PG_VERSION}/data/postgresql.conf <<EOF
+ssl = on
+ssl_ca_file = '/opt/cloudera/security/x509/truststore.pem'
+ssl_cert_file = '/opt/cloudera/security/x509/cert.pem'
+ssl_key_file = '/opt/cloudera/security/x509/key.pem'
+ssl_passphrase_command = 'echo ${THE_PWD}'
+EOF
+fi
 
 log_status "Starting PostgreSQL"
 systemctl enable postgresql-${PG_VERSION}
@@ -1167,11 +974,14 @@ if [ "${HAS_CDSW:-}" == "1" ]; then
   nohup python -u /tmp/resources/cdsw_setup.py $(echo "$PUBLIC_DNS" | sed -E 's/cdp.(.*).nip.io/\1/') /tmp/resources/iot_model.pkl /tmp/resources/the_pwd.txt > /tmp/resources/cdsw_setup.log 2>&1 &
 fi
 
-log_status "Cleaning up"
-rm -f $BASE_DIR/stack.*.sh* $BASE_DIR/stack.sh*
+if [[ ! -z ${ECS_PUBLIC_DNS:-} ]]; then
+  install_ecs
+fi
 
-if [[ -f /etc/workshop.conf ]]; then
-  source /etc/workshop.conf
+log_status "Cleaning up"
+rm -f $BASE_DIR/stack.*.sh* $BASE_DIR/stack.sh* $BASE_DIR/.license
+
+if [[ ! -z ${CLUSTER_ID:-} ]]; then
   echo "At this point you can login into Cloudera Manager host on port 7180 and follow the deployment of the cluster"
   figlet -f small -w 300  "Cluster  ${CLUSTER_ID:-???}  deployed successfully"'!' | cowsay -n -f "$(ls -1 /usr/share/cowsay | grep "\.cow" | sed 's/\.cow//' | egrep -v "bong|head-in|sodomized|telebears" | shuf -n 1)"
   echo "Completed successfully: CLUSTER ${CLUSTER_ID:-???}"

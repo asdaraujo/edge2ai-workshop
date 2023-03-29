@@ -12,12 +12,13 @@ BUILD_FILE=.build
 STACK_BUILD_FILE=.stack.build
 LAST_STACK_CHECK_FILE=$BASE_DIR/.last.stack.build.check
 PUBLIC_IPS_FILE=$BASE_DIR/.hosts.$$
+LICENSE_FILE_MOUNTPOINT=/tmp/license.file
 
 BASE_PROVIDER_DIR=$BASE_DIR/providers
 
 THE_PWD=Supersecret1
 
-OPTIONAL_VARS="TF_VAR_registration_code|TF_VAR_aws_profile|TF_VAR_aws_access_key_id|TF_VAR_aws_secret_access_key|TF_VAR_azure_subscription_id|TF_VAR_azure_tenant_id"
+OPTIONAL_VARS="TF_VAR_registration_code|TF_VAR_aws_profile|TF_VAR_aws_access_key_id|TF_VAR_aws_secret_access_key|TF_VAR_azure_subscription_id|TF_VAR_azure_tenant_id|TF_VAR_cdp_license_file"
 
 unset SSH_AUTH_SOCK SSH_AGENT_PID
 
@@ -32,8 +33,8 @@ function check_version() {
 
       # check github can be resolved
       if ! nslookup "$GITHUB_FQDN" > /dev/null 2>&1; then
-        echo "ERROR: Unable to resolve the IP for ${GITHUB_FQDN}"
-        exit 1
+        echo "${C_RED}ERROR: Unable to resolve the IP for ${GITHUB_FQDN}${C_NORMAL}"
+        abort
       fi
 
       # git is installed
@@ -189,6 +190,10 @@ function maybe_launch_docker() {
         docker pull --platform linux/amd64 $docker_img || true
       fi
     fi
+    local license_file_mount=""
+    if [[ ! -z ${TF_VAR_cdp_license_file:-} ]]; then
+      license_file_mount="-v $TF_VAR_cdp_license_file:$LICENSE_FILE_MOUNTPOINT"
+    fi
 
     for dir in $HOME/.aws $HOME/.azure; do
       if [[ ! -d $dir ]]; then
@@ -208,6 +213,7 @@ function maybe_launch_docker() {
       -e NO_PROMPT=${NO_PROMPT:-} \
       -e NO_LOG_FETCH=${NO_LOG_FETCH:-} \
       -e HOSTS_ADD=$(basename $PUBLIC_IPS_FILE) \
+      $license_file_mount \
       $docker_img \
       $cmd $*
   fi
@@ -317,8 +323,8 @@ function check_implemented_functionality() {
       return
     fi
   done
-  echo "WARNING: Script $script_name is not yet implemented for the $TF_VAR_cloud_provider cloud provider."
-  exit 1
+  echo "${C_YELLOW}WARNING: Script $script_name is not yet implemented for the $TF_VAR_cloud_provider cloud provider.${C_NORMAL}"
+  abort
 }
 
 function ensure_cloud_session() {
@@ -335,7 +341,7 @@ function ensure_cloud_session() {
           cat $tmp_file
           rm -f $tmp_file
           echo "${C_NORMAL}"
-          exit 1
+          abort
         fi
       fi
     fi
@@ -388,14 +394,42 @@ function load_env() {
   export TF_VAR_web_ssh_public_key=$NAMESPACE_DIR/${TF_VAR_web_key_name}.pem.pub
   export TF_VAR_my_public_ip=$(curl -sL ifconfig.me || curl -sL ipapi.co/ip || curl -sL icanhazip.com)
 
-  TF_VAR_use_elastic_ip=$(echo "${TF_VAR_use_elastic_ip:-FALSE}" | tr A-Z a-z)
-  if [ "$TF_VAR_use_elastic_ip" == "yes" -o "$TF_VAR_use_elastic_ip" == "true" -o "$TF_VAR_use_elastic_ip" == "1" ]; then
-    TF_VAR_use_elastic_ip=true
+  normalize_boolean TF_VAR_use_elastic_ip false
+  normalize_boolean TF_VAR_pvc_data_services false
+  normalize_boolean TF_VAR_deploy_cdsw_model true
+}
+
+function get_license_file_path() {
+  if [[ $(df | grep "$LICENSE_FILE_MOUNTPOINT" | wc -l) -eq 1 ]]; then
+    # we are running inside docker
+    echo "$LICENSE_FILE_MOUNTPOINT"
   else
-    TF_VAR_use_elastic_ip=false
+    echo "$TF_VAR_cdp_license_file"
+  fi
+}
+
+function get_remote_repo_username() {
+  grep '"uuid"' "$(get_license_file_path)" | awk -F\" '{printf "%s", $4}'
+}
+
+function get_remote_repo_password() {
+  local name=$(grep '"name"' "$(get_license_file_path)" | awk -F\" '{print $4}')
+  echo -n "${name}$(get_remote_repo_username)" | openssl dgst -sha256 -hex | egrep -o '[a-f0-9]{12}' | head -1
+}
+
+function normalize_boolean() {
+  local property=$1
+  local default=$2
+  value="$(eval "echo "\""\${${property}:-${default}}"\" | tr A-Z a-z)"
+  if [[ "$value" == "yes" || "$value" == "true" || "$value" == "1" ]]; then
+    eval "export $property=true"
+  elif [[ "$value" == "no" || "$value" == "false" || "$value" == "0" ]]; then
+    eval "export $property=false"
+  else
+    echo "${C_RED}ERROR: Property $property has an invalid value: "\""$value"\"". Valid values are: true, false, yes, no, 1, 0.${C_NORMAL}"
+    abort
   fi
   export TF_VAR_use_elastic_ip
-
 }
 
 function run_terraform() {
@@ -459,7 +493,7 @@ function check_terraform_version() {
   echo "${C_RED}ERROR: Could not find a version of Terraform that matches the state file $TF_STATE version ($state_version)." >&2
   echo "       Please install Terraform v${state_version} and set/export the TERRAFORM environment variable with its path.${C_NORMAL}" >&2
   echo "       If you are using a Docker container, please ensure that Docker is running." >&2
-  exit 1
+  abort
 }
 
 function ensure_ulimit() {
@@ -578,13 +612,15 @@ function delete_key_pairs() {
 }
 
 function public_dns() {
-  local cluster_number=$1
-  if [ "$cluster_number" == "web" ]; then
+  local instance_id=$1
+  if [[ "$instance_id" == "web" ]]; then
     web_instance | web_attr public_dns
-  elif [ "$cluster_number" == "ipa" ]; then
+  elif [[ "$instance_id" == "ipa" ]]; then
     ipa_instance | ipa_attr public_dns
+  elif [[ "$instance_id" == "ecs"* ]]; then
+    ecs_instances ${instance_id#ecs} | cluster_attr public_dns
   else
-    cluster_instances $cluster_number | cluster_attr public_dns
+    cluster_instances $instance_id | cluster_attr public_dns
   fi
 }
 
@@ -662,6 +698,27 @@ ${C_RED}ERROR: Please fix the problems above in the file $compare_file and try a
 EOF
       abort
   fi
+
+  if [[ $TF_VAR_pvc_data_services == "true" ]]; then
+    if [[ -z ${TF_VAR_cdp_license_file:-} ]]; then
+      echo "${C_RED}ERROR: When TF_VAR_pvc_data_services=true you must specify a license file for the TF_VAR_cdp_license_file property.${C_NORMAL}"
+      abort
+    fi
+  fi
+
+  if [[ ! -z ${TF_VAR_cdp_license_file:-} ]]; then
+    if [[ ! -s $(get_license_file_path) ]]; then
+      echo "${C_RED}ERROR: License file "\""${TF_VAR_cdp_license_file}"\"" not found.${C_NORMAL}"
+      abort
+    fi
+    export REMOTE_REPO_USR=$(get_remote_repo_username)
+    export REMOTE_REPO_PWD=$(get_remote_repo_password)
+    if [[ -z $REMOTE_REPO_USR || -z $REMOTE_REPO_PWD ]]; then
+      echo "${C_RED}ERROR: Invalid license file "\""${TF_VAR_cdp_license_file}"\"".${C_NORMAL}"
+      abort
+    fi
+  fi
+  export TF_VAR_cdp_license_file=$(get_license_file_path)
 }
 
 function kerb_auth_for_cluster() {
@@ -868,23 +925,38 @@ for line in sys.stdin:
 ' "$fmt_str"
 }
 
-function cluster_instances() {
-  local cluster_id=${1:-}
+function nth_instances() {
+  local instance_type=$1
+  local instance_index=${2:-}
+  local prefix=cdp
+  if [[ $instance_type == "ecs" ]]; then
+    prefix=ecs
+  fi
   ensure_tf_json_file
   if [[ -s $TF_JSON_FILE ]]; then
     if [[ ${TF_VAR_cloud_provider:-} == "aws" ]]; then
-      for index in $(get_resource_attr aws_instance cluster .index ${cluster_id:-}); do
-        local is_stoppable=$([[ $(get_resource_attr aws_eip eip_cluster .address $index | wc -l) -eq 0 ]] && echo No || echo Yes)
-        get_resource_attr aws_instance cluster ".index tags.Name public_ip public_ip private_ip instance_type id .type .name .index" $index | format "%s %s cdp.%s.nip.io %s %s %s %s $is_stoppable %s.%s[%s]"
+      for index in $(get_resource_attr aws_instance ${instance_type} .index ${instance_index:-}); do
+        local is_stoppable=$([[ $(get_resource_attr aws_eip eip_${instance_type} .address $index | wc -l) -eq 0 ]] && echo No || echo Yes)
+        get_resource_attr aws_instance ${instance_type} ".index tags.Name public_ip public_ip private_ip instance_type id .type .name .index" $index | format "%s %s $prefix.%s.nip.io %s %s %s %s $is_stoppable %s.%s[%s]"
       done
     elif [[ ${TF_VAR_cloud_provider:-} == "azure" ]]; then
-      for index in $(get_resource_attr azurerm_virtual_machine cluster .index ${cluster_id:-}); do
-        public_ip=$(get_resource_attr azurerm_public_ip ip_cluster ip_address $index)
-        private_ip=$(get_resource_attr azurerm_network_interface nic_cluster private_ip_address $index)
-        get_resource_attr azurerm_virtual_machine cluster ".index name vm_size id .type .name .index" $index | format "%s %s cdp.$public_ip.nip.io $public_ip $private_ip %s %s Yes %s.%s[%s]"
+      for index in $(get_resource_attr azurerm_virtual_machine ${instance_type} .index ${instance_index:-}); do
+        public_ip=$(get_resource_attr azurerm_public_ip ip_${instance_type} ip_address $index)
+        private_ip=$(get_resource_attr azurerm_network_interface nic_${instance_type} private_ip_address $index)
+        get_resource_attr azurerm_virtual_machine ${instance_type} ".index name vm_size id .type .name .index" $index | format "%s %s $prefix.$public_ip.nip.io $public_ip $private_ip %s %s Yes %s.%s[%s]"
       done
     fi
   fi
+}
+
+function cluster_instances() {
+  local instance_index=${1:-}
+  nth_instances cluster "$instance_index"
+}
+
+function ecs_instances() {
+  local instance_index=${1:-}
+  nth_instances ecs "$instance_index"
 }
 
 function ipa_instance() {
@@ -1078,8 +1150,8 @@ function update_web_server() {
   
   sensitive=$(echo "$sensitive" | tr "A-Z" "a-z")
   if [[ $sensitive != "true" && $sensitive != "false" ]]; then
-    echo "ERROR: sensitive must be either true or false."
-    exit 1
+    echo "${C_RED}ERROR: sensitive must be either true or false.${C_NORMAL}"
+    abort
   fi
   wait_for_web "$web_ip_address"
   

@@ -2,7 +2,8 @@ resource "null_resource" "deploy_ipa" {
   count      = (var.use_ipa ? 1 : 0)
 
   depends_on = [
-    aws_security_group_rule.workshop_public_ips_sg_rule
+    aws_security_group_rule.workshop_cluster_public_ips_sg_rule,
+    aws_security_group_rule.workshop_ecs_public_ips_sg_rule
   ]
 
   connection {

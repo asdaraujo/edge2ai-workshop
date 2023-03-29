@@ -1,0 +1,90 @@
+{
+  "experienceVersion": "{{ECS_VERSION}}",
+  "dataServicesVersion": "{{ECS_VERSION}}",
+  "cmVersion": "{{CM_VERSION}}",
+  "displayName": "OneNodeECS",
+  "hostTemplates": [
+    {
+      "cardinality": 1,
+      "refName": "HostTemplate-0-from-{{ECS_PUBLIC_DNS}}",
+      "roleConfigGroupsRefNames": [
+        "docker-DOCKER_SERVER-BASE",
+        "ecs-ECS_SERVER-BASE"
+      ]
+    }
+  ],
+  "instantiator": {
+    "clusterName": "OneNodeECS",
+    "hosts": [
+      {
+        "hostName": "{{ECS_PUBLIC_DNS}}",
+        "hostTemplateRefName": "HostTemplate-0-from-{{ECS_PUBLIC_DNS}}"
+      }
+    ]
+  },
+  "products": [
+    {
+      "product": "ECS",
+      "version": "{{ECS_BUILD}}"
+    }
+  ],
+  "repositories": [
+    "{{ECS_PARCEL_REPO}}"
+  ],
+  "services": [
+    {
+      "refName": "docker",
+      "serviceType": "DOCKER",
+      "roleConfigGroups": [
+        {
+          "refName": "docker-DOCKER_SERVER-BASE",
+          "roleType": "DOCKER_SERVER",
+          "base": true
+        }
+      ]
+    },
+    {
+      "refName": "ecs",
+      "serviceType": "ECS",
+      "serviceConfigs": [
+        {
+          "name": "cp_prometheus_ingress_user",
+          "value": "cloudera-manager"
+        },
+        {
+          "name": "infra_prometheus_ingress_user",
+          "value": "cloudera-manager"
+        },
+        {
+          "name": "cp_prometheus_ingress_password",
+          "value": "{{THE_PWD}}"
+        },
+        {
+          "name": "external_registry_enabled",
+          "value": "true"
+        },
+        {
+          "name": "infra_prometheus_ingress_password",
+          "value": "{{THE_PWD}}"
+        }
+      ],
+      "roleConfigGroups": [
+        {
+          "refName": "ecs-ECS_SERVER-BASE",
+          "roleType": "ECS_SERVER",
+          "base": true
+        }
+      ]
+    }
+  ],
+  "tags": [
+    {
+      "name": "_cldr_cm_ek8s_control_plane",
+      "value": "1ef3a931-ea9d-44d7-8305-5a2776a5c75d"
+    },
+    {
+      "name": "_cldr_cm_ek8s_datalake",
+      "value": "OneNodeCluster"
+    }
+  ]
+}

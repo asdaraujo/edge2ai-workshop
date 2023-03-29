@@ -13,7 +13,7 @@ ENV PACKERVERSION=${PACKERVERSION:-1.5.1}
 ENV GLIBC_VER=2.31-r0
 
 RUN apk update && apk upgrade \
-    && apk add --no-cache git python3-dev py-pip git linux-headers wget unzip bash openssh jq curl tzdata
+    && apk add --no-cache git python3-dev py-pip git linux-headers wget unzip bash openssl openssh jq curl tzdata
 
 RUN cp /usr/share/zoneinfo/Europe/London /etc/localtime && echo Europe/London > /etc/timezone
 

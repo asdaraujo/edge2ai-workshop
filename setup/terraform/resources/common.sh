@@ -33,22 +33,19 @@ export TRUSTSTORE_PEM=${SEC_BASE}/x509/truststore.pem
 export KEYSTORE_JKS=${SEC_BASE}/jks/keystore.jks
 export TRUSTSTORE_JKS=${SEC_BASE}/jks/truststore.jks
 
+LICENSE_FILE_PATH=${BASE_DIR}/.license
 PG_VERSION=15
+
+# Make scripts executable
+chmod +x $BASE_DIR/*.sh > /dev/null 2>&1 || true
 
 # Load cluster metadata
 PUBLIC_DNS=${PUBLIC_DNS:-dummy}
-if [[ -f $BASE_DIR/clusters_metadata.sh ]]; then
-  source $BASE_DIR/clusters_metadata.sh
-  PEER_CLUSTER_ID=$(( (CLUSTER_ID/2)*2 + (CLUSTER_ID+1)%2 ))
-  PEER_PUBLIC_DNS=$(echo "$CLUSTERS_PUBLIC_DNS" | awk -F, -v pos=$(( PEER_CLUSTER_ID + 1 )) '{print $pos}')
-  PEER_PUBLIC_DNS=${PEER_PUBLIC_DNS:-$PUBLIC_DNS}
-else
-  CLUSTER_ID=0
-  PEER_CLUSTER_ID=0
-  PEER_PUBLIC_DNS=$PUBLIC_DNS
+if [[ -f /etc/workshop.conf ]]; then
+  set -a
+  source /etc/workshop.conf
+  set +a
 fi
-LOCAL_HOSTNAME=edge2ai-${CLUSTER_ID}.dim.local
-export CLUSTER_ID PEER_CLUSTER_ID PEER_PUBLIC_DNS LOCAL_HOSTNAME
 
 function log_status() {
   local msg=$1
@@ -190,9 +187,19 @@ function load_stack() {
   else
     export HAS_CEM=1
   fi
+
   # Set default for ANACONDA_PRODUCT, which was introduced late
   ANACONDA_PRODUCT=${ANACONDA_PRODUCT:-Anaconda}
-  export ENABLE_KERBEROS ENABLE_TLS KERBEROS_TYPE USE_IPA TF_VAR_use_ipa PROJECT_ZIP_FILE HAS_CEM ANACONDA_PRODUCT
+
+  # Ensure deployment works with legacy stacks
+  if [[ -z "${CDP_PARCEL_URLS[@]:-}" && ! -z "${PARCEL_URLS[@]:-}" ]]; then
+    CDP_PARCEL_URLS=(${PARCEL_URLS[@]})
+  fi
+  if [[ -z "${CDP_CSD_URLS[@]:-}" && ! -z "${CSD_URLS[@]:-}" ]]; then
+    CDP_CSD_URLS=(${CSD_URLS[@]})
+  fi
+
+  export ENABLE_KERBEROS ENABLE_TLS KERBEROS_TYPE USE_IPA TF_VAR_use_ipa PROJECT_ZIP_FILE HAS_CEM ANACONDA_PRODUCT CDP_PARCEL_URLS CDP_CSD_URLS
   prepare_keytabs_dir
 }
 
@@ -249,6 +256,25 @@ function check_vars() {
   echo $errors
 }
 
+function get_remote_repo_username() {
+  if [[ -s $LICENSE_FILE_PATH ]]; then
+    grep '"uuid"' "$LICENSE_FILE_PATH" | awk -F\" '{printf "%s", $4}'
+  fi
+}
+
+function get_remote_repo_password() {
+  if [[ -s $LICENSE_FILE_PATH ]]; then
+    local name=$(grep '"name"' "$LICENSE_FILE_PATH" | awk -F\" '{print $4}')
+    echo -n "${name}$(get_remote_repo_username)" | openssl dgst -sha256 -hex | egrep -o '[a-f0-9]{12}' | head -1
+  fi
+}
+
+function load_credentials() {
+  # load credentials if license file exists
+  export REMOTE_REPO_USR=${REMOTE_REPO_USR:-$(get_remote_repo_username)}
+  export REMOTE_REPO_PWD=${REMOTE_REPO_PWD:-$(get_remote_repo_password)}
+}
+
 function validate_stack() {
   local namespace=$1
   local base_dir=${2:-$BASE_DIR}
@@ -297,24 +323,24 @@ function validate_stack() {
   if [[ ! ("${CEM_URL:-}" == "" && "${EFM_TARBALL_URL:-}${MINIFITK_TARBALL_URL:-}${MINIFI_TARBALL_URL:-}" == "") ]]; then
     export HAS_CEM=1
     if [[ "${CEM_URL:-}" != "" && "${EFM_TARBALL_URL:-}${MINIFITK_TARBALL_URL:-}${MINIFI_TARBALL_URL:-}" != "" ]]; then
-      echo "ERROR: The following parameter combinations are mutually exclusive:" > /dev/stderr
+      echo "${C_RED}ERROR: The following parameter combinations are mutually exclusive:" > /dev/stderr
       echo "         - CEM_URL must be specified" > /dev/stderr
       echo "           OR" > /dev/stderr
-      echo "         - EFM_TARBALL_URL and MINIFITK_TARBALL_URL and MINIFI_TARBALL_URL must be specified" > /dev/stderr
+      echo "         - EFM_TARBALL_URL and MINIFITK_TARBALL_URL and MINIFI_TARBALL_URL must be specified${C_NORMAL}" > /dev/stderr
       errors=1
     fi
   fi
 
   if [ ! \( "${CM_BASE_URL:-}" != "" -a "${CM_REPO_FILE_URL:-}" != "" -a "${CM_REPO_AS_TARBALL_URL:-}" == "" \) -a \
        ! \( "${CM_BASE_URL:-}${CM_REPO_FILE_URL:-}" == "" -a "${CM_REPO_AS_TARBALL_URL:-}" != "" \) ]; then
-    echo "ERROR: The following parameter combinations are mutually exclusive:" > /dev/stderr
+    echo "${C_RED}ERROR: The following parameter combinations are mutually exclusive:" > /dev/stderr
     echo "         - CM_BASE_URL and CM_REPO_FILE_URL must be specified" > /dev/stderr
     echo "           OR" > /dev/stderr
-    echo "         - CM_REPO_AS_TARBALL_URL must be specified" > /dev/stderr
+    echo "         - CM_REPO_AS_TARBALL_URL must be specified${C_NORMAL}" > /dev/stderr
     errors=1
   fi
 
-  set -- "${PARCEL_URLS[@]:-}" "${CSD_URLS[@]:-}"
+  set -- "${CDP_PARCEL_URLS[@]:-}" "${CDP_CSD_URLS[@]:-}"
   local has_paywall_url=0
   while [ $# -gt 0 ]; do
     local url=$1; shift
@@ -325,13 +351,13 @@ function validate_stack() {
   done
   if [ "$has_paywall_url" == "1" ]; then
     if [ "${REMOTE_REPO_PWD:-}" == "" -o "${REMOTE_REPO_USR:-}" == "" ]; then
-      echo "ERROR: REMOTE_REPO_USR and REMOTE_REPO_PWD must be specified when using paywall URLs" > /dev/stderr
+      echo "${C_RED}ERROR: TF_VAR_cdp_license_file must be specified when using paywall URLs.${C_NORMAL}" > /dev/stderr
       errors=1
     fi
   fi
 
   if [ "$errors" != "0" ]; then
-    echo "ERROR: Please fix the errors above in the configuration file $stack_file and try again." > /dev/stderr
+    echo "${C_RED}ERROR: Please fix the errors above in the configuration file $stack_file and try again.${C_NORMAL}" > /dev/stderr
     exit 1
   fi
 }
@@ -653,6 +679,32 @@ EOF
     -subj '/C=US/ST=California/L=San Francisco/O=Cloudera/OU=PS/CN=CertToolkitRootCA'
 }
 
+function ensure_cm_user() {
+  if ! getent passwd cloudera-scm > /dev/null 2>&1 ; then
+    useradd -U cloudera-scm
+  fi
+  if ! getent group cloudera-scm > /dev/null 2>&1 ; then
+    groupadd cloudera-scm
+  fi
+}
+
+function wait_for_ipa() {
+  local ipa_host=$1
+  local retries=300
+  while [[ $retries -gt 0 ]]; do
+    set +e
+    ret=$(curl -s -o /dev/null -w "%{http_code}" "http://${ipa_host}/ca.crt")
+    err=$?
+    set -e
+    if [[ $err == 0 && $ret == "200" ]]; then
+      break
+    fi
+    retries=$((retries - 1))
+    sleep 5
+    echo "Waiting for IPA to be ready (retries left: $retries)"
+  done
+}
+
 function create_certs() {
   local ipa_host=$1
 
@@ -663,7 +715,11 @@ function create_certs() {
 
   # Create CSR
   local public_ip=$(curl -s http://ifconfig.me || curl -s http://api.ipify.org/)
-  export ALT_NAMES="DNS:${LOCAL_HOSTNAME},DNS:$(hostname -f),DNS:*.${public_ip}.nip.io,DNS:*.cdsw.${public_ip}.nip.io"
+  ALT_NAMES=""
+  if [[ ! -z ${LOCAL_HOSTNAME:-} ]]; then
+    ALT_NAMES="DNS:${LOCAL_HOSTNAME},"
+  fi
+  export ALT_NAMES="${ALT_NAMES}DNS:$(hostname -f),DNS:*.${public_ip}.nip.io,DNS:*.cdsw.${public_ip}.nip.io"
   openssl req\
     -new\
     -key ${KEY_PEM} \
@@ -702,30 +758,18 @@ EOF
   # Sign cert
   if [[ $ipa_host != "" ]]; then
     kinit -kt $KEYTABS_DIR/admin.keytab admin
-    ipa host-add-principal $(hostname -f) "host/${LOCAL_HOSTNAME}"
+    if [[ ! -z ${LOCAL_HOSTNAME:-} ]]; then
+      ipa host-add-principal $(hostname -f) "host/${LOCAL_HOSTNAME}"
+    fi
     ipa host-add-principal $(hostname -f) "host/*.${public_ip}.nip.io"
     ipa host-add-principal $(hostname -f) "host/*.cdsw.${public_ip}.nip.io"
     ipa cert-request ${CSR_PEM} --principal=host/$(hostname -f)
     echo -e "-----BEGIN CERTIFICATE-----\n$(ipa host-find $(hostname -f) | grep Certificate: | tail -1 | awk '{print $NF}')\n-----END CERTIFICATE-----" | openssl x509 > ${HOST_PEM}
 
-    # Download IPA cert
+    # Wait for IP to be ready and download IPA cert
     mkdir -p $(dirname $ROOT_PEM)
-    local retries=60
-    while [[ $retries -gt 0 ]]; do
-      set +e
-      ret=$(curl -s -o $ROOT_PEM -w "%{http_code}" "http://${ipa_host}/ca.crt")
-      err=$?
-      set -e
-      if [[ $err == 0 && $ret == "200" ]]; then
-        break
-      else
-        rm -f $ROOT_PEM
-        touch $ROOT_PEM
-      fi
-      retries=$((retries - 1))
-      sleep 1
-      echo "Waiting for IPA to be ready (retries left: $retries)"
-    done
+    wait_for_ipa "$ipa_host"
+    curl -s -o $ROOT_PEM -w "%{http_code}" "http://${ipa_host}/ca.crt"
     if [[ ! -s $ROOT_PEM ]]; then
       echo "ERROR: Cannot download the IPA CA certificate"
       exit 1
@@ -788,8 +832,9 @@ EOF
   done
 
   # Create agent password file
+  ensure_cm_user
   echo $KEY_PWD > ${SEC_BASE}/x509/pwfile
-  chown cloudera-scm:cloudera-scm ${SEC_BASE}/x509/pwfile
+  chown root:root ${SEC_BASE}/x509/pwfile
   chmod 400 ${SEC_BASE}/x509/pwfile
 
   # Create HUE LB password file
@@ -807,26 +852,34 @@ EOF
   chown nifi:nifi /var/lib/nifi/cm-auto-host_keystore.jks /var/lib/nifi/cm-auto-in_cluster_truststore.jks
 
   # Set permissions
-  chown cloudera-scm:cloudera-scm $KEY_PEM $KEYSTORE_JKS $CERT_PEM $TRUSTSTORE_PEM $TRUSTSTORE_JKS
-  chmod 444 $KEY_PEM $UNENCRYTED_KEY_PEM $KEYSTORE_JKS
+  chown root:root $KEY_PEM $KEYSTORE_JKS $CERT_PEM $TRUSTSTORE_PEM $TRUSTSTORE_JKS
+  chmod 400 $KEY_PEM $UNENCRYTED_KEY_PEM $KEYSTORE_JKS
   chmod 444 $CERT_PEM $TRUSTSTORE_PEM $TRUSTSTORE_JKS
 
   # Prepare key+cert for ShellInABox
   local sib_dir=/var/lib/shellinabox
-  local sib_cert=${sib_dir}/certificate.pem
-  openssl rsa -in "$KEY_PEM" -passin pass:"$KEY_PWD" > $sib_cert
-  cat $CERT_PEM $ROOT_PEM >> $sib_cert
-  chown shellinabox:shellinabox $sib_cert
-  chmod 400 $sib_cert
-  rm -f ${sib_dir}/certificate-{localhost,${LOCAL_HOSTNAME},${CLUSTER_HOST}}.pem
-  ln -s $sib_cert ${sib_dir}/certificate-localhost.pem
-  ln -s $sib_cert ${sib_dir}/certificate-${LOCAL_HOSTNAME}.pem
-  ln -s $sib_cert ${sib_dir}/certificate-${CLUSTER_HOST}.pem
+  if [[ -d $sib_dir ]]; then
+    local sib_cert=${sib_dir}/certificate.pem
+    openssl rsa -in "$KEY_PEM" -passin pass:"$KEY_PWD" > $sib_cert
+    cat $CERT_PEM $ROOT_PEM >> $sib_cert
+    chown shellinabox:shellinabox $sib_cert
+    chmod 400 $sib_cert
+    rm -f ${sib_dir}/certificate-{localhost,${CLUSTER_HOST}}.pem
+    ln -s $sib_cert ${sib_dir}/certificate-localhost.pem
+    ln -s $sib_cert ${sib_dir}/certificate-${CLUSTER_HOST}.pem
+    if [[ ! -z ${LOCAL_HOSTNAME:-} ]]; then
+      rm -f ${sib_dir}/certificate-${LOCAL_HOSTNAME}.pem
+      ln -s $sib_cert ${sib_dir}/certificate-${LOCAL_HOSTNAME}.pem
+    fi
+  fi
 
+  tighten_keystores_permissions
 }
 
 function tighten_keystores_permissions() {
   # Set permissions for HUE LB password file
+  set +e # Just in case some of the users do not exist
+
   chown -R hue:hue ${SEC_BASE}/hue
   chmod 500 ${SEC_BASE}/hue
   chmod 400 ${SEC_BASE}/hue/loadbalancer.pw
@@ -834,39 +887,42 @@ function tighten_keystores_permissions() {
   # Set permissions and ACLs
   chmod 440 $KEY_PEM $KEYSTORE_JKS
 
-  set +e # Just in case some of the users do not exist
-  sudo setfacl -m user:atlas:r--,group:atlas:r-- $KEYSTORE_JKS
-  sudo setfacl -m user:cruisecontrol:r--,group:cruisecontrol:r-- $KEYSTORE_JKS
-  sudo setfacl -m user:flink:r--,group:flink:r-- $KEYSTORE_JKS
-  sudo setfacl -m user:hbase:r--,group:hbase:r-- $KEYSTORE_JKS
-  sudo setfacl -m user:hdfs:r--,group:hdfs:r-- $KEYSTORE_JKS
-  sudo setfacl -m user:hive:r--,group:hive:r-- $KEYSTORE_JKS
-  sudo setfacl -m user:httpfs:r--,group:httpfs:r-- $KEYSTORE_JKS
-  sudo setfacl -m user:impala:r--,group:impala:r-- $KEYSTORE_JKS
-  sudo setfacl -m user:kafka:r--,group:kafka:r-- $KEYSTORE_JKS
-  sudo setfacl -m user:knox:r--,group:knox:r-- $KEYSTORE_JKS
-  sudo setfacl -m user:livy:r--,group:livy:r-- $KEYSTORE_JKS
-  sudo setfacl -m user:nifi:r--,group:nifi:r-- $KEYSTORE_JKS
-  sudo setfacl -m user:nifiregistry:r--,group:nifiregistry:r-- $KEYSTORE_JKS
-  sudo setfacl -m user:oozie:r--,group:oozie:r-- $KEYSTORE_JKS
-  sudo setfacl -m user:ranger:r--,group:ranger:r-- $KEYSTORE_JKS
-  sudo setfacl -m user:schemaregistry:r--,group:schemaregistry:r-- $KEYSTORE_JKS
-  sudo setfacl -m user:solr:r--,group:solr:r-- $KEYSTORE_JKS
-  sudo setfacl -m user:spark:r--,group:spark:r-- $KEYSTORE_JKS
-  sudo setfacl -m user:streamsmsgmgr:r--,group:streamsmsgmgr:r-- $KEYSTORE_JKS
-  sudo setfacl -m user:streamsrepmgr:r--,group:streamsrepmgr:r-- $KEYSTORE_JKS
-  sudo setfacl -m user:yarn:r--,group:hadoop:r-- $KEYSTORE_JKS
-  sudo setfacl -m user:zeppelin:r--,group:zeppelin:r-- $KEYSTORE_JKS
-  sudo setfacl -m user:zookeeper:r--,group:zookeeper:r-- $KEYSTORE_JKS
-  sudo setfacl -m user:ssb:r--,group:ssb:r-- $KEYSTORE_JKS
+  setfacl -m user:cloudera-scm:r--,group:cloudera-scm:r-- $KEYSTORE_JKS
+  setfacl -m user:atlas:r--,group:atlas:r-- $KEYSTORE_JKS
+  setfacl -m user:cruisecontrol:r--,group:cruisecontrol:r-- $KEYSTORE_JKS
+  setfacl -m user:flink:r--,group:flink:r-- $KEYSTORE_JKS
+  setfacl -m user:hbase:r--,group:hbase:r-- $KEYSTORE_JKS
+  setfacl -m user:hdfs:r--,group:hdfs:r-- $KEYSTORE_JKS
+  setfacl -m user:hive:r--,group:hive:r-- $KEYSTORE_JKS
+  setfacl -m user:httpfs:r--,group:httpfs:r-- $KEYSTORE_JKS
+  setfacl -m user:impala:r--,group:impala:r-- $KEYSTORE_JKS
+  setfacl -m user:kafka:r--,group:kafka:r-- $KEYSTORE_JKS
+  setfacl -m user:knox:r--,group:knox:r-- $KEYSTORE_JKS
+  setfacl -m user:livy:r--,group:livy:r-- $KEYSTORE_JKS
+  setfacl -m user:nifi:r--,group:nifi:r-- $KEYSTORE_JKS
+  setfacl -m user:nifiregistry:r--,group:nifiregistry:r-- $KEYSTORE_JKS
+  setfacl -m user:oozie:r--,group:oozie:r-- $KEYSTORE_JKS
+  setfacl -m user:ranger:r--,group:ranger:r-- $KEYSTORE_JKS
+  setfacl -m user:schemaregistry:r--,group:schemaregistry:r-- $KEYSTORE_JKS
+  setfacl -m user:solr:r--,group:solr:r-- $KEYSTORE_JKS
+  setfacl -m user:spark:r--,group:spark:r-- $KEYSTORE_JKS
+  setfacl -m user:streamsmsgmgr:r--,group:streamsmsgmgr:r-- $KEYSTORE_JKS
+  setfacl -m user:streamsrepmgr:r--,group:streamsrepmgr:r-- $KEYSTORE_JKS
+  setfacl -m user:yarn:r--,group:hadoop:r-- $KEYSTORE_JKS
+  setfacl -m user:zeppelin:r--,group:zeppelin:r-- $KEYSTORE_JKS
+  setfacl -m user:zookeeper:r--,group:zookeeper:r-- $KEYSTORE_JKS
+  setfacl -m user:ssb:r--,group:ssb:r-- $KEYSTORE_JKS
 
-  sudo setfacl -m user:hue:r--,group:hue:r-- $KEY_PEM
-  sudo setfacl -m user:impala:r--,group:impala:r-- $KEY_PEM
-  sudo setfacl -m user:kudu:r--,group:kudu:r-- $KEY_PEM
-  sudo setfacl -m user:streamsmsgmgr:r--,group:streamsmsgmgr:r-- $KEY_PEM
-  sudo setfacl -m user:ssb:r--,group:ssb:r-- $KEY_PEM
+  setfacl -m user:cloudera-scm:r--,group:cloudera-scm:r-- $KEY_PEM
+  setfacl -m user:postgres:r--,group:postgres:r-- $KEY_PEM
+  setfacl -m user:hue:r--,group:hue:r-- $KEY_PEM
+  setfacl -m user:impala:r--,group:impala:r-- $KEY_PEM
+  setfacl -m user:kudu:r--,group:kudu:r-- $KEY_PEM
+  setfacl -m user:streamsmsgmgr:r--,group:streamsmsgmgr:r-- $KEY_PEM
+  setfacl -m user:ssb:r--,group:ssb:r-- $KEY_PEM
 
-  sudo setfacl -m user:ssb:r--,group:ssb:r-- ${SEC_BASE}/x509/pwfile
+  setfacl -m user:cloudera-scm:r--,group:cloudera-scm:r-- ${SEC_BASE}/x509/pwfile
+  setfacl -m user:ssb:r--,group:ssb:r-- ${SEC_BASE}/x509/pwfile
 
   # Due to changes in 7.1.8 Hue needs write permissions on the cert dir
   # TODO: Remove this when CDPD-44355 gets resolved
@@ -1051,7 +1107,9 @@ function clean_all() {
   dd if=/dev/zero of=$DOCKER_DEVICE bs=1M count=100
 
   echo "$THE_PWD" | kinit admin
-  ipa host-remove-principal $(hostname -f) host/edge2ai-0.dim.local
+  if [[ ! -z ${LOCAL_HOSTNAME:-} ]]; then
+    ipa host-remove-principal $(hostname -f) host/${LOCAL_HOSTNAME}
+  fi
   ipa host-del $(hostname -f)
   ipa-client-install --uninstall --unattended
 
@@ -1195,4 +1253,494 @@ function detect_docker_device() {
     awk '{print $1}' "${tmp_file}"
   fi
   rm -f "${tmp_file}"
+}
+
+function enable_py3() {
+  export MANPATH=
+  source /opt/rh/rh-python38/enable
+}
+
+function get_public_ip() {
+  export PUBLIC_IP=$(curl -s http://ifconfig.me || curl -s http://api.ipify.org/)
+  if [[ ! $PUBLIC_IP =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+    echo "ERROR: Could not retrieve public IP for this instance. Probably a transient error. Please try again."
+    exit 1
+  fi
+}
+
+function deploy_os_prereqs() {
+  log_status "Ensuring SElinux is disabled"
+  setenforce 0 || true
+  if [[ -f /etc/selinux/config ]]; then
+    sed -i 's/SELINUX=.*/SELINUX=disabled/' /etc/selinux/config
+  fi
+
+  log_status "Installing EPEL repo"
+  yum erase -y epel-release || true; rm -f /etc/yum.repos.r/epel* || true
+  yum_install epel-release
+  # The EPEL repo has intermittent refresh issues that cause errors like the one below.
+  # Switch to baseurl to avoid those issues when using the metalink option.
+  # Error: https://.../repomd.xml: [Errno -1] repomd.xml does not match metalink for epel
+  sed -i 's/metalink=/#metalink=/;s/#*baseurl=/baseurl=/' /etc/yum.repos.d/epel*.repo
+  yum clean all
+  rm -rf /var/cache/yum/
+  set +e
+  # Load and accept GPG keys
+  yum makecache -y || true
+  yum repolist
+  RET=$?
+  set -e
+  if [[ $RET != 0 ]]; then
+    # baseurl failed, so we'll revert to the original metalink
+    sed -i 's/#*metalink=/metalink=/;s/baseurl=/#baseurl=/' /etc/yum.repos.d/epel*.repo
+    yum repolist
+  fi
+
+  log_status "Installing base dependencies"
+  yum_install ${JAVA_PACKAGE_NAME} vim wget curl git bind-utils figlet cowsay jq rng-tools
+  # For troubleshooting purposes, when needed
+  yum_install sysstat strace iotop lsof
+}
+
+function deploy_cluster_prereqs() {
+  log_status "Installing cluster dependencies"
+  # nodejs, npm and forever are SMM dependencies - required by older versions
+  curl -sL https://rpm.nodesource.com/setup_10.x | sed -E '/(script_deprecation_warning|node_deprecation_warning)$/d' | sudo bash -
+  # Install RH python repo for CentOS
+  yum_install centos-release-scl
+  # Install dependencies
+  yum_install nodejs gcc-c++ make shellinabox mosquitto transmission-cli rh-python38 rh-python38-python-devel httpd
+  # Below is needed for secure clusters (required by Impyla)
+  yum_install cyrus-sasl-md5 cyrus-sasl-plain cyrus-sasl-gssapi cyrus-sasl-devel
+}
+
+function resolve_host_addresses() {
+  local prefix=${1:-cdp}
+  case "${CLOUD_PROVIDER}" in
+    aws)
+        sed -i.bak '/server 169.254.169.123/ d' /etc/chrony.conf
+        echo "server 169.254.169.123 prefer iburst minpoll 4 maxpoll 4" >> /etc/chrony.conf
+        systemctl restart chronyd
+        export PRIVATE_DNS=$(curl http://169.254.169.254/latest/meta-data/local-hostname)
+        export PRIVATE_IP=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)
+        export PUBLIC_DNS=${prefix}.${PUBLIC_IP}.nip.io
+        ;;
+    azure)
+        export PRIVATE_DNS="$(cat /etc/hostname).$(grep search /etc/resolv.conf | awk '{print $2}')"
+        export PRIVATE_IP=$(hostname -I | awk '{print $1}')
+        export PUBLIC_DNS=${prefix}.${PUBLIC_IP}.nip.io
+        ;;
+    gcp)
+        export PRIVATE_DNS=$(curl -H "Metadata-Flavor: Google" http://169.254.169.254/computeMetadata/v1/instance/hostname)
+        export PRIVATE_IP=$(curl -s -H "Metadata-Flavor: Google" http://169.254.169.254/computeMetadata/v1/instance/network-interfaces/0/ip)
+        export PUBLIC_DNS=$PRIVATE_DNS
+        ;;
+    aliyun)
+        export PRIVATE_DNS=$(curl -s http://100.100.100.200/latest/meta-data/hostname)
+        [[ "$PRIVATE_DNS" == *"."* ]] || PRIVATE_DNS="${PRIVATE_DNS}.local"
+        export PRIVATE_IP=$(curl -s http://100.100.100.200/latest/meta-data/private-ipv4)
+        export PUBLIC_DNS=${prefix}.${PRIVATE_IP}.nip.io
+        ;;
+    generic)
+        export PRIVATE_DNS="$(cat /etc/hostname).$(grep search /etc/resolv.conf | awk '{print $2}')"
+        export PRIVATE_IP=$(hostname -I | awk '{print $1}')
+        export PUBLIC_DNS=${prefix}.${PRIVATE_IP}.nip.io
+        ;;
+    *)
+        export PRIVATE_DNS=$(hostname -f)
+        [[ "$PRIVATE_DNS" == *"."* ]] || PRIVATE_DNS="${PRIVATE_DNS}.local"
+        export PRIVATE_IP=$(hostname -I | awk '{print $1}')
+        export PUBLIC_DNS=$PRIVATE_DNS
+  esac
+
+  if [ "$PUBLIC_DNS" == "" ]; then
+    echo "ERROR: Could not retrieve public DNS for this instance. Probably a transient error. Please try again."
+    exit 1
+  fi
+  export CLUSTER_HOST=$PUBLIC_DNS
+}
+
+function complete_host_initialization() {
+  local prefix=${1:-cdp}
+  log_status "Setting cluster identity"
+  if [[ -f /etc/workshop.conf ]]; then
+    cat /etc/workshop.conf >> /etc/profile
+  fi
+
+  log_status "Ensuring there's plenty of entropy"
+  systemctl enable rngd
+  systemctl start rngd
+
+  log_status "Configuring kernel parameters"
+  echo never > /sys/kernel/mm/transparent_hugepage/enabled
+  echo never > /sys/kernel/mm/transparent_hugepage/defrag
+  echo "echo never > /sys/kernel/mm/transparent_hugepage/enabled" >> /etc/rc.d/rc.local
+  echo "echo never > /sys/kernel/mm/transparent_hugepage/defrag" >> /etc/rc.d/rc.local
+  # add tuned optimization https://www.cloudera.com/documentation/enterprise/latest/topics/cdh_admin_performance.html
+  cat >> /etc/sysctl.conf <<EOF
+vm.swappiness = 1
+net.ipv6.conf.all.disable_ipv6 = 1
+net.ipv6.conf.default.disable_ipv6 = 1
+net.ipv6.conf.lo.disable_ipv6 = 1
+EOF
+  sysctl -p
+  timedatectl set-timezone UTC
+
+  log_status "Disabling firewalls"
+  iptables-save > $BASE_DIR/firewall.rules
+  FWD_STATUS=$(systemctl is-active firewalld || true)
+  if [[ "${FWD_STATUS}" != "unknown" ]]; then
+    systemctl disable firewalld
+    systemctl stop firewalld
+  fi
+
+  log_status "Enabling password authentication"
+  sed -i.bak 's/PasswordAuthentication *no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+
+  log_status "Resetting SSH user password"
+  echo "$SSH_PWD" | sudo passwd --stdin "$SSH_USER"
+
+  log_status "Handling cloud provider specific settings"
+  resolve_host_addresses "$prefix"
+
+  log_status "Setting up /etc/hosts"
+  # Public DNS must come first"
+  sed -i.bak "/^${PRIVATE_IP}/d;/^::1/d" /etc/hosts
+  echo "$PRIVATE_IP $PUBLIC_DNS $PRIVATE_DNS" >> /etc/hosts
+  if [[ ! -z ${IPA_HOST:-} ]]; then
+    sed -i.bak "/${IPA_HOST}/d" /etc/hosts
+    if [[ ! -z ${IPA_PRIVATE_IP:-} ]]; then
+      echo "$IPA_PRIVATE_IP $IPA_HOST" >> /etc/hosts
+    fi
+  fi
+  if [[ ! -z ${ECS_PUBLIC_DNS:-} ]]; then
+    sed -i.bak "/${ECS_PUBLIC_DNS}/d" /etc/hosts
+    if [[ ! -z ${ECS_PRIVATE_IP:-} ]]; then
+      echo "$ECS_PRIVATE_IP $ECS_PUBLIC_DNS" >> /etc/hosts
+    fi
+  fi
+
+  log_status "Setting domain name"
+  sed -i.bak '/kernel.domainname/d' /etc/sysctl.conf
+  echo "kernel.domainname=${PUBLIC_DNS#*.}" >> /etc/sysctl.conf
+  sysctl -p
+
+  log_status "Configuring networking"
+  hostnamectl set-hostname $CLUSTER_HOST
+  if [[ -f /etc/sysconfig/network ]]; then
+    sed -i "/HOSTNAME=/ d" /etc/sysconfig/network
+  fi
+  echo "HOSTNAME=${CLUSTER_HOST}" >> /etc/sysconfig/network
+
+}
+
+function download_parcels() {
+  mkdir -p /opt/cloudera/parcel-repo
+  mkdir -p /opt/cloudera/parcels
+  # We want to execute ln -s within the parcels directory for preloading
+  pushd "/opt/cloudera/parcels"
+  while [ $# -gt 0 ]; do
+    component=$1
+    version=$2
+    url=$3
+    shift 3
+    echo ">>> $component - $version - $url"
+    # Download parcel manifest
+    manifest_url="$(check_for_presigned_url "${url%%/}/manifest.json")"
+    paywall_curl "$manifest_url" "/tmp/manifest.json"
+    # Find the parcel name for the specific component and version
+    parcel_name=$(jq -r '.parcels[] | select(.parcelName | contains("'"$version"'-el7.parcel")) | select(.components[] | .name == "'"$component"'").parcelName' /tmp/manifest.json)
+    # Create the hash file
+    hash=$(jq -r '.parcels[] | select(.parcelName | contains("'"$version"'-el7.parcel")) | select(.components[] | .name == "'"$component"'").hash' /tmp/manifest.json)
+    echo "$hash" > "/opt/cloudera/parcel-repo/${parcel_name}.sha"
+    if [[ ! -f "/opt/cloudera/parcel-repo/${parcel_name}" || $(sha1sum "/opt/cloudera/parcel-repo/${parcel_name}" 2> /dev/null || true) != "$hash" ]]; then
+      # Download the parcel file - in the background
+      parcel_url="$(check_for_presigned_url "${url%%/}/${parcel_name}")"
+      paywall_wget "${parcel_url}" "/opt/cloudera/parcel-repo/${parcel_name}" &
+    fi
+  done
+  wait
+  # Create the torrent file for the parcel
+  for parcel_file in /opt/cloudera/parcel-repo/*.parcel; do
+    transmission-create -s 512 -o "${parcel_file}.torrent" "${parcel_file}" &
+  done
+  wait
+}
+
+function distribute_parcels() {
+  # Predistribute parcel
+  for parcel_file in /opt/cloudera/parcel-repo/*.parcel; do
+    tar zxf "$parcel_file" -C "/opt/cloudera/parcels" &
+  done
+  wait
+  log_status "Pre-activating parcels"
+  for parcel_file in /opt/cloudera/parcel-repo/*.parcel; do
+    parcel_name="$(basename "$parcel_file")"
+    product_name="${parcel_name%%-*}"
+    rm -f "${product_name}"
+    ln -s "${parcel_name%-*.parcel}" "${product_name}"
+    touch "/opt/cloudera/parcels/${product_name}/.dont_delete"
+  done
+  popd
+}
+
+function install_csds() {
+  while [ $# -gt 0 ]; do
+    url=$1
+    shift
+    echo "---- Downloading $url"
+    file_name=$(basename "${url%%\?*}")
+    if [ "${REMOTE_REPO_USR:-}" != "" -a "${REMOTE_REPO_PWD:-}" != "" ]; then
+      auth="--user '$REMOTE_REPO_USR' --password '$REMOTE_REPO_PWD'"
+    else
+      auth=""
+    fi
+    paywall_wget "$url" "/opt/cloudera/csd/${file_name}"
+    # Patch CDSW CSD so that we can use it on CDP
+    if [ "${HAS_CDSW:-1}" == "1" -a "$url" == "$CDSW_CSD_URL" -a "$CM_MAJOR_VERSION" == "7" ]; then
+      jar xvf /opt/cloudera/csd/CLOUDERA_DATA_SCIENCE_WORKBENCH-*.jar descriptor/service.sdl
+      sed -i 's/"max" *: *"6"/"max" : "7"/g' descriptor/service.sdl
+      jar uvf /opt/cloudera/csd/CLOUDERA_DATA_SCIENCE_WORKBENCH-*.jar descriptor/service.sdl
+      rm -rf descriptor
+    fi
+    # TODO: Remove patch below when no longer needed
+    # Patch SSB CSD due to CSA-3630 and CSA-3750
+    if [[ -f /opt/cloudera/csd/SQL_STREAM_BUILDER-1.14.0-csa1.7.0.1-cdh7.1.7.0-551-29340707.jar ]]; then
+      rm -rf /tmp/ssb_csd
+      mkdir -p /tmp/ssb_csd
+      pushd /tmp/ssb_csd
+      jar xvf /opt/cloudera/csd/SQL_STREAM_BUILDER-1.14.0-csa1.7.0.1-cdh7.1.7.0-551-29340707.jar
+      sed -i \
+'s#${CONF_DIR}/cm-auto-host_cert_chain.pem#/opt/cloudera/security/x509/host.pem#;'\
+'s#${CONF_DIR}/cm-auto-host_key.pem#/opt/cloudera/security/x509/key.pem#;'\
+'s#${CONF_DIR}/cm-auto-host_key.pw#/opt/cloudera/security/x509/pwfile#;'\
+'s#${NGINX_CONF_DIR}/logs/error.log#/var/log/ssb/load_balancer-error.log#;'\
+'s#${NGINX_CONF_DIR}/logs/access.log#/var/log/ssb/load_balancer-access.log#' ./scripts/set-dependencies.sh
+      jar cvf /opt/cloudera/csd/SQL_STREAM_BUILDER-1.14.0-csa1.7.0.1-cdh7.1.7.0-551-29340707.jar *
+      chown cloudera-scm:cloudera-scm /opt/cloudera/csd/SQL_STREAM_BUILDER-1.14.0-csa1.7.0.1-cdh7.1.7.0-551-29340707.jar
+      popd
+      rm -rf /tmp/ssb_csd
+    fi
+  done
+}
+
+function paywall_wget() {
+  local url=$1
+  local output=$2
+
+  # Only use authentication if source is not a S3 bucket
+  local auth=""
+  if [[ $url != *"s3.amazonaws.com"* ]]; then
+    auth=$WGET_BASIC_AUTH
+  fi
+  retry_if_needed 5 5 "wget --continue --progress=dot:giga $auth '${url}' -O '${output}'"
+}
+
+function paywall_curl() {
+  local url=$1
+  local output=$2
+
+  # Only use authentication if source is not a S3 bucket
+  local auth=""
+  if [[ $url != *"s3.amazonaws.com"* ]]; then
+    auth=$CURL_BASIC_AUTH
+  fi
+  retry_if_needed 5 5 "curl $auth --silent '${url}' > '${output}'"
+}
+
+function install_ecs() {
+  log_status "Copy CM repo file to ECS host"
+  scp -o StrictHostKeyChecking=no -i /home/${SSH_USER}/.ssh/${NAMESPACE}.pem $CM_REPO_FILE ${SSH_USER}@${ECS_PRIVATE_IP}:/tmp/cm.repo
+  log_status "Copy agent config file to ECS host"
+  scp -o StrictHostKeyChecking=no -i /home/${SSH_USER}/.ssh/${NAMESPACE}.pem /etc/cloudera-scm-agent/config.ini ${SSH_USER}@${ECS_PRIVATE_IP}:/tmp/scm-agent-config.ini
+  log_status "Run agent install on ECS host"
+  ssh -tt -o StrictHostKeyChecking=no -i /home/${SSH_USER}/.ssh/${NAMESPACE}.pem ${SSH_USER}@${ECS_PRIVATE_IP} "sudo mv /tmp/cm.repo $CM_REPO_FILE; sudo chown root:root $CM_REPO_FILE; sudo bash -x /tmp/resources/setup-ecs.sh install-cloudera-agent $CLUSTER_HOST $PRIVATE_IP /tmp/scm-agent-config.ini > /tmp/resources/setup-ecs.install-cloudera-agent.log 2>&1"
+
+  CURL=(curl -s -u "admin:${THE_PWD}" -H "accept: application/json" -H "Content-Type: application/json")
+
+  log_status "Wait for ECS host heartbeat"
+  ECS_CLUSTER_NAME=OneNodeECS
+  while [[ -z ${ECS_HOST_ID:-} ]]; do
+    ECS_HOST_ID=$("${CURL[@]}" -X GET "https://${CLUSTER_HOST}:7183/api/v32/hosts" -H "accept: application/json" -H "Content-Type: application/json" | jq -r '.items[] | select(.hostname == "'"$ECS_PUBLIC_DNS"'").hostId')
+  done
+
+  log_status "Upload license"
+  curl -s -u "admin:${THE_PWD}" \
+    -H "accept: application/json" -H 'Content-Type: multipart/form-data' \
+    "https://${CLUSTER_HOST}:7183/api/v40/cm/license" \
+    -F license=@${LICENSE_FILE_PATH}
+
+  log_status "Add CDP-PVC repo and paywall credentials to CM"
+  REPOS=$("${CURL[@]}" -X GET "https://${CLUSTER_HOST}:7183/api/v44/cm/config" | jq -r '.items[] | select(.name == "REMOTE_PARCEL_REPO_URLS").value')
+  REPOS="$(echo "$REPOS" | sed "s#${ECS_PARCEL_REPO}##g;s#,,#,#g;s/,$//"),${ECS_PARCEL_REPO}"
+  "${CURL[@]}" -X PUT "https://${CLUSTER_HOST}:7183/api/v44/cm/config" -d '{"items":[{"name":"REMOTE_PARCEL_REPO_URLS", "value":"'"$REPOS"'"}, {"name":"REMOTE_REPO_OVERRIDE_USER", "value":"'"${REMOTE_REPO_USR:-}"'"}, {"name":"REMOTE_REPO_OVERRIDE_PASSWORD", "value":"'"${REMOTE_REPO_PWD:-}"'"}]}'
+  "${CURL[@]}" -X POST "https://${CLUSTER_HOST}:7183/api/v44/cm/commands/refreshParcelRepos"
+  sleep 10
+
+  log_status "Add ECS cluster"
+  "${CURL[@]}" -X POST \
+    "https://${CLUSTER_HOST}:7183/api/v51/clusters" \
+    -d '{"items":[{"name":"'"${ECS_CLUSTER_NAME}"'","displayName":"'"${ECS_CLUSTER_NAME}"'","fullVersion":"'"${ECS_BUILD}"'","clusterType":"EXPERIENCE_CLUSTER"}]}'
+
+  log_status "Add host to ECS cluster"
+  "${CURL[@]}" -X POST \
+    "https://${CLUSTER_HOST}:7183/api/v51/clusters/${ECS_CLUSTER_NAME}/hosts" \
+    -d '{"items":[{"hostId":"'"${ECS_HOST_ID}"'","hostname":"'"${ECS_PUBLIC_DNS}"'"}]}'
+
+  log_status "Download, distribute and activate ECS parcel"
+  "${CURL[@]}" -X POST \
+    "https://${CLUSTER_HOST}:7183/api/v51/clusters/${ECS_CLUSTER_NAME}/parcels/products/ECS/versions/${ECS_BUILD}/commands/startDownload"
+  wait_for_parcel_state $ECS_CLUSTER_NAME ECS $ECS_BUILD AVAILABLE_REMOTELY DOWNLOADING DOWNLOADED
+  "${CURL[@]}" -X POST \
+    "https://${CLUSTER_HOST}:7183/api/v51/clusters/${ECS_CLUSTER_NAME}/parcels/products/ECS/versions/${ECS_BUILD}/commands/startDistribution"
+  wait_for_parcel_state $ECS_CLUSTER_NAME ECS $ECS_BUILD DOWNLOADED DISTRIBUTING DISTRIBUTED
+  "${CURL[@]}" -X POST \
+    "https://${CLUSTER_HOST}:7183/api/v51/clusters/${ECS_CLUSTER_NAME}/parcels/products/ECS/versions/${ECS_BUILD}/commands/activate"
+  wait_for_parcel_state $ECS_CLUSTER_NAME ECS $ECS_BUILD DISTRIBUTED ACTIVATING ACTIVATED
+
+  log_status "Add ECS and Docker services to ECS cluster"
+  local svc_json_file=${BASE_DIR}/ecs_svc.json
+  cat > $svc_json_file <<EOF
+{
+  "items": [
+    {
+      "name": "docker",
+      "type": "DOCKER",
+      "config": {
+        "items": [
+          {
+            "name": "defaultDataPath",
+            "value": "/docker"
+          }
+        ]
+      },
+      "roles": [
+        {
+          "type": "DOCKER_SERVER",
+          "hostRef": {
+            "hostId": "${ECS_HOST_ID}",
+            "hostname": "${ECS_PUBLIC_DNS}"
+          },
+          "config": {},
+          "roleConfigGroupRef": {
+            "roleConfigGroupName": "docker-DOCKER_SERVER-BASE"
+          }
+        }
+      ],
+      "roleConfigGroups": [
+        {
+          "name": "docker-DOCKER_SERVER-BASE",
+          "roleType": "DOCKER_SERVER",
+          "base": true,
+          "config": {}
+        }
+      ]
+    },
+    {
+      "name": "ecs",
+      "type": "ECS",
+      "config": {
+        "items": [
+          {
+            "name": "app_domain",
+            "value": "${ECS_PUBLIC_DNS}"
+          },
+          {
+            "name" : "docker",
+            "value" : "docker"
+          },
+          {
+            "name": "cp_prometheus_ingress_user",
+            "value": "cloudera-manager"
+          },
+          {
+            "name": "infra_prometheus_ingress_user",
+            "value": "cloudera-manager"
+          },
+          {
+            "name": "cp_prometheus_ingress_password",
+            "value": "${THE_PWD}"
+          },
+          {
+            "name": "external_registry_enabled",
+            "value": "true"
+          },
+          {
+            "name": "infra_prometheus_ingress_password",
+            "value": "${THE_PWD}"
+          },
+          {
+            "name": "defaultDataPath",
+            "value": "/ecs/longhorn-storage"
+          },
+          {
+            "name": "lsoDataPath",
+            "value": "/ecs/local-storage",
+            "sensitive": false
+          }
+        ]
+      },
+      "roles": [
+        {
+          "type": "ECS_SERVER",
+          "hostRef": {
+            "hostId": "${ECS_HOST_ID}",
+            "hostname": "${ECS_PUBLIC_DNS}"
+          },
+          "config": {},
+          "roleConfigGroupRef": {
+            "roleConfigGroupName": "ecs-ECS_SERVER-BASE"
+          }
+        }
+      ],
+      "roleConfigGroups": [
+        {
+          "name": "ecs-ECS_SERVER-BASE",
+          "roleType": "ECS_SERVER",
+          "base": true,
+          "config": {}
+        }
+      ]
+    }
+  ]
+}
+EOF
+  "${CURL[@]}" -X POST \
+    "https://${CLUSTER_HOST}:7183/api/v51/clusters/${ECS_CLUSTER_NAME}/services" \
+    -d @$svc_json_file
+
+  log_status "Initialize ECS"
+  local ecs_json_file=${BASE_DIR}/ecs_install.json
+  cat > $ecs_json_file <<EOF
+{
+  "remoteRepoUrl": "${ECS_PARCEL_REPO}",
+  "valuesYaml": "ContainerInfo:\n  Mode: public\n  CopyDocker: false\nDatabase:\n  Mode: existing\n  DbRootCert: >-\n    $(base64 -w 5000 /etc/ipa/ca.crt)\n  SameCredential: true\nServices:\n  common:\n    Config:\n      database:\n        host: ${CLUSTER_HOST}\n        port: 5432\n        username: ecs\n        password: ${THE_PWD}\n  thunderheadenvironment:\n    Config:\n      database:\n        name: db-env\n  mlxcontrolplaneapp:\n    Config:\n      database:\n        name: db-mlx\n  dwx:\n    Config:\n      database:\n        name: db-dwx\n  cpxliftie:\n    Config:\n      database:\n        name: db-liftie\n  dex:\n    Config:\n      database:\n        name: db-dex\n  resourcepoolmanager:\n    Config:\n      database:\n        name: db-resourcepoolmanager\n  clusteraccessmanager:\n    Config:\n      database:\n        name: db-clusteraccessmanager\n  monitoringapp:\n    Config:\n      database:\n        name: db-alerts\n  thunderheadusermanagementprivate:\n    Config:\n      database:\n        name: db-ums\n  classicclusters:\n    Config:\n      database:\n        name: cm-registration\n  clusterproxy:\n    Config:\n      database:\n        name: cluster-proxy\nVault:\n  Mode: embedded\n",
+  "containerizedClusterName": "${ECS_CLUSTER_NAME}",
+  "experienceClusterName": "${ECS_CLUSTER_NAME}",
+  "datalakeClusterName": "OneNodeCluster"
+}
+EOF
+  "${CURL[@]}" -X POST \
+    -H "Referer: https://${CLUSTER_HOST}:7183/cmf/express-wizard/wizard?allowResume=false&clusterType=EXPERIENCE_CLUSTER" \
+    "https://${CLUSTER_HOST}:7183/api/v44/controlPlanes/commands/installEmbeddedControlPlane" \
+    -d @$ecs_json_file
+}
+
+function wait_for_parcel_state() {
+  local cluster_name=$1
+  local product=$2
+  local build=$3
+  local initial_state=$4
+  local running_state=$5
+  local final_state=$6
+  local stage=$initial_state
+  while [[ $stage == "$initial_state" || $stage == "$running_state" ]]; do
+    stage=$("${CURL[@]}" -X GET "https://${CLUSTER_HOST}:7183/api/v51/clusters/${cluster_name}/parcels/products/${product}/versions/${build}" | jq -r '.stage')
+    echo "$(date) - $stage"
+    sleep 1
+  done
+  if [[ $stage != "$final_state" ]]; then
+    echo "ERROR: Failed to process parcel $product $build. Current state: $stage"
+    return 1
+  fi
 }

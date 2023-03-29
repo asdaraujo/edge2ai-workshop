@@ -119,7 +119,7 @@ def cluster_id():
 
 
 def local_hostname():
-    return os.environ.get('LOCAL_HOSTNAME', 'edge2ai-1.local.dim')
+    return os.environ.get('LOCAL_HOSTNAME', 'edge2ai-0.local.dim')
 
 
 def get_log_messages():

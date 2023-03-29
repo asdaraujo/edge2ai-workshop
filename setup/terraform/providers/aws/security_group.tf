@@ -58,19 +58,31 @@ resource "aws_security_group_rule" "workshop_cluster_extra_sg_rule" {
 resource "aws_security_group_rule" "workshop_self_sg_rule" {
   type              = "ingress"
   from_port         = 0
-  to_port           = 65535
-  protocol          = "tcp"
+  to_port           = 0
+  protocol          = "-1"
   self              = true
   security_group_id = aws_security_group.workshop_cluster_sg.id
 }
 
-resource "aws_security_group_rule" "workshop_public_ips_sg_rule" {
+resource "aws_security_group_rule" "workshop_cluster_public_ips_sg_rule" {
   count             = (var.cluster_count > 0) ? 1 : 0
+  description       = "Cluster Public IP"
   type              = "ingress"
   from_port         = 0
   to_port           = 0
   protocol          = "-1"
   cidr_blocks       = [ for ip in (var.use_elastic_ip ? aws_eip.eip_cluster.*.public_ip : aws_instance.cluster.*.public_ip): "${ip}/32" ]
+  security_group_id = aws_security_group.workshop_cluster_sg.id
+}
+
+resource "aws_security_group_rule" "workshop_ecs_public_ips_sg_rule" {
+  count             = (var.pvc_data_services ? ((var.cluster_count > 0) ? 1 : 0) : 0)
+  description       = "ECS Public IP"
+  type              = "ingress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = [ for ip in (var.use_elastic_ip ? aws_eip.eip_ecs.*.public_ip : aws_instance.ecs.*.public_ip): "${ip}/32" ]
   security_group_id = aws_security_group.workshop_cluster_sg.id
 }
 

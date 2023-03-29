@@ -52,6 +52,20 @@ CREATE DATABASE eventador_admin OWNER eventador_admin ENCODING 'UTF8';
 CREATE USER eventador_snapper WITH PASSWORD :'the_pwd';
 CREATE DATABASE eventador_snapper OWNER eventador_snapper ENCODING 'UTF8';
 
+-- ECS databases
+CREATE ROLE ecs LOGIN PASSWORD :'the_pwd';
+CREATE DATABASE "db-env" OWNER ecs ENCODING 'UTF8';
+CREATE DATABASE "db-mlx" OWNER ecs ENCODING 'UTF8';
+CREATE DATABASE "db-dwx" OWNER ecs ENCODING 'UTF8';
+CREATE DATABASE "db-liftie" OWNER ecs ENCODING 'UTF8';
+CREATE DATABASE "db-dex" OWNER ecs ENCODING 'UTF8';
+CREATE DATABASE "db-resourcepoolmanager" OWNER ecs ENCODING 'UTF8';
+CREATE DATABASE "db-clusteraccessmanager" OWNER ecs ENCODING 'UTF8';
+CREATE DATABASE "db-alerts" OWNER ecs ENCODING 'UTF8';
+CREATE DATABASE "db-ums" OWNER ecs ENCODING 'UTF8';
+CREATE DATABASE "cm-registration" OWNER ecs ENCODING 'UTF8';
+CREATE DATABASE "cluster-proxy" OWNER ecs ENCODING 'UTF8';
+
 -- Configuration for Flink Debezium connector
 CREATE DATABASE cdc_test;
 CREATE ROLE cdc_user WITH REPLICATION LOGIN PASSWORD :'the_pwd';

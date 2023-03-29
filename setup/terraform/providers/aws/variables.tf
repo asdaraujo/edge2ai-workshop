@@ -49,6 +49,10 @@ variable "cluster_instance_type" {
   description = "Instance type for the CDH cluster"
 }
 
+variable "ecs_instance_type" {
+  description = "Instance type for the ECS host"
+}
+
 variable "name_prefix" {
   description = "Name prefix for resources"
 }
@@ -120,6 +124,10 @@ variable "cluster_ami" {
   description = "AWS AMI for the CDH cluster"
 }
 
+variable "ecs_ami" {
+  description = "AWS AMI for the ECS host"
+}
+
 variable "vpc_id" {
   description = "AWS VPC id"
   default     = ""
@@ -134,4 +142,16 @@ variable "use_elastic_ip" {
   description = "Whether or not to use Elastic IPs"
   type        = bool
   default     = false
+}
+
+variable "pvc_data_services" {
+  description = "Whether or not to deploy PVC Data Services"
+  type        = bool
+  default     = false
+}
+
+variable "cdp_license_file" {
+  description = "CDP license file"
+  type        = string
+  default     = ""
 }

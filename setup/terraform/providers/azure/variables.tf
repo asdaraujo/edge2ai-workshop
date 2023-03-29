@@ -116,3 +116,14 @@ variable "base_image_version" {
   description = "Azure image version"
 }
 
+variable "pvc_data_services" {
+  description = "Whether or not to deploy PVC Data Services"
+  type        = bool
+  default     = false
+}
+
+variable "cdp_license_file" {
+  description = "CDP license file"
+  type        = string
+  default     = ""
+}
