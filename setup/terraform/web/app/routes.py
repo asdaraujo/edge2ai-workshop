@@ -241,6 +241,7 @@ def add_cluster():
         return jsonify({'success': False, 'message': 'No JSON payload or payload is invalid'}), 400
     try:
         cluster = Cluster(ip_address=request.json['ip_address'],
+                          ecs_ip_address=request.json.get('ecs_ip_address', None),
                           namespace=request.json['namespace'],
                           instance_id=request.json['instance_id'],
                           hostname=request.json['hostname'],

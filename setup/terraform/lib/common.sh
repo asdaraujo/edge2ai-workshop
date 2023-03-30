@@ -711,9 +711,7 @@ EOF
       echo "${C_RED}ERROR: License file "\""${TF_VAR_cdp_license_file}"\"" not found.${C_NORMAL}"
       abort
     fi
-    export REMOTE_REPO_USR=$(get_remote_repo_username)
-    export REMOTE_REPO_PWD=$(get_remote_repo_password)
-    if [[ -z $REMOTE_REPO_USR || -z $REMOTE_REPO_PWD ]]; then
+    if [[ -z $(get_remote_repo_username) || -z $(get_remote_repo_password) ]]; then
       echo "${C_RED}ERROR: Invalid license file "\""${TF_VAR_cdp_license_file}"\"".${C_NORMAL}"
       abort
     fi
@@ -1011,6 +1009,10 @@ function cluster_attr() {
     done
   fi
   awk '{print '"$format"'}'
+}
+
+function ecs_attr() {
+  cluster_attr "$@"
 }
 
 function web_attr() {

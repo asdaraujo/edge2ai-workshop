@@ -44,18 +44,12 @@ If you don't enable it correctly, as explained in this section, the clusters wil
 
 ==== Requirements
 
-You *must* ensure that the following point are configured correctly before launching your environment:
+You *must* ensure that the AWS limits for your chosen region are sufficient to create the objects listed below:
 
-* Look for the `TF_VAR_use_elastic_ip` in your `.env*` file and set it to `true`. If it doesn't existing in your `.env*` file, ensure the line below is added to it:
-+
-[source]
-----
-export TF_VAR_use_elastic_ip=true
-----
-* Once the property above it set, you must ensure that your AWS environment can allocate as many Elastic IPs as the number of VMs you're launching (# of cluster + 1 for the web server). The AWS default limit for Elastic IPs is very low (5 only), so make sure you check this and request an increase if it's too low for your needs.
-** You can check the limit and request the increase in the AWS Console, under *EC2 > Limits > Search for "EC2-VPC Elastic IPs"*.
-** If the limit is too low, select the *EC2-VPC Elastic IPs* line, click on *Request limit increase* and follow the prompts.
-** The increase can be effective in a few minutes but sometimes it can take longer.
+* 1 VPC per deployment (namespace)
+* 1 instance per cluster in you deployment
+* 1 instance for the web server (if applicable)
+* 1 Elastic IP per instance
 
 ==== Before stopping your instances
 
@@ -202,34 +196,45 @@ chmod 400 edge2ai-workshop/setup/terraform/.env.<namespace>
 +
 where `<namespace>` is an arbitrary name for your environment namespace.
 
-. Edit the `.env.<namespace>` file to match your environment.
+. Edit the `.env.<namespace>` file to match your environment and ensure you set these variables:
 +
-Ensure you set these variables:
+*Environment properties:*
 +
 --
 * `TF_VAR_cluster_count`: number of one-node clusters to be created
 * `TF_VAR_launch_web_server`: whether to launch the web server (`true`) or not (`false`).
-* `TF_VAR_use_elastic_ip`: enable elastic IPs for the environment VMs. This is required if you need to stop/start VMs.
-
-'''
-
+* `TF_VAR_use_elastic_ip`: enable elastic IPs for the environment VMs. This is required if you need to stop/start VMs. Defaults to `true`.
+--
++
+*CDP properties:*
++
+--
+* `TF_VAR_cdp_license_file`: The path to a valid CDP license file. This is only required when installing parcels that are not available as trial.
+--
++
+*Tags properties:*
++
+--
 * `TF_VAR_owner`: your user id. This will be used to tag your cloud resources.
 * `TF_VAR_enddate`: value for the `enddate` tag to be added to your cloud resources.
 * `TF_VAR_project`: value for the `project` tag to be added to your cloud resources.
-
-'''
-
+--
++
+*AWS properties:*
++
+--
 * `TF_VAR_aws_region`: AWS region to use
 * `TF_VAR_aws_profile`: Your AWS profile name
-* `TF_VAR_aws_access_key_id`: (DEPRECATED) Leave blank if profile is specified. Your AWS Access Key Id
-* `TF_VAR_aws_secret_access_key`: (DEPRECATED) Leave blank if profile is specified. Your AWS Secret Access Key
 
-'''
-
+NOTE: You must create an AWS profile using the AWS CLI.
+--
++
+*Web server properties:*
++
+--
 * `TF_VAR_web_server_admin_email`: email used by the Web Server admin. This will only be used to identify the admin upon logging in to the Web Server.
 * `TF_VAR_web_server_admin_password`: Web Server admin password.
 * `TF_VAR_registration_code`: registration code for the workshop environment. This is the code to be used as a password for users to successfully register in the workshop Web Portal. If not set or empty, a random registration code will be generated when the environment is launched.
-
 --
 
 . Launch your environment
@@ -305,19 +310,11 @@ cp -r edge2ai-workshop/setup/terraform/resources /tmp
 cd /tmp/resources
 ----
 
-. Edit the `stack.cdp717p.sh` file that exists in the `resources` folder and update the following variables with your CDP credentials:
-+
-[source,properties]
-----
-REMOTE_REPO_USR=<YOUR_USERNAME_HERE>
-REMOTE_REPO_PWD=<YOUR_PASSWORD_HERE>
-----
-
 . Run the setup script to deployment the cluster:
 +
 [source,shell]
 ----
-sudo bash -x ./setup.sh <CLOUD_PROVIDER> <SSH_USER> <SSH_PWD> cdp717p <DOCKER_DEVICE>
+sudo bash -x ./setup.sh <CLOUD_PROVIDER> <SSH_USER> <SSH_PWD> cdp718p <DOCKER_DEVICE>
 ----
 
 where:
@@ -325,7 +322,7 @@ where:
 * `CLOUD_PROVIDER` can be one of `aws`, `gcp`, `aliyun`, `generic` or `local`. For private cloud VMs, choose `other`.
 * `SSH_USER` is the user you'll use to connect. This user must have passwordless sudo to root
 * `SSH_PWD` is the password that the setup script will set for this user. You don't need to set this up for this user.
-* `"cdp717p"`, this is the name of the stack. Do not change this, unless you know what you're doing.
+* `"cdp718p"`, this is the name of the stack. Do not change this, unless you know what you're doing.
 * `DOCKER_DEVICE` path of the device created in step 1. Something like `/dev/<devname>`
 
 == Running locally without Docker

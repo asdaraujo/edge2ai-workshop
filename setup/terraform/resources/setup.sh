@@ -48,7 +48,6 @@ PREINSTALL_COMPLETED_FLAG=${BASE_DIR}/.preinstall.completed
 get_public_ip
 resolve_host_addresses
 load_stack $NAMESPACE
-load_credentials
 
 # Save params
 if [[ ! -f $BASE_DIR/.setup.params ]]; then
@@ -66,9 +65,9 @@ if [[ ${USE_IPA:-0} -eq 1 ]]; then
   touch $BASE_DIR/.use-ipa
 fi
 
-if [ "${REMOTE_REPO_USR:-}" != "" -a "${REMOTE_REPO_PWD:-}" != "" ]; then
-  WGET_BASIC_AUTH="--user '$REMOTE_REPO_USR' --password '$REMOTE_REPO_PWD'"
-  CURL_BASIC_AUTH="-u '${REMOTE_REPO_USR}:${REMOTE_REPO_PWD}'"
+if [ "$(get_remote_repo_username)" != "" -a "$(get_remote_repo_password)" != "" ]; then
+  WGET_BASIC_AUTH="--user '$(get_remote_repo_username)' --password '$(get_remote_repo_password)'"
+  CURL_BASIC_AUTH="-u '$(get_remote_repo_username):$(get_remote_repo_password)'"
 else
   WGET_BASIC_AUTH=""
   CURL_BASIC_AUTH=""

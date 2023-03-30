@@ -644,7 +644,12 @@ def main():
 
         print('# Wait for model to start')
         while True:
-            model = _get_model(refresh=True)
+            try:
+                model = _get_model(refresh=True)
+            except RuntimeError as exc:
+                if '401' in exc.message:
+                    pass
+                raise exc
             if model:
                 build_status = model['latestModelBuild']['status']
                 build_id = model['latestModelBuild']['id']

@@ -22,12 +22,14 @@ function cleanup() {
 }
 
 INSTANCE_LIST_FILE=/tmp/.instance.list.$$
+ECS_LIST_FILE=/tmp/.ecs.list.$$
 WEB_INSTANCE_LIST_FILE=/tmp/.instance.web.$$
 IPA_INSTANCE_LIST_FILE=/tmp/.instance.ipa.$$
 
 function show_costs() {
   local web_price=0
   local ipa_price=0
+  local ecs_price=0
   local web_instance_type=$(web_instance | web_attr instance_type)
   if [[ $web_instance_type != "" ]]; then
     web_price=$(get_instance_hourly_cost $web_instance_type)
@@ -36,9 +38,13 @@ function show_costs() {
   if [[ $ipa_instance_type != "" ]]; then
     ipa_price=$(get_instance_hourly_cost $ipa_instance_type)
   fi
+  local ecs_instance_type=$(ecs_instances 0 | ecs_attr instance_type)
+  if [[ $ecs_instance_type != "" ]]; then
+    ecs_price=$(get_instance_hourly_cost $ecs_instance_type)
+  fi
   local cluster_price=$(get_instance_hourly_cost $TF_VAR_cluster_instance_type)
 
-  if [[ ($web_instance_type == "" || $web_price != "0") && ($ipa_instance_type == "" || $ipa_price != "0") && $cluster_price != "" ]]; then
+  if [[ ($web_instance_type == "" || $web_price != "0") && ($ipa_instance_type == "" || $ipa_price != "0") && ($ecs_instance_type == "" || $ecs_price != "0") && $cluster_price != "" ]]; then
     echo -e "\nCLOUD COSTS:"
     echo "============"
     printf "%-11s %-15s %3s %15s %15s %15s\n" "Purpose" "Instance Type" "Qty" "Unit USD/Hr" "Total USD/Hr" "Total USD/Day"
@@ -48,8 +54,11 @@ function show_costs() {
     if [[ $ipa_instance_type != "" ]]; then
       printf "%-11s %-15s %3d %15.4f %15.4f %15.4f\n" "IPA" "$ipa_instance_type" "1" "$ipa_price" "$ipa_price" "$(calc "24*$ipa_price")"
     fi
+    if [[ $ecs_instance_type != "" ]]; then
+      printf "%-11s %-15s %3d %15.4f %15.4f %15.4f\n" "ECS" "$ecs_instance_type" "1" "$ecs_price" "$(calc "$TF_VAR_cluster_count*$ecs_price")" "$(calc "24*$TF_VAR_cluster_count*$ecs_price")"
+    fi
     printf "%-11s %-15s %3d %15.4f %15.4f %15.4f\n" "Cluster" "$TF_VAR_cluster_instance_type" "$TF_VAR_cluster_count" "$cluster_price" "$(calc "$TF_VAR_cluster_count*$cluster_price")" "$(calc "24*$TF_VAR_cluster_count*$cluster_price")"
-    printf "%-11s %35s %15.4f ${C_BG_MAGENTA}${C_WHITE}%15.4f${C_NORMAL}\n" "GRAND TOTAL" "---------------------------------->" "$(calc "$web_price+$ipa_price+$TF_VAR_cluster_count*$cluster_price")" "$(calc "24*($web_price+$ipa_price+$TF_VAR_cluster_count*$cluster_price)")"
+    printf "%-11s %35s %15.4f ${C_BG_MAGENTA}${C_WHITE}%15.4f${C_NORMAL}\n" "GRAND TOTAL" "---------------------------------->" "$(calc "$web_price+$ipa_price+$TF_VAR_cluster_count*$cluster_price+$TF_VAR_cluster_count*$ecs_price")" "$(calc "24*($web_price+$ipa_price+$TF_VAR_cluster_count*$cluster_price+$TF_VAR_cluster_count*$ecs_price)")"
   else
     echo -e "\nUnable to retrieve cloud costs."
   fi
@@ -85,6 +94,11 @@ function show_details() {
   while read name public_dns public_ip private_ip; do
     printf "%-40s %-55s %-15s %-15s %-9s\n" "$name" "$public_dns" "$public_ip" "$private_ip" "Yes"
   done | sed 's/\([^ ]*-\)\([0-9]*\)\( .*\)/\1\2\3 \2/' | sort -k4n | sed 's/ [0-9]*$//' > ${IPA_INSTANCE_LIST_FILE}.$namespace
+
+  ecs_instances | ecs_attr name public_dns public_ip private_ip is_stoppable | \
+  while read name public_dns public_ip private_ip is_stoppable; do
+    printf "%-40s %-55s %-15s %-15s %-9s\n" "$name" "$public_dns" "$public_ip" "$private_ip" "$is_stoppable"
+  done | sed 's/\([^ ]*-\)\([0-9]*\)\( .*\)/\1\2\3 \2/' | sort -k4n | sed 's/ [0-9]*$//' > ${ECS_LIST_FILE}.$namespace
 
   cluster_instances | cluster_attr name public_dns public_ip private_ip is_stoppable | \
   while read name public_dns public_ip private_ip is_stoppable; do
@@ -148,6 +162,14 @@ function show_details() {
       echo "=============="
       printf "%-40s %-55s %-15s %-15s %-9s\n" "IPA Server Name" "Public DNS Name" "Public IP" "Private IP" "Stoppable"
       cat ${IPA_INSTANCE_LIST_FILE}.$namespace
+      echo ""
+    fi
+
+    if [[ -s ${ECS_LIST_FILE}.$namespace ]]; then
+      echo "ECS SERVER VM:"
+      echo "=============="
+      printf "%-40s %-55s %-15s %-15s %-9s\n" "ECS Server Name" "Public DNS Name" "Public IP" "Private IP" "Stoppable"
+      cat ${ECS_LIST_FILE}.$namespace
       echo ""
     fi
 

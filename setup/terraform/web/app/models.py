@@ -47,6 +47,7 @@ class Cluster(db.Model):
     """
     id = db.Column(db.Integer, primary_key=True)
     ip_address = db.Column(db.String(15), unique=True)
+    ecs_ip_address = db.Column(db.String(15))
     namespace = db.Column(db.String(128))
     instance_id = db.Column(db.Integer) # cluster ID within the namespace
     hostname = db.Column(db.String(256))

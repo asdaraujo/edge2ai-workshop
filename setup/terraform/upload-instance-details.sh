@@ -15,7 +15,7 @@ source $BASE_DIR/lib/common.sh
 
 # need to load the stack for calling get_service_urls
 source $BASE_DIR/resources/common.sh
-validate_stack $NAMESPACE $BASE_DIR/resources
+validate_stack $NAMESPACE $BASE_DIR/resources "${TF_VAR_cdp_license_file:-}"
 
 WEB_IP_ADDRESS=${2:-}
 ADMIN_EMAIL=${3:-$TF_VAR_web_server_admin_email}
@@ -55,10 +55,12 @@ echo "Registering clusters"
 cluster_instances | cluster_attr index | while read cluster_id; do
   public_dns=$(cluster_instances $cluster_id | cluster_attr public_dns)
   public_ip=$(cluster_instances $cluster_id | cluster_attr public_ip)
+  ecs_public_ip=$(ecs_instances $cluster_id | ecs_attr public_ip)
   curl -k -H "Content-Type: application/json" -X POST \
     -u "${ADMIN_EMAIL}:${ADMIN_PWD}" \
     -d '{
          "ip_address":"'"${public_ip}"'",
+         "ecs_ip_address":"'"${ecs_public_ip}"'",
          "namespace":"'"${NAMESPACE}"'",
          "instance_id":"'"${cluster_id}"'",
          "hostname":"'"${public_dns}"'",

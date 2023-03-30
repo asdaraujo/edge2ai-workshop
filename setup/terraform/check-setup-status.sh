@@ -79,6 +79,8 @@ function check_instance() {
   if [[ $id == "W" ]]; then
     pvt_key=$TF_VAR_web_ssh_private_key
     cmd="bash ./web/check-setup-status.sh start-web.sh web/start-web.log"
+  elif [[ ${id:0:1} == "E" ]]; then
+    cmd="bash /tmp/resources/check-setup-status.sh 'setup-ecs.sh install-prereqs' /tmp/resources/setup-ecs.install-prereqs.log"
   elif [[ $id == "I" ]]; then
     cmd="bash ./ipa/check-setup-status.sh setup-ipa.sh ipa/setup-ipa.log"
   fi
@@ -91,7 +93,7 @@ function check_instance() {
 
   ssh -q -S "${CONTROL_PATH_PREFIX}.${id}" centos@$ip "$cmd" > "${STATUS_FILE_PREFIX}.${id}.tmp"
   if [[ $? == 0 ]]; then
-    awk -v IP="$ip" -v ID="$id" -v KEY="$pvt_key" -v UNKOWN="$STATUS_UNKNOWN" '{status=$1; if (status == "") {status=UNKOWN}; gsub(/.*STATUS:/, "STATUS:"); print status" "ID" "IP" "KEY" "$0}' "${STATUS_FILE_PREFIX}.${id}.tmp"
+    awk -v IP="$ip" -v ID="$id" -v KEY="$pvt_key" -v UNKNOWN="$STATUS_UNKNOWN" '{status=$1; if (status == "") {status=UNKNOWN}; gsub(/.*STATUS:/, "STATUS:"); print status" "ID" "IP" "KEY" "$0}' "${STATUS_FILE_PREFIX}.${id}.tmp"
   fi
   rm -f "${STATUS_FILE_PREFIX}.${id}.tmp"
 }
@@ -151,6 +153,7 @@ function print_header() {
     line2="${line2}I"
   done
 
+  ecs_count=$(ecs_instances | wc -l)
   index=0
   for ip in $(cluster_instances | sort -k1n | cluster_attr public_ip); do
     if [[ $((index % 10)) == 0 && $index -ne 0 ]]; then
@@ -159,11 +162,15 @@ function print_header() {
       line1="${line1} "
     fi
     line2="${line2}$((index % 10))"
+    if [[ $ecs_count -gt 0 ]]; then
+      line1="${line1} "
+      line2="${line2}E"
+    fi
     index=$((index+1))
   done
 
   echo "${C_WHITE}" >&2
-  echo "Legend: ${C_WHITE}W${C_NORMAL} = Web server, ${C_WHITE}I${C_NORMAL} = IPA server, ${C_WHITE}[0-9]*${C_NORMAL} = Cluster instances" >&2
+  echo "Legend: ${C_WHITE}W${C_NORMAL} = Web server, ${C_WHITE}I${C_NORMAL} = IPA server, ${C_WHITE}E${C_NORMAL} = ECS server, ${C_WHITE}[0-9]*${C_NORMAL} = Cluster instances" >&2
   echo "        ${C_NORMAL}${ICON_CONNECTING} = Connecting, ${ICON_RUNNING} = Running, ${ICON_COMPLETED} = Completed, ${ICON_FAILED} = Failed, ${ICON_UNKNOWN} = Unknown" >&2
   echo "${C_WHITE}$line1" >&2
   echo "$line2  Elapsed Time  Status" >&2
@@ -192,18 +199,27 @@ function get_status() {
     ips[$index]=$ip
     max_index=$index
   done <<< "$(cluster_instances | sort -k1n | cluster_attr index public_ip)"
+  ecs_count=$(ecs_instances | wc -l)
   for index in $(seq 0 $max_index); do
+    # CDP check
     ip=${ips[$index]}
     result=$(check_instance $index $ip | tee -a "$LATEST_STATUS_FILE")
     line="${line}$(echo "$result" | instance_short_status)"
     [[ $status_msg == "" ]] && status_msg=$(echo "$result" | instance_status_message)
+    # ECS check
+    if [[ $index -lt $ecs_count ]]; then
+      ip=$(ecs_instances $index | ecs_attr public_ip)
+      result=$(check_instance E$index $ip | tee -a "$LATEST_STATUS_FILE")
+      line="${line}$(echo "$result" | instance_short_status)"
+      [[ $status_msg == "" ]] && status_msg=$(echo "$result" | instance_status_message)
+    fi
   done
 
   printf "%s  %12s  %s\n" "$line" "$(elapsed_time $START_TIME)" "$status_msg"
 }
 
 function total_instances() {
-  echo $(($(cluster_instances | wc -l) + $(web_instance | wc -l) + $(ipa_instance | wc -l)))
+  echo $(($(cluster_instances | wc -l) + $(ecs_instances | wc -l) + $(web_instance | wc -l) + $(ipa_instance | wc -l)))
 }
 
 function wait_for_completion() {

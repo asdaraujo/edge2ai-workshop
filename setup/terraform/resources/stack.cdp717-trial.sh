@@ -9,10 +9,6 @@ CM_SERVICES=BASE,ZOOKEEPER,HDFS,YARN,HIVE,HUE,IMPALA,KAFKA,KUDU,OOZIE,OZONE,SCHE
 ENABLE_KERBEROS=no
 ENABLE_TLS=no
 
-##### Cloudera repository credentials - only needed if using subscription-only URLs below; leave it blank otherwise
-REMOTE_REPO_USR=
-REMOTE_REPO_PWD=
-
 #####  Java Package
 JAVA_PACKAGE_NAME=java-11-openjdk-devel
 

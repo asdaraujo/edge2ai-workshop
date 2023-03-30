@@ -57,7 +57,7 @@ mkdir -p "${NAMESPACE_DIR}"
 
 # Perform a quick configuration sanity check before calling Terraform
 source $BASE_DIR/resources/common.sh
-validate_stack $NAMESPACE $BASE_DIR/resources
+validate_stack $NAMESPACE $BASE_DIR/resources "${TF_VAR_cdp_license_file:-}"
 
 log "Validate services selection: $CM_SERVICES"
 THE_PWD=dummy CLUSTER_HOST=dummy PRIVATE_IP=dummy PUBLIC_DNS=dummy DOCKER_DEVICE=dummy CDSW_DOMAIN=dummy \

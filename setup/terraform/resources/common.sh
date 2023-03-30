@@ -257,27 +257,31 @@ function check_vars() {
 }
 
 function get_remote_repo_username() {
+  if [[ ! -z ${REMOTE_REPO_USR:-} ]]; then
+    echo "${REMOTE_REPO_USR}"
+    return
+  fi
   if [[ -s $LICENSE_FILE_PATH ]]; then
     grep '"uuid"' "$LICENSE_FILE_PATH" | awk -F\" '{printf "%s", $4}'
   fi
 }
 
 function get_remote_repo_password() {
+  if [[ ! -z ${REMOTE_REPO_PWD:-} ]]; then
+    echo "${REMOTE_REPO_PWD}"
+    return
+  fi
   if [[ -s $LICENSE_FILE_PATH ]]; then
     local name=$(grep '"name"' "$LICENSE_FILE_PATH" | awk -F\" '{print $4}')
     echo -n "${name}$(get_remote_repo_username)" | openssl dgst -sha256 -hex | egrep -o '[a-f0-9]{12}' | head -1
   fi
 }
 
-function load_credentials() {
-  # load credentials if license file exists
-  export REMOTE_REPO_USR=${REMOTE_REPO_USR:-$(get_remote_repo_username)}
-  export REMOTE_REPO_PWD=${REMOTE_REPO_PWD:-$(get_remote_repo_password)}
-}
-
 function validate_stack() {
   local namespace=$1
   local base_dir=${2:-$BASE_DIR}
+  local license_file_path=${3:-}
+  export LICENSE_FILE_PATH=${license_file_path:-${LICENSE_FILE_PATH:-}}
   local stack_file=$(get_stack_file $namespace $base_dir exclude-signed)
   load_stack "$namespace" "$base_dir" validate_only exclude-signed
   errors=0
@@ -350,7 +354,7 @@ function validate_stack() {
     fi
   done
   if [ "$has_paywall_url" == "1" ]; then
-    if [ "${REMOTE_REPO_PWD:-}" == "" -o "${REMOTE_REPO_USR:-}" == "" ]; then
+    if [ "$(get_remote_repo_password)" == "" -o "$(get_remote_repo_username)" == "" ]; then
       echo "${C_RED}ERROR: TF_VAR_cdp_license_file must be specified when using paywall URLs.${C_NORMAL}" > /dev/stderr
       errors=1
     fi
@@ -1065,6 +1069,9 @@ function get_service_urls() {
         echo "CDSW=CDSW=${protocol}://cdsw.{ip_address}.nip.io/"
         echo "DATAVIZ=CDP Data Visualization=${protocol}://viz.cdsw.{ip_address}.nip.io/"
       fi
+      if [[ ${TF_VAR_pvc_data_services:-false} == "true" ]]; then
+        echo "ECS=CDP Private Cloud=https://console-cdp.apps.ecs.{ecs_ip_address}.nip.io/"
+      fi
     ) | sort
   ) | tr "\n" "," | sed 's/,$//'
   rm -f $tmp_template_file
@@ -1490,8 +1497,8 @@ function install_csds() {
     shift
     echo "---- Downloading $url"
     file_name=$(basename "${url%%\?*}")
-    if [ "${REMOTE_REPO_USR:-}" != "" -a "${REMOTE_REPO_PWD:-}" != "" ]; then
-      auth="--user '$REMOTE_REPO_USR' --password '$REMOTE_REPO_PWD'"
+    if [ "$(get_remote_repo_username)" != "" -a "$(get_remote_repo_password)" != "" ]; then
+      auth="--user '$(get_remote_repo_username)' --password '$(get_remote_repo_password)'"
     else
       auth=""
     fi
@@ -1570,10 +1577,10 @@ function install_ecs() {
     "https://${CLUSTER_HOST}:7183/api/v40/cm/license" \
     -F license=@${LICENSE_FILE_PATH}
 
-  log_status "Add CDP-PVC repo and paywall credentials to CM"
+  log_status "Add CDP-PVC parcel repo and paywall credentials to CM"
   REPOS=$("${CURL[@]}" -X GET "https://${CLUSTER_HOST}:7183/api/v44/cm/config" | jq -r '.items[] | select(.name == "REMOTE_PARCEL_REPO_URLS").value')
   REPOS="$(echo "$REPOS" | sed "s#${ECS_PARCEL_REPO}##g;s#,,#,#g;s/,$//"),${ECS_PARCEL_REPO}"
-  "${CURL[@]}" -X PUT "https://${CLUSTER_HOST}:7183/api/v44/cm/config" -d '{"items":[{"name":"REMOTE_PARCEL_REPO_URLS", "value":"'"$REPOS"'"}, {"name":"REMOTE_REPO_OVERRIDE_USER", "value":"'"${REMOTE_REPO_USR:-}"'"}, {"name":"REMOTE_REPO_OVERRIDE_PASSWORD", "value":"'"${REMOTE_REPO_PWD:-}"'"}]}'
+  "${CURL[@]}" -X PUT "https://${CLUSTER_HOST}:7183/api/v44/cm/config" -d '{"items":[{"name":"REMOTE_PARCEL_REPO_URLS", "value":"'"$REPOS"'"}, {"name":"REMOTE_REPO_OVERRIDE_USER", "value":"'"$(get_remote_repo_username)"'"}, {"name":"REMOTE_REPO_OVERRIDE_PASSWORD", "value":"'"$(get_remote_repo_password)"'"}]}'
   "${CURL[@]}" -X POST "https://${CLUSTER_HOST}:7183/api/v44/cm/commands/refreshParcelRepos"
   sleep 10
 
@@ -1713,17 +1720,26 @@ EOF
   local ecs_json_file=${BASE_DIR}/ecs_install.json
   cat > $ecs_json_file <<EOF
 {
-  "remoteRepoUrl": "${ECS_PARCEL_REPO}",
+  "remoteRepoUrl": "${ECS_REPO}",
   "valuesYaml": "ContainerInfo:\n  Mode: public\n  CopyDocker: false\nDatabase:\n  Mode: existing\n  DbRootCert: >-\n    $(base64 -w 5000 /etc/ipa/ca.crt)\n  SameCredential: true\nServices:\n  common:\n    Config:\n      database:\n        host: ${CLUSTER_HOST}\n        port: 5432\n        username: ecs\n        password: ${THE_PWD}\n  thunderheadenvironment:\n    Config:\n      database:\n        name: db-env\n  mlxcontrolplaneapp:\n    Config:\n      database:\n        name: db-mlx\n  dwx:\n    Config:\n      database:\n        name: db-dwx\n  cpxliftie:\n    Config:\n      database:\n        name: db-liftie\n  dex:\n    Config:\n      database:\n        name: db-dex\n  resourcepoolmanager:\n    Config:\n      database:\n        name: db-resourcepoolmanager\n  clusteraccessmanager:\n    Config:\n      database:\n        name: db-clusteraccessmanager\n  monitoringapp:\n    Config:\n      database:\n        name: db-alerts\n  thunderheadusermanagementprivate:\n    Config:\n      database:\n        name: db-ums\n  classicclusters:\n    Config:\n      database:\n        name: cm-registration\n  clusterproxy:\n    Config:\n      database:\n        name: cluster-proxy\nVault:\n  Mode: embedded\n",
   "containerizedClusterName": "${ECS_CLUSTER_NAME}",
   "experienceClusterName": "${ECS_CLUSTER_NAME}",
   "datalakeClusterName": "OneNodeCluster"
 }
 EOF
+
+  local ecs_call_log=/tmp/ecs-call.$(date +%s).log
   "${CURL[@]}" -X POST \
     -H "Referer: https://${CLUSTER_HOST}:7183/cmf/express-wizard/wizard?allowResume=false&clusterType=EXPERIENCE_CLUSTER" \
     "https://${CLUSTER_HOST}:7183/api/v44/controlPlanes/commands/installEmbeddedControlPlane" \
-    -d @$ecs_json_file
+    -d @$ecs_json_file | tee $ecs_call_log
+
+  local job_id=$(jq '.id' $ecs_call_log)
+  while true; do
+    [[ $(curl -s -k -L -u admin:"${THE_PWD}" "$(get_cm_base_url)/api/v19/commands/$job_id" | jq -r '.active') == "false" ]] && break
+    echo "Waiting for ECS setup to finish"
+    sleep 1
+  done
 }
 
 function wait_for_parcel_state() {
