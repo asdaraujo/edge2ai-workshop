@@ -153,6 +153,7 @@ EOF
     psycopg2-binary==2.9.3 \
     pytest==6.2.5 \
     PyYAML==6.0 \
+    requests==2.28.0 \
     requests-gssapi==1.2.3 \
     requests-kerberos==0.14.0 \
     thrift-sasl==0.4.3
