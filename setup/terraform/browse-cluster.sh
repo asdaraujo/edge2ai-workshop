@@ -17,7 +17,7 @@ PROXY_PORT=${3:-}
 export NO_DOCKER_EXEC=1
 source $BASE_DIR/lib/common.sh
 
-SERVICE_URLS=$(try_in_docker $NAMESPACE 'source $BASE_DIR/resources/common.sh; validate_stack $NAMESPACE $BASE_DIR/resources ${TF_VAR_cdp_license_file:-}; get_service_urls')
+SERVICE_URLS=$(try_in_docker $NAMESPACE 'source $BASE_DIR/resources/common.sh; validate_stack $NAMESPACE $BASE_DIR/resources $(get_license_file_path); get_service_urls')
 if [ "$SERVICE_URLS" == "" ]; then
   echo "ERROR: Couldn't retrieve the service URLs for namespace $NAMESPACE."
   exit 1
@@ -29,15 +29,15 @@ if [ "$PROXY_PORT" != "" ]; then
   PROXY_PORT="--proxy-server=socks5://localhost:$PROXY_PORT"
 fi
 
-CM_URL=$(url_for_ip $(echo "$SERVICE_URLS" | service_url CM) $PUBLIC_IP)
-EFM_URL=$(url_for_ip $(echo "$SERVICE_URLS" | service_url EFM) $PUBLIC_IP)
-NIFI_URL=$(url_for_ip $(echo "$SERVICE_URLS" | service_url NIFI) $PUBLIC_IP)
-NIFIREG_URL=$(url_for_ip $(echo "$SERVICE_URLS" | service_url NIFIREG) $PUBLIC_IP)
-SR_URL=$(url_for_ip $(echo "$SERVICE_URLS" | service_url SR) $PUBLIC_IP)
-SMM_URL=$(url_for_ip $(echo "$SERVICE_URLS" | service_url SMM) $PUBLIC_IP)
-HUE_URL=$(url_for_ip $(echo "$SERVICE_URLS" | service_url HUE) $PUBLIC_IP)
-SSB_URL=$(url_for_ip $(echo "$SERVICE_URLS" | service_url SSB) $PUBLIC_IP)
-CDSW_URL=$(url_for_ip $(echo "$SERVICE_URLS" | service_url CDSW) $PUBLIC_IP)
+CM_URL=$(url_for_ip "$(echo "$SERVICE_URLS" | service_url CM)" $PUBLIC_IP)
+EFM_URL=$(url_for_ip "$(echo "$SERVICE_URLS" | service_url EFM)" $PUBLIC_IP)
+NIFI_URL=$(url_for_ip "$(echo "$SERVICE_URLS" | service_url NIFI)" $PUBLIC_IP)
+NIFIREG_URL=$(url_for_ip "$(echo "$SERVICE_URLS" | service_url NIFIREG)" $PUBLIC_IP)
+SR_URL=$(url_for_ip "$(echo "$SERVICE_URLS" | service_url SR)" $PUBLIC_IP)
+SMM_URL=$(url_for_ip "$(echo "$SERVICE_URLS" | service_url SMM)" $PUBLIC_IP)
+HUE_URL=$(url_for_ip "$(echo "$SERVICE_URLS" | service_url HUE)" $PUBLIC_IP)
+SSB_URL=$(url_for_ip "$(echo "$SERVICE_URLS" | service_url SSB)" $PUBLIC_IP)
+CDSW_URL=$(url_for_ip "$(echo "$SERVICE_URLS" | service_url CDSW)" $PUBLIC_IP)
 
 #kerb_auth_for_cluster $CLUSTER_ID
 

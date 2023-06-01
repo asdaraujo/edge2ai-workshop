@@ -250,6 +250,10 @@ function try_in_docker() {
   local -a cmd=("$@")
   if [[ "${NO_DOCKER:-}" == "" && "$(is_docker_running)" == "yes" ]]; then
     local docker_img=${EDGE2AI_DOCKER_IMAGE:-$DEFAULT_DOCKER_IMAGE}
+    local license_file_mount=""
+    if [[ ! -z ${TF_VAR_cdp_license_file:-} ]]; then
+      license_file_mount="-v $TF_VAR_cdp_license_file:$LICENSE_FILE_MOUNTPOINT"
+    fi
     exec docker run --rm \
       --platform linux/amd64 \
       --detach-keys="ctrl-@" \
@@ -261,6 +265,7 @@ function try_in_docker() {
       -e NO_PROMPT=${NO_PROMPT:-} \
       -e NO_LOG_FETCH=${NO_LOG_FETCH:-} \
       -e HOSTS_ADD=$(basename $PUBLIC_IPS_FILE) \
+      $license_file_mount \
       $docker_img \
       /bin/bash -c "cd /edge2ai-workshop/setup/terraform; export BASE_DIR=\$PWD; export NO_DOCKER_MSG=1; source lib/common.sh; load_env $namespace; ${cmd[*]}"
   else
@@ -408,11 +413,29 @@ function get_license_file_path() {
   fi
 }
 
+function validate_license_file() {
+  if [[ ! -z ${TF_VAR_cdp_license_file:-} && ! -s $(get_license_file_path) ]]; then
+    echo "${C_RED}ERROR: License file "\""${TF_VAR_cdp_license_file}"\"" not found.${C_NORMAL}"
+    abort
+  fi
+}
+
+function validate_license() {
+  if [[ ! -z ${TF_VAR_cdp_license_file:-} ]]; then
+    if [[ -z $(get_remote_repo_username) || -z $(get_remote_repo_password) ]]; then
+      echo "${C_RED}ERROR: Invalid license in file "\""${TF_VAR_cdp_license_file}"\"".${C_NORMAL}"
+      abort
+    fi
+  fi
+}
+
 function get_remote_repo_username() {
+  validate_license_file
   grep '"uuid"' "$(get_license_file_path)" | awk -F\" '{printf "%s", $4}'
 }
 
 function get_remote_repo_password() {
+  validate_license_file
   local name=$(grep '"name"' "$(get_license_file_path)" | awk -F\" '{print $4}')
   echo -n "${name}$(get_remote_repo_username)" | openssl dgst -sha256 -hex | egrep -o '[a-f0-9]{12}' | head -1
 }
@@ -706,17 +729,7 @@ EOF
     fi
   fi
 
-  if [[ ! -z ${TF_VAR_cdp_license_file:-} ]]; then
-    if [[ ! -s $(get_license_file_path) ]]; then
-      echo "${C_RED}ERROR: License file "\""${TF_VAR_cdp_license_file}"\"" not found.${C_NORMAL}"
-      abort
-    fi
-    if [[ -z $(get_remote_repo_username) || -z $(get_remote_repo_password) ]]; then
-      echo "${C_RED}ERROR: Invalid license file "\""${TF_VAR_cdp_license_file}"\"".${C_NORMAL}"
-      abort
-    fi
-  fi
-  export TF_VAR_cdp_license_file=$(get_license_file_path)
+  validate_license
 }
 
 function kerb_auth_for_cluster() {
