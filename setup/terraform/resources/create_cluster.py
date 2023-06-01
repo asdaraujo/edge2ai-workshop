@@ -8,6 +8,7 @@ from collections import namedtuple
 from datetime import datetime
 from optparse import OptionParser
 import cm_client
+import json
 import os
 import re
 import requests
@@ -158,6 +159,10 @@ class ClusterCreator:
         self._cluster_api = None
         self._command_api = None
 
+        self.WAIT_SLEEP_SECS = 5
+        self.WAIT_UNTIL_STABLE_FOR_SECS = 5
+        self.SYNCHRONOUS_COMMAND_ID = -1
+
         cm_client.configuration.username = 'admin'
         cm_client.configuration.password = the_pwd()
         cm_client.configuration.ssl_ca_cert = tls_ca_cert
@@ -242,16 +247,14 @@ class ClusterCreator:
             self._command_api = cm_client.CommandsResourceApi(self.api_client)
         return self._command_api
 
-    def wait(self, cmd, timeout=None):
-        SYNCHRONOUS_COMMAND_ID = -1
-        if cmd.id == SYNCHRONOUS_COMMAND_ID:
+    def wait(self, cmd, timeout_secs=None):
+        if cmd.id == self.SYNCHRONOUS_COMMAND_ID:
             return cmd
 
-        SLEEP_SECS = 5
-        if timeout is None:
+        if timeout_secs is None:
             deadline = None
         else:
-            deadline = time.time() + timeout
+            deadline = time.time() + timeout_secs
 
         try:
             while True:
@@ -267,11 +270,32 @@ class ClusterCreator:
                     if deadline < now:
                         return cmd
                     else:
-                        time.sleep(min(SLEEP_SECS, deadline - now))
+                        time.sleep(min(self.WAIT_SLEEP_SECS, int(deadline - now)))
                 else:
-                    time.sleep(SLEEP_SECS)
+                    time.sleep(self.WAIT_SLEEP_SECS)
         except ApiException as e:
-            print("Exception when calling ClouderaManagerResourceApi->import_cluster_template: %s\n" % e)
+            print("Exception while waiting a command to finish: %s\n" % e)
+
+    def wait_for_good_health(self, cluster_name, timeout_secs=300):
+        wait_until_stable_for_secs = self.WAIT_UNTIL_STABLE_FOR_SECS
+        deadline = time.time() + timeout_secs
+
+        while True:
+            cluster = self.cluster_api.read_cluster(cluster_name)
+            if cluster.entity_status == cm_client.ApiEntityStatus.GOOD_HEALTH:
+                wait_until_stable_for_secs -= 1
+                if wait_until_stable_for_secs == 0:
+                    return
+            else:
+                wait_until_stable_for_secs = self.WAIT_UNTIL_STABLE_FOR_SECS
+
+            now = time.time()
+            if deadline < now:
+                raise RuntimeError("The status of cluster {} is {}.".format(cluster.name, cluster.entity_status))
+            else:
+                print('STATUS:Waiting for cluster {} to become healthy (current status: {}, time left: {} secs)'.format(
+                    cluster.name, cluster.entity_status, int(deadline - time.time())))
+                time.sleep(min(self.WAIT_SLEEP_SECS, int(deadline - now)))
 
     def retry(self, cmd):
         return self.command_api.retry(int(cmd.id))
@@ -359,27 +383,34 @@ class ClusterCreator:
 
         # Wait for Service Monitor to be up before restarting Mgmt Services
         # Note: This is to avoid corruption of SMON LevelDB files
-        timeout=300
-        while timeout > 0:
+        timeout_secs=300
+        while timeout_secs > 0:
             try:
                 requests.get('http://{}:9997/'.format(local_hostname()))
                 break
             except:
                 print('STATUS:Waiting for Service Monitor to fully start...')
-                timeout -= 1
+                timeout_secs -= 1
                 time.sleep(1)
 
         # Restart Mgmt Services
         cmd = self.mgmt_api.restart_command()
-        cmd = self.wait(cmd)
+        self.wait(cmd)
 
-    def create_cluster(self, template, import_retries=1):
+    def create_cluster(self, template, import_retries=2):
 
         self._import_paywall_credentials()
 
         # Create the cluster using the template
         with open(template) as f:
             json_str = f.read()
+
+        # Get cluster name from template
+        json_template = json.loads(json_str)
+        if 'instantiator' in json_template and 'clusterName' in json_template['instantiator']:
+            cluster_name = json_template['instantiator']['clusterName']
+        else:
+            raise RuntimeError('Cannot get name of the cluster from template {}.'.format(template))
 
         Response = namedtuple("Response", "data")
         dst_cluster_template = self.api_client.deserialize(response=Response(json_str),
@@ -395,9 +426,16 @@ class ClusterCreator:
             if cmd.success or retries >= import_retries:
                 break
             retries += 1
-            print('WARNING: Import Cluster failed. Retry attempt #{} will start in a few seconds.'.format(retries))
-            time.sleep(10)
-            cmd = self.command_api.retry(cmd)
+            print('WARNING: Import Cluster failed. Restarting Mgmt Services before starting retry attempt #{}.'.format(retries))
+
+            # Some failures are due to stale Mgmt Services, so let's give them a bounce and wait for the cluster
+            # health to be GOOD
+            mgmt_restart_cmd = self.mgmt_api.restart_command()
+            self.wait(mgmt_restart_cmd)
+            self.wait_for_good_health(cluster_name)
+
+            # Retry original command
+            cmd = self.retry(cmd)
         if not cmd.success:
             raise RuntimeError('Failed to deploy cluster template')
 
