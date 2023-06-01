@@ -72,9 +72,8 @@ function add_user() {
     echo "-- User [$princ] already exists"
   else
     echo "-- Creating user [$princ]"
-    USERS_GRP_ID=$(get_group_id $USERS_GROUP)
-    echo clouderatemp | ipa user-add "$princ" --first="$princ" --last="User" --cn="$princ" --homedir="$homedir" --noprivate --gidnumber $USERS_GRP_ID --password || true
-    ipa group-add-member "$USERS_GROUP" --users="$princ" || true
+    local gid=$(get_group_id $1)
+    echo clouderatemp | ipa user-add "$princ" --first="$princ" --last="User" --cn="$princ" --homedir="$homedir" --noprivate --gidnumber $gid --password || true
     kadmin.local change_password -pw ${USER_PASSWORD} $princ
   fi
   mkdir -p "${KEYTABS_DIR}"
@@ -134,16 +133,19 @@ ipa-server-install --hostname=$(hostname -f) -r $REALM_NAME -n $(hostname -d) -a
 echo "${IPA_ADMIN_PASSWORD}" | kinit admin >/dev/null
 
 log_status "Creating groups"
-add_groups $USERS_GROUP $ADMINS_GROUP shadow supergroup
+add_groups $USERS_GROUP $ADMINS_GROUP shadow supergroup hue
 
 log_status "Creating Cloudera Manager principal user and adding it to admins group"
-add_user admin /home/admin admins $ADMINS_GROUP "trust admins" shadow supergroup
+add_user admin /home/admin admins $ADMINS_GROUP $USERS_GROUP "trust admins" shadow supergroup
 
 kinit -kt "${KEYTABS_DIR}/admin.keytab" admin
 ipa krbtpolicy-mod --maxlife=3600 --maxrenew=604800 || true
 
 log_status "Creating LDAP bind user"
-add_user ldap_bind_user /home/ldap_bind_user
+add_user ldap_bind_user /home/ldap_bind_user $USERS_GROUP
+
+log_status "Creating HUE proxy user"
+add_user hue /home/hue hue $USERS_GROUP
 
 log_status "Creating other users"
 add_user workshop /home/workshop $USERS_GROUP
