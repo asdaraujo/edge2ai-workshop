@@ -122,7 +122,7 @@
 {% if ENABLE_TLS == 'yes' %}
             {
               "name": "hue_server_hue_safety_valve",
-              "value": "[beeswax]\n[[ssl]]\nenabled=true\nvalidate=true\ncacerts=/opt/cloudera/security/x509/truststore.pem\n[desktop]\nssl_certificate_chain=/opt/cloudera/security/x509/cert.pem\n[[session]]\nsecure=true\n[impala]\n[[ssl]]\ncacerts=/opt/cloudera/security/x509/truststore.pem"
+              "value": "[beeswax]\n{% if ENABLE_KERBEROS == 'yes' %}auth_username=hue\nauth_password={{THE_PWD}}\n{% endif %}[[ssl]]\nenabled=true\nvalidate=true\ncacerts=/opt/cloudera/security/x509/truststore.pem\n[desktop]\nssl_certificate_chain=/opt/cloudera/security/x509/cert.pem\n[[session]]\nsecure=true\n[impala]\n[[ssl]]\ncacerts=/opt/cloudera/security/x509/truststore.pem"
             },
             {
               "name": "ssl_cacerts",

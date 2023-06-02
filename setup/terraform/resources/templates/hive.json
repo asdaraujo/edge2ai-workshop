@@ -148,8 +148,12 @@
       "serviceType": "HIVE_ON_TEZ",
       "displayName": "Hive on Tez",
       "serviceConfigs": [
-{% if ENABLE_TLS == 'yes' %}
         {
+          "name": "hive_proxy_user_groups_list",
+          "value": "hue"
+        }
+{% if ENABLE_TLS == 'yes' %}
+        ,{
           "name": "hiveserver2_enable_ssl",
           "value": "true"
         },
@@ -170,11 +174,8 @@
           "value": "{{THE_PWD}}"
         }
 {% endif %}
-{% if ENABLE_TLS == 'yes' and USE_IPA %}
-        ,
-{% endif %}
 {% if USE_IPA %}
-        {
+        ,{
           "name": "hiveserver2_enable_ldap_auth",
           "value": "true"
         },
@@ -221,7 +222,7 @@
 {% if USE_IPA %}
             {
               "name": "hive_hs2_config_safety_valve",
-              "value": "<property><name>hive.server2.authentication.ldap.url</name><value>ldaps://ip-10-0-1-200.us-west-2.compute.internal</value><description>Workaround for CDPD-21585</description></property><property><name>hive.server2.authentication.ldap.baseDN</name><value>cn=users,cn=accounts,dc=workshop,dc=com</value><description>Workaround for CDPD-21585</description></property><property><name>hive.server2.authentication</name><value>LDAP</value><description>Workaround for CDPD-21585</description></property>"
+              "value": "<property><name>hive.server2.authentication.ldap.url</name><value>ldaps://{{IPA_HOST}}</value><description>Workaround for CDPD-21585</description></property><property><name>hive.server2.authentication.ldap.baseDN</name><value>cn=users,cn=accounts,dc=workshop,dc=com</value><description>Workaround for CDPD-21585</description></property><property><name>hive.server2.authentication</name><value>LDAP</value><description>Workaround for CDPD-21585</description></property>"
             }
 {% endif %}
           ]

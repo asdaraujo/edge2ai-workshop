@@ -103,43 +103,43 @@
               "name": "ssl_server_keystore_password",
               "value": "{{THE_PWD}}"
             }
-{% if CSA_VERSION is ge('1.7') and CSA_VERSION is lt('1.8') %}
+{% if CDH_VERSION is ge('7.1.7') and CDH_VERSION is lt('7.1.8') %}
             ,{
               "name": "gateway_descriptor_cdp_proxy",
               "value": "providerConfigRef=sso#CM-API:httpclient.connectionTimeout=5m#CM-API:httpclient.socketTimeout=5m#HUE:httpclient.connectionTimeout=5m#HUE:httpclient.socketTimeout=5m#IMPALA:httpclient.connectionTimeout=5m#IMPALA:httpclient.socketTimeout=5m#NIFI:useTwoWaySsl=true#NIFI-REGISTRY:useTwoWaySsl=true#RANGER:replayBufferSize=65#SSB-SSE-UI:url=https://{{CLUSTER_HOST}}:18121#SSB-SSE-UI:httpclient.connectionTimeout=5m#SSB-SSE-UI:httpclient.socketTimeout=5m#SSB-SSE-WS:url=wss://{{CLUSTER_HOST}}:18121#SSB-SSE-UI-LB:url=https://{{CLUSTER_HOST}}:8470#SSB-SSE-UI-LB:httpclient.connectionTimeout=5m#SSB-SSE-UI-LB:httpclient.socketTimeout=5m#SSB-SSE-WS-LB:url=wss://{{CLUSTER_HOST}}:8470"
             },
             {
               "name": "gateway_descriptor_cdp_proxy_api",
-              "value": "providerConfigRef=pam#CM-API:httpclient.connectionTimeout=5m#CM-API:httpclient.socketTimeout=5m#HIVE:httpclient.connectionTimeout=5m#HIVE:httpclient.socketTimeout=5m#IMPALA:httpclient.connectionTimeout=5m#IMPALA:httpclient.socketTimeout=5m#NIFI:useTwoWaySsl=true#NIFI-REGISTRY:useTwoWaySsl=true#RANGER:replayBufferSize=65#SSB-MVE-API-LB:url=https://{{CLUSTER_HOST}}:8471"
+              "value": "providerConfigRef=pam#CM-API:httpclient.connectionTimeout=5m#CM-API:httpclient.socketTimeout=5m#HIVE:httpclient.connectionTimeout=5m#HIVE:httpclient.socketTimeout=5m#IMPALA:httpclient.connectionTimeout=5m#IMPALA:httpclient.socketTimeout=5m#NIFI:useTwoWaySsl=true#NIFI-REGISTRY:useTwoWaySsl=true#RANGER:replayBufferSize=65#SSB-SSE-API:url=https://{{CLUSTER_HOST}}:18121#SSB-SSE-API-LB:url=https://{{CLUSTER_HOST}}:8470#SSB-MVE-API:url=https://{{CLUSTER_HOST}}:18131#SSB-MVE-API-LB:url=https://{{CLUSTER_HOST}}:8471"
             }
-{% elif CSA_VERSION is ge('1.8') %}
+{% elif CDH_VERSION is ge('7.1.8') %}
             ,{
               "name": "gateway_descriptor_cdp_proxy",
-              "value": "providerConfigRef=sso#CM-API:httpclient.connectionTimeout=5m#CM-API:httpclient.socketTimeout=5m#HUE:httpclient.connectionTimeout=5m#HUE:httpclient.socketTimeout=5m#IMPALA:httpclient.connectionTimeout=5m#IMPALA:httpclient.socketTimeout=5m#NIFI:useTwoWaySsl=true#NIFI-REGISTRY:useTwoWaySsl=true#RANGER:replayBufferSize=65#SSB-SSE-UI#SSB-SSE-WS#SSB-SSE-UI-LB#SSB-SSE-WS-LB"
+              "value": "providerConfigRef=sso#CM-API:httpclient.connectionTimeout=5m#CM-API:httpclient.socketTimeout=5m#HUE:httpclient.connectionTimeout=5m#HUE:httpclient.socketTimeout=5m#IMPALA:httpclient.connectionTimeout=5m#IMPALA:httpclient.socketTimeout=5m#NIFI:useTwoWaySsl=true#NIFI-REGISTRY:useTwoWaySsl=true#RANGER:replayBufferSize=65#SSB-SSE-UI#SSB-SSE-WS#SSB-SSE-UI-LB:url=https://{{CLUSTER_HOST}}:8470#SSB-SSE-WS-LB:url=wss://{{CLUSTER_HOST}}:8470"
             },
             {
               "name": "gateway_descriptor_cdp_proxy_api",
-              "value": "providerConfigRef=pam#CM-API:httpclient.connectionTimeout=5m#CM-API:httpclient.socketTimeout=5m#HIVE:httpclient.connectionTimeout=5m#HIVE:httpclient.socketTimeout=5m#IMPALA:httpclient.connectionTimeout=5m#IMPALA:httpclient.socketTimeout=5m#NIFI:useTwoWaySsl=true#NIFI-REGISTRY:useTwoWaySsl=true#RANGER:replayBufferSize=65#SSB-MVE-API#SSB-MVE-API-LB"
+              "value": "providerConfigRef=pam#CM-API:httpclient.connectionTimeout=5m#CM-API:httpclient.socketTimeout=5m#HIVE:httpclient.connectionTimeout=5m#HIVE:httpclient.socketTimeout=5m#IMPALA:httpclient.connectionTimeout=5m#IMPALA:httpclient.socketTimeout=5m#NIFI:useTwoWaySsl=true#NIFI-REGISTRY:useTwoWaySsl=true#RANGER:replayBufferSize=65#SSB-SSE-API#SSB-SSE-API-LB:url=https://{{CLUSTER_HOST}}:8470#SSB-MVE-API#SSB-MVE-API-LB:url=https://{{CLUSTER_HOST}}:8471"
             }
 {% endif %}
 {% else %}
-{% if CSA_VERSION is ge('1.7') and CSA_VERSION is lt('1.8') %}
+{% if CDH_VERSION is ge('7.1.7') and CDH_VERSION is lt('7.1.8') %}
             ,{
               "name": "gateway_descriptor_cdp_proxy",
-              "value": "providerConfigRef=sso#CM-API:httpclient.connectionTimeout=5m#CM-API:httpclient.socketTimeout=5m#HUE:httpclient.connectionTimeout=5m#HUE:httpclient.socketTimeout=5m#IMPALA:httpclient.connectionTimeout=5m#IMPALA:httpclient.socketTimeout=5m#NIFI:useTwoWaySsl=true#NIFI-REGISTRY:useTwoWaySsl=true#RANGER:replayBufferSize=65#SSB-SSE-UI:url=http://{{CLUSTER_HOST}}:18121#SSB-SSE-UI:httpclient.connectionTimeout=5m#SSB-SSE-UI:httpclient.socketTimeout=5m#SSB-SSE-WS:url=wss://{{CLUSTER_HOST}}:18121#SSB-SSE-UI-LB:url=http://{{CLUSTER_HOST}}:8070#SSB-SSE-UI-LB:httpclient.connectionTimeout=5m#SSB-SSE-UI-LB:httpclient.socketTimeout=5m#SSB-SSE-WS-LB:url=wss://{{CLUSTER_HOST}}:8070"
+              "value": "providerConfigRef=sso#CM-API:httpclient.connectionTimeout=5m#CM-API:httpclient.socketTimeout=5m#HUE:httpclient.connectionTimeout=5m#HUE:httpclient.socketTimeout=5m#IMPALA:httpclient.connectionTimeout=5m#IMPALA:httpclient.socketTimeout=5m#NIFI:useTwoWaySsl=true#NIFI-REGISTRY:useTwoWaySsl=true#RANGER:replayBufferSize=65#SSB-SSE-UI:url=http://{{CLUSTER_HOST}}:18121#SSB-SSE-UI:httpclient.connectionTimeout=5m#SSB-SSE-UI:httpclient.socketTimeout=5m#SSB-SSE-WS:url=ws://{{CLUSTER_HOST}}:18121#SSB-SSE-UI-LB:url=http://{{CLUSTER_HOST}}:8070#SSB-SSE-UI-LB:httpclient.connectionTimeout=5m#SSB-SSE-UI-LB:httpclient.socketTimeout=5m#SSB-SSE-WS-LB:url=ws://{{CLUSTER_HOST}}:8070"
             },
             {
               "name": "gateway_descriptor_cdp_proxy_api",
-              "value": "providerConfigRef=pam#CM-API:httpclient.connectionTimeout=5m#CM-API:httpclient.socketTimeout=5m#HIVE:httpclient.connectionTimeout=5m#HIVE:httpclient.socketTimeout=5m#IMPALA:httpclient.connectionTimeout=5m#IMPALA:httpclient.socketTimeout=5m#NIFI:useTwoWaySsl=true#NIFI-REGISTRY:useTwoWaySsl=true#RANGER:replayBufferSize=65#SSB-MVE-API-LB:url=http://{{CLUSTER_HOST}}:8071"
+              "value": "providerConfigRef=pam#CM-API:httpclient.connectionTimeout=5m#CM-API:httpclient.socketTimeout=5m#HIVE:httpclient.connectionTimeout=5m#HIVE:httpclient.socketTimeout=5m#IMPALA:httpclient.connectionTimeout=5m#IMPALA:httpclient.socketTimeout=5m#NIFI:useTwoWaySsl=true#NIFI-REGISTRY:useTwoWaySsl=true#RANGER:replayBufferSize=65#SSB-SSE-API:url=http://{{CLUSTER_HOST}}:18121#SSB-SSE-API-LB:url=http://{{CLUSTER_HOST}}:8070#SSB-MVE-API:url=http://{{CLUSTER_HOST}}:18131#SSB-MVE-API-LB:url=http://{{CLUSTER_HOST}}:8071"
             }
-{% elif CSA_VERSION is ge('1.8') %}
+{% elif CDH_VERSION is ge('7.1.8') %}
             ,{
               "name": "gateway_descriptor_cdp_proxy",
-              "value": "providerConfigRef=sso#CM-API:httpclient.connectionTimeout=5m#CM-API:httpclient.socketTimeout=5m#HUE:httpclient.connectionTimeout=5m#HUE:httpclient.socketTimeout=5m#IMPALA:httpclient.connectionTimeout=5m#IMPALA:httpclient.socketTimeout=5m#NIFI:useTwoWaySsl=true#NIFI-REGISTRY:useTwoWaySsl=true#RANGER:replayBufferSize=65#SSB-SSE-UI#SSB-SSE-WS#SSB-SSE-UI-LB#SSB-SSE-WS-LB"
+              "value": "providerConfigRef=sso#CM-API:httpclient.connectionTimeout=5m#CM-API:httpclient.socketTimeout=5m#HUE:httpclient.connectionTimeout=5m#HUE:httpclient.socketTimeout=5m#IMPALA:httpclient.connectionTimeout=5m#IMPALA:httpclient.socketTimeout=5m#NIFI:useTwoWaySsl=true#NIFI-REGISTRY:useTwoWaySsl=true#RANGER:replayBufferSize=65#SSB-SSE-UI#SSB-SSE-WS#SSB-SSE-UI-LB:url=http://{{CLUSTER_HOST}}:8070#SSB-SSE-WS-LB:url=ws://{{CLUSTER_HOST}}:8070"
             },
             {
               "name": "gateway_descriptor_cdp_proxy_api",
-              "value": "providerConfigRef=pam#CM-API:httpclient.connectionTimeout=5m#CM-API:httpclient.socketTimeout=5m#HIVE:httpclient.connectionTimeout=5m#HIVE:httpclient.socketTimeout=5m#IMPALA:httpclient.connectionTimeout=5m#IMPALA:httpclient.socketTimeout=5m#NIFI:useTwoWaySsl=true#NIFI-REGISTRY:useTwoWaySsl=true#RANGER:replayBufferSize=65#SSB-MVE-API#SSB-MVE-API-LB"
+              "value": "providerConfigRef=pam#CM-API:httpclient.connectionTimeout=5m#CM-API:httpclient.socketTimeout=5m#HIVE:httpclient.connectionTimeout=5m#HIVE:httpclient.socketTimeout=5m#IMPALA:httpclient.connectionTimeout=5m#IMPALA:httpclient.socketTimeout=5m#NIFI:useTwoWaySsl=true#NIFI-REGISTRY:useTwoWaySsl=true#RANGER:replayBufferSize=65#SSB-SSE-API#SSB-SSE-API-LB:url=http://{{CLUSTER_HOST}}:8070#SSB-MVE-API#SSB-MVE-API-LB:url=http://{{CLUSTER_HOST}}:8071"
             }
 {% endif %}
 {% endif %}

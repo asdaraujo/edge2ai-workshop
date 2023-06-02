@@ -68,6 +68,12 @@
           "value" : "cluster_{{PEER_CLUSTER_ID}}"
         }
 {% endif %}
+{% if CDH_VERSION is ge('7.1.8') %}
+        ,{
+          "name" : "control.topic.replication.factor",
+          "value" : "1"
+        }
+{% endif %}
 {% if ENABLE_KERBEROS == 'yes' %}
         ,{
           "name" : "kerberos.auth.enable",
@@ -130,6 +136,16 @@
               "value" : "cluster_{{CLUSTER_ID}}"
 {% endif %}
             }
+{% if CDH_VERSION is ge('7.1.8') %}
+            ,{
+              "name" : "streams.replication.manager.service.remote.advertisement.topic.replication.factor",
+              "value" : "1"
+            },
+            {
+              "name" : "streams.replication.manager.service.streams.replication.factor",
+              "value" : "1"
+            }
+{% endif %}
 {% if ENABLE_TLS == 'yes' %}
             ,{
               "name": "ssl_client_truststore_location",
