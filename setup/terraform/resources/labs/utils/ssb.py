@@ -283,7 +283,7 @@ def _get_flink_version():
 
 def _get_csa_version():
     parcel_version = _get_flink_version()
-    version_match = re.match(r'.*csa-?([0-9.]*).*', parcel_version)
+    version_match = re.match(r'.*csad?h?-?([0-9.]*).*', parcel_version)
     return [int(v) for v in version_match.groups()[0].split('.')]
 
 
@@ -299,11 +299,15 @@ def is_csa19_or_later():
     return _get_csa_version() >= [1, 9]
 
 
+def is_csa110_or_later():
+    return _get_csa_version() >= [1, 10]
+
+
 def is_ssb_installed():
     return len(cm.get_services('SQL_STREAM_BUILDER')) > 0
 
 
-def create_data_provider(provider_name, provider_type, properties):
+def create_data_provider(provider_name, provider_type, properties, custom_truststore=True):
     if is_csa16_or_later():
         provider_type_attr = 'type'
     else:
@@ -313,6 +317,8 @@ def create_data_provider(provider_name, provider_type, properties):
         provider_type_attr: provider_type,
         'properties': properties,
     }
+    if is_csa110_or_later():
+        data['custom_truststore'] = custom_truststore
     return _api_post(_data_source_path(), data, api_type=_data_source_endpoint(), token=True)
 
 

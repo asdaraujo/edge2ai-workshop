@@ -1026,7 +1026,7 @@ function get_service_urls() {
         echo "EFM=Edge Flow Manager=${protocol}://{host}:10088/efm/ui/"
       fi
       if [[ ${HAS_FLINK:-0} == 1 ]]; then
-        local flink_version=$(jq -r '.products[] | select(.product == "FLINK").version' $tmp_template_file | sed 's/.*csa//;s/-.*//')
+        local flink_version=$(jq -r '.products[] | select(.product == "FLINK").version' $tmp_template_file | sed 's/.*csa//;s/-.*//;s/[a-z]//g')
         local is_ge_17=$([[ $(echo -e "1.7.0.0\n$flink_version" | sort -t. -k1n -k2n -k3n -k4n | head -1) == "1.7.0.0" ]] && echo yes || echo no)
         local flink_port=$(service_port $tmp_template_file FLINK FLINK_HISTORY_SERVER historyserver_web_port)
         echo "FLINK=Flink Dashboard=${protocol}://{host}:${flink_port}/"
