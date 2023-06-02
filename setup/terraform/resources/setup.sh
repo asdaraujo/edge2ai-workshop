@@ -730,12 +730,12 @@ if [[ ${HAS_CEM:-} == "1" ]]; then
   if [[ -f /opt/cloudera/cem/minifi/conf/bootstrap.conf ]]; then
     log_status "Configuring and starting MiNiFi"
     # MiNiFi Java
-    sed -i.bak \
+    sed -i.bak -E \
 's%^[ #]*nifi.minifi.sensitive.props.key *=.*%nifi.minifi.sensitive.props.key=clouderaclouderacloudera%;'\
-'s%^[ #]*nifi.c2.enable *=.*%nifi.c2.enable=true%;'\
-'s%^[ #]*nifi.c2.agent.heartbeat.period *=.*%nifi.c2.agent.heartbeat.period=10000%;'\
-'s%^[ #]*nifi.c2.agent.class *=.*%nifi.c2.agent.class=iot-1%;'\
-'s%^[ #]*nifi.c2.agent.identifier *=.*%nifi.c2.agent.identifier=agent-iot-1%' /opt/cloudera/cem/minifi/conf/bootstrap.conf
+'s%^[ #]*(nifi.)?c2.enable *=.*%\1c2.enable=true%;'\
+'s%^[ #]*(nifi.)?c2.agent.heartbeat.period *=.*%\1c2.agent.heartbeat.period=10000%;'\
+'s%^[ #]*(nifi.)?c2.agent.class *=.*%\1c2.agent.class=iot-1%;'\
+'s%^[ #]*(nifi.)?c2.agent.identifier *=.*%\1c2.agent.identifier=agent-iot-1%' /opt/cloudera/cem/minifi/conf/bootstrap.conf
     if [[ "$(is_tls_enabled)" == "yes" ]]; then
       sed -i.bak \
 's%^[ #]*nifi.minifi.security.keystore *=.*%nifi.minifi.security.keystore=/opt/cloudera/security/jks/keystore.jks%;'\
@@ -748,29 +748,31 @@ if [[ ${HAS_CEM:-} == "1" ]]; then
 's%^[ #]*nifi.minifi.security.ssl.protocol *=.*%nifi.minifi.security.ssl.protocol=TLS%' /opt/cloudera/cem/minifi/conf/bootstrap.conf
     fi
     if [[ "$(is_tls_enabled)" == "yes" && $(compare_version "$CEM_VERSION" "1.2.2.0") != "<" ]]; then
-      sed -i.bak \
+      sed -i.bak -E \
 's%^[ #]*nifi.c2.rest.url *=.*%nifi.c2.rest.url=https://'"${CLUSTER_HOST}"':10088/efm/api/c2-protocol/heartbeat%;'\
 's%^[ #]*nifi.c2.rest.url.ack *=.*%nifi.c2.rest.url.ack=https://'"${CLUSTER_HOST}"':10088/efm/api/c2-protocol/acknowledge%;'\
-'s%^[ #]*nifi.c2.security.truststore.location *=.*%nifi.c2.security.truststore.location=/opt/cloudera/security/jks/truststore.jks%;'\
-'s%^[ #]*nifi.c2.security.truststore.password *=.*%nifi.c2.security.truststore.password='"${THE_PWD}"'%;'\
-'s%^[ #]*nifi.c2.security.truststore.type *=.*%nifi.c2.security.truststore.type=JKS%;'\
-'s%^[ #]*nifi.c2.security.keystore.location *=.*%nifi.c2.security.keystore.location=/opt/cloudera/security/jks/keystore.jks%;'\
-'s%^[ #]*nifi.c2.security.keystore.password *=.*%nifi.c2.security.keystore.password='"${THE_PWD}"'%;'\
-'s%^[ #]*nifi.c2.security.keystore.type *=.*%nifi.c2.security.keystore.type=JKS%;'\
-'s%^[ #]*nifi.c2.security.need.client.auth *=.*%nifi.c2.security.need.client.auth=true%' /opt/cloudera/cem/minifi/conf/bootstrap.conf
+'s%^[ #]*c2.rest.path.base *=.*%c2.rest.path.base=https://'"${CLUSTER_HOST}"':10088/efm/api%;'\
+'s%^[ #]*(nifi.)?c2.security.truststore.location *=.*%\1c2.security.truststore.location=/opt/cloudera/security/jks/truststore.jks%;'\
+'s%^[ #]*(nifi.)?c2.security.truststore.password *=.*%\1c2.security.truststore.password='"${THE_PWD}"'%;'\
+'s%^[ #]*(nifi.)?c2.security.truststore.type *=.*%\1c2.security.truststore.type=JKS%;'\
+'s%^[ #]*(nifi.)?c2.security.keystore.location *=.*%\1c2.security.keystore.location=/opt/cloudera/security/jks/keystore.jks%;'\
+'s%^[ #]*(nifi.)?c2.security.keystore.password *=.*%\1c2.security.keystore.password='"${THE_PWD}"'%;'\
+'s%^[ #]*(nifi.)?c2.security.keystore.type *=.*%\1c2.security.keystore.type=JKS%;'\
+'s%^[ #]*(nifi.)?c2.security.need.client.auth *=.*%\1c2.security.need.client.auth=true%' /opt/cloudera/cem/minifi/conf/bootstrap.conf
     else
       sed -i.bak \
 's%^[ #]*nifi.c2.rest.url *=.*%nifi.c2.rest.url=http://'"${CLUSTER_HOST}"':10088/efm/api/c2-protocol/heartbeat%;'\
-'s%^[ #]*nifi.c2.rest.url.ack *=.*%nifi.c2.rest.url.ack=http://'"${CLUSTER_HOST}"':10088/efm/api/c2-protocol/acknowledge%' /opt/cloudera/cem/minifi/conf/bootstrap.conf
+'s%^[ #]*nifi.c2.rest.url.ack *=.*%nifi.c2.rest.url.ack=http://'"${CLUSTER_HOST}"':10088/efm/api/c2-protocol/acknowledge%;'\
+'s%^[ #]*c2.rest.path.base *=.*%c2.rest.path.base=http://'"${CLUSTER_HOST}"':10088/efm/api%' /opt/cloudera/cem/minifi/conf/bootstrap.conf
     fi
   elif [[ -f /opt/cloudera/cem/minifi/conf/minifi.properties ]]; then
     # MiNiFi C++
-    sed -i.bak \
-'s%^[ #]*nifi.c2.enable *=.*%nifi.c2.enable=true%;'\
-'s%^[ #]*nifi.c2.agent.protocol.class *=.*%nifi.c2.agent.protocol.class=RESTSender%;'\
-'s%^[ #]*nifi.c2.agent.heartbeat.period *=.*%nifi.c2.agent.heartbeat.period=10000%;'\
-'s%^[ #]*nifi.c2.agent.class *=.*%nifi.c2.agent.class=iot-1%;'\
-'s%^[ #]*nifi.c2.agent.identifier *=.*%nifi.c2.agent.identifier=agent-iot-1%' /opt/cloudera/cem/minifi/conf/minifi.properties
+    sed -i.bak -E \
+'s%^[ #]*(nifi.)?c2.enable *=.*%\1c2.enable=true%;'\
+'s%^[ #]*(nifi.)?c2.agent.protocol.class *=.*%\1c2.agent.protocol.class=RESTSender%;'\
+'s%^[ #]*(nifi.)?c2.agent.heartbeat.period *=.*%\1c2.agent.heartbeat.period=10000%;'\
+'s%^[ #]*(nifi.)?c2.agent.class *=.*%\1c2.agent.class=iot-1%;'\
+'s%^[ #]*(nifi.)?c2.agent.identifier *=.*%\1c2.agent.identifier=agent-iot-1%' /opt/cloudera/cem/minifi/conf/minifi.properties
 #    if [[ "$(is_tls_enabled)" == "yes" ]]; then
 #      sed -i.bak \
 #'s%^[ #]*nifi.minifi.security.keystore *=.*%nifi.minifi.security.keystore=/opt/cloudera/security/jks/keystore.jks%;'\
@@ -784,16 +786,16 @@ if [[ ${HAS_CEM:-} == "1" ]]; then
 #    fi
     if [[ "$(is_tls_enabled)" == "yes" && $(compare_version "$CEM_VERSION" "1.2.2.0") != "<" ]]; then
       true
-#      sed -i.bak \
+#      sed -i.bak -E \
 #'s%^[ #]*nifi.c2.rest.url *=.*%nifi.c2.rest.url=https://'"${CLUSTER_HOST}"':10088/efm/api/c2-protocol/heartbeat%;'\
 #'s%^[ #]*nifi.c2.rest.url.ack *=.*%nifi.c2.rest.url.ack=https://'"${CLUSTER_HOST}"':10088/efm/api/c2-protocol/acknowledge%;'\
-#'s%^[ #]*nifi.c2.security.truststore.location *=.*%nifi.c2.security.truststore.location=/opt/cloudera/security/jks/truststore.jks%;'\
-#'s%^[ #]*nifi.c2.security.truststore.password *=.*%nifi.c2.security.truststore.password='"${THE_PWD}"'%;'\
-#'s%^[ #]*nifi.c2.security.truststore.type *=.*%nifi.c2.security.truststore.type=JKS%;'\
-#'s%^[ #]*nifi.c2.security.keystore.location *=.*%nifi.c2.security.keystore.location=/opt/cloudera/security/jks/keystore.jks%;'\
-#'s%^[ #]*nifi.c2.security.keystore.password *=.*%nifi.c2.security.keystore.password='"${THE_PWD}"'%;'\
-#'s%^[ #]*nifi.c2.security.keystore.type *=.*%nifi.c2.security.keystore.type=JKS%;'\
-#'s%^[ #]*nifi.c2.security.need.client.auth *=.*%nifi.c2.security.need.client.auth=true%' /opt/cloudera/cem/minifi/conf/minifi.properties
+#'s%^[ #]*(nifi.)?c2.security.truststore.location *=.*%\1c2.security.truststore.location=/opt/cloudera/security/jks/truststore.jks%;'\
+#'s%^[ #]*(nifi.)?c2.security.truststore.password *=.*%\1c2.security.truststore.password='"${THE_PWD}"'%;'\
+#'s%^[ #]*(nifi.)?c2.security.truststore.type *=.*%\1c2.security.truststore.type=JKS%;'\
+#'s%^[ #]*(nifi.)?c2.security.keystore.location *=.*%\1c2.security.keystore.location=/opt/cloudera/security/jks/keystore.jks%;'\
+#'s%^[ #]*(nifi.)?c2.security.keystore.password *=.*%\1c2.security.keystore.password='"${THE_PWD}"'%;'\
+#'s%^[ #]*(nifi.)?c2.security.keystore.type *=.*%\1c2.security.keystore.type=JKS%;'\
+#'s%^[ #]*(nifi.)?c2.security.need.client.auth *=.*%\1c2.security.need.client.auth=true%' /opt/cloudera/cem/minifi/conf/minifi.properties
     else
       sed -i.bak \
 's%^[ #]*nifi.c2.rest.url *=.*%nifi.c2.rest.url=http://'"${CLUSTER_HOST}"':10088/efm/api/c2-protocol/heartbeat%;'\
