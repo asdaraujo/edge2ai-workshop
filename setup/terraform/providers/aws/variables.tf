@@ -95,6 +95,11 @@ variable "aws_region" {
   description = "AWS Region"
 }
 
+variable "aws_az" {
+  description = "AWS AZ"
+  default     = "a"
+}
+
 variable "aws_profile" {
   description = "Abort this with CTRL-C, set the TF_VAR_profile environment variable in your shell and try again."
   default = null

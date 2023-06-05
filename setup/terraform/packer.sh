@@ -24,6 +24,7 @@ packer build \
   -var "aws_access_key=$TF_VAR_aws_access_key_id" \
   -var "aws_secret_key=$TF_VAR_aws_secret_access_key" \
   -var "aws_region=$TF_VAR_aws_region" \
+  -var "aws_az=$TF_VAR_aws_az" \
   -var "ssh_username=$TF_VAR_ssh_username" \
   -var "ssh_password=$TF_VAR_ssh_password" \
   -var "base_ami=$TF_VAR_base_ami" \

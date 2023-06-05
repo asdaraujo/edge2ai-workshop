@@ -63,7 +63,7 @@ resource "aws_route_table" "rtb" {
 resource "aws_subnet" "subnet1" {
   vpc_id                  = (var.vpc_id != "" ? var.vpc_id : aws_vpc.vpc[0].id)
   cidr_block              = var.cidr_block_1
-  availability_zone       = "${var.aws_region}a"
+  availability_zone       = "${var.aws_region}${var.aws_az}"
   map_public_ip_on_launch = true
 
   tags = {
