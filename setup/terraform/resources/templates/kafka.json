@@ -38,7 +38,7 @@
           "value": "true"
         }
 {% endif %}
-{% if USE_IPA %}
+{% if USE_IPA == 'yes' %}
        ,{
           "name": "sasl.plain.auth",
           "value": "LDAP"

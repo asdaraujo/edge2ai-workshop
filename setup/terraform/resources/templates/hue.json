@@ -39,7 +39,7 @@
           "value" : "PATH=/opt/rh/rh-python38/root/usr/local/bin:/opt/rh/rh-python38/root/usr/bin:/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin:/root/bin"
         }
 {% endif %}
-{% if USE_IPA %}
+{% if USE_IPA == 'yes' %}
         ,{
           "name" : "auth_backend",
           "value" : "desktop.auth.backend.LdapBackend,desktop.auth.backend.AllowFirstUserDjangoBackend"
@@ -119,10 +119,19 @@
           "roleType": "HUE_SERVER",
           "base": true,
           "configs": [
+{% if ENABLE_KERBEROS == 'yes' %}
+            {
+              "name": "hue_server_hive_safety_valve",
+              "value": "<property><name>hive.server2.authentication</name><value>KERBEROS</value></property>"
+            }
+{% endif %}
+{% if ENABLE_TLS == 'yes' and ENABLE_KERBEROS == 'yes' %}
+            ,
+{% endif %}
 {% if ENABLE_TLS == 'yes' %}
             {
               "name": "hue_server_hue_safety_valve",
-              "value": "[beeswax]\n{% if ENABLE_KERBEROS == 'yes' %}auth_username=hue\nauth_password={{THE_PWD}}\n{% endif %}[[ssl]]\nenabled=true\nvalidate=true\ncacerts=/opt/cloudera/security/x509/truststore.pem\n[desktop]\nssl_certificate_chain=/opt/cloudera/security/x509/cert.pem\n[[session]]\nsecure=true\n[impala]\n[[ssl]]\ncacerts=/opt/cloudera/security/x509/truststore.pem"
+              "value": "[beeswax]\n[[ssl]]\nenabled=true\nvalidate=true\ncacerts=/opt/cloudera/security/x509/truststore.pem\n[desktop]\nssl_certificate_chain=/opt/cloudera/security/x509/cert.pem\n[[session]]\nsecure=true\n[impala]\n[[ssl]]\ncacerts=/opt/cloudera/security/x509/truststore.pem"
             },
             {
               "name": "ssl_cacerts",

@@ -171,10 +171,10 @@ function load_stack() {
   KERBEROS_TYPE=$(echo "${KERBEROS_TYPE:-MIT}" | tr a-z A-Z)
   if [ "$KERBEROS_TYPE" == "IPA" ]; then
     TF_VAR_use_ipa=true
-    USE_IPA=1
+    USE_IPA=yes
   else
     TF_VAR_use_ipa=false
-    USE_IPA=""
+    USE_IPA=no
   fi
   ENABLE_TLS=$(echo "${ENABLE_TLS:-NO}" | tr a-z A-Z)
   if [ "$ENABLE_TLS" == "YES" -o "$ENABLE_TLS" == "TRUE" -o "$ENABLE_TLS" == "1" ]; then
@@ -408,7 +408,7 @@ function add_user() {
   local homedir=$2
   local groups=${3:-}
 
-  if [[ $USE_IPA -eq 1 ]]; then
+  if [[ $USE_IPA == "yes" ]]; then
     echo "Skipping creation of local user [$princ] since we're using a central IPA server"
     return
   fi
@@ -475,6 +475,10 @@ function install_ipa_client() {
     --unattended \
     --mkhomedir \
     --force-join
+
+  systemctl stop ntpd || true
+  systemctl disable ntpd || true
+  systemctl restart chronyd || true
 
   # Enable enumeration for the SSSD client, so that Ranger Usersync can see users/groups
   sed -i.bak 's/^\[domain.*/&\
@@ -1011,7 +1015,7 @@ function get_service_urls() {
   local tmp_template_file=/tmp/template.$$
   load_stack $NAMESPACE $BASE_DIR/resources validate_only exclude_signed
   CLUSTER_HOST=dummy PRIVATE_IP=dummy PUBLIC_DNS=dummy DOCKER_DEVICE=dummy CDSW_DOMAIN=dummy \
-  IPA_HOST="$([[ $USE_IPA == "1" ]] && echo dummy || echo "")" \
+  IPA_HOST="$([[ $USE_IPA == "yes" ]] && echo dummy || echo "")" \
   CLUSTER_ID=dummy PEER_CLUSTER_ID=dummy PEER_PUBLIC_DNS=dummy \
   python $BASE_DIR/resources/cm_template.py --cdh-major-version $CDH_MAJOR_VERSION $CM_SERVICES > $tmp_template_file
 
@@ -1327,6 +1331,7 @@ function resolve_host_addresses() {
     aws)
         sed -i.bak '/server 169.254.169.123/ d' /etc/chrony.conf
         echo "server 169.254.169.123 prefer iburst minpoll 4 maxpoll 4" >> /etc/chrony.conf
+        systemctl enable chronyd
         systemctl restart chronyd
         export PRIVATE_DNS=$(curl http://169.254.169.254/latest/meta-data/local-hostname)
         export PRIVATE_IP=$(curl http://169.254.169.254/latest/meta-data/local-ipv4)

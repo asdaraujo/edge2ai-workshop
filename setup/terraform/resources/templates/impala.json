@@ -54,10 +54,10 @@
           "value" : "true"
         }
 {% endif %}
-{% if ((ENABLE_KERBEROS == 'yes' and CDH_VERSION is ge('7')) or ENABLE_TLS == 'yes') and USE_IPA %}
+{% if ((ENABLE_KERBEROS == 'yes' and CDH_VERSION is ge('7')) or ENABLE_TLS == 'yes') and USE_IPA == 'yes' %}
         ,
 {% endif %}
-{% if USE_IPA %}
+{% if USE_IPA == 'yes' %}
         {
           "name" : "enable_ldap_auth",
           "value" : "true"
@@ -93,8 +93,11 @@
               "value" : "true"
             }
 {% endif %}
+{% if ENABLE_KERBEROS == 'yes' and ENABLE_TLS == 'yes' %}
+            ,
+{% endif %}
 {% if ENABLE_TLS == 'yes' %}
-            ,{
+            {
               "name": "webserver_certificate_file",
               "value": "/opt/cloudera/security/x509/cert.pem"
             },
@@ -107,7 +110,7 @@
               "value": "{{THE_PWD}}"
             }
 {% endif %}
-{% if USE_IPA %}
+{% if USE_IPA == 'yes' %}
             ,{
               "name": "impalad_ldap_ca_certificate",
               "value": "/opt/cloudera/security/x509/truststore.pem"

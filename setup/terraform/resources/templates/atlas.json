@@ -89,7 +89,7 @@
             }
 {% endif %}
 {% endif %}
-{% if USE_IPA %}
+{% if USE_IPA == 'yes' %}
             ,{
               "name": "atlas_authentication_method_ldap",
               "value": "true"

@@ -61,7 +61,7 @@ fi
 if [[ "$(is_kerberos_enabled)" == "yes" ]]; then
   touch $BASE_DIR/.enable-kerberos
 fi
-if [[ ${USE_IPA:-0} -eq 1 ]]; then
+if [[ ${USE_IPA:-no} == "yes" ]]; then
   touch $BASE_DIR/.use-ipa
 fi
 

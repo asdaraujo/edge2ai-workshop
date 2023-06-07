@@ -439,7 +439,9 @@ function license_metadata() {
 }
 
 function validate_license() {
+  [[ -z ${TF_VAR_cdp_license_file:-} ]] && return
   validate_license_file
+
   [[ $(egrep -c 'BEGIN PGP SIGNED MESSAGE|BEGIN PGP SIGNATURE|END PGP SIGNATURE' "$TF_VAR_cdp_license_file") -eq 3 ]] && \
   (license_metadata | jq . > /dev/null) && \
   [[ ! -z $(license_metadata | jq -r .name) ]] && \

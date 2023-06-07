@@ -78,7 +78,7 @@
               "name": "ssl_client_truststore_password",
               "value": "{{THE_PWD}}"
             }
-{% if USE_IPA %}
+{% if USE_IPA == 'yes' %}
             ,{
               "name" : "ranger.usersync.group.memberattributename",
               "value" : "member"

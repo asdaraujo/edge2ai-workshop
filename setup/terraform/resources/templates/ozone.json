@@ -36,6 +36,12 @@
           "name" : "ozone.replication",
           "value" : "1"
         }
+{% if CDH_VERSION is ge('7.1.8') %}
+        ,{
+          "name" : "ozone-conf/ozone-site.xml_service_safety_valve",
+          "value" : "<property><name>ozone.om.service.ids</name><value>ozone</value><final>true</final></property><property><name>ozone.om.address.ozone.om1</name><value>{{CLUSTER_HOST}}:9862</value><final>true</final></property><property><name>ozone.om.nodes.ozone</name><value>om1</value><final>true</final></property><property><name>ozone.scm.address.ozone.node1</name><value>{{CLUSTER_HOST}}</value><final>true</final></property>"
+        }
+{% endif %}
 {% if ENABLE_KERBEROS == 'yes' %}
        ,{
           "name" : "ozone.security.enabled",

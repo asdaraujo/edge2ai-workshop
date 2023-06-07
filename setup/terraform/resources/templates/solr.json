@@ -44,10 +44,10 @@
           "value": "kerberos"
         }
 {% endif %}
-{% if (ENABLE_KERBEROS == 'yes' or ENABLE_TLS == 'yes') and USE_IPA %}
+{% if (ENABLE_KERBEROS == 'yes' or ENABLE_TLS == 'yes') and USE_IPA == 'yes' %}
         ,
 {% endif %}
-{% if USE_IPA %}
+{% if USE_IPA == 'yes' %}
         {
           "name": "solr_enable_ldap_auth",
           "value": "true"

@@ -234,6 +234,7 @@ function wait_for_completion() {
 
     # check for completion
     if [[ $(egrep -c "^(${STATUS_COMPLETED}|${STATUS_FAILED}|${STATUS_UNKNOWN})" "$LATEST_STATUS_FILE") -eq $total ]]; then
+      cp "$LATEST_STATUS_FILE" "${LATEST_STATUS_FILE}.final.$(date +%Y%m%d%H%M%S)"
       if [[ $(egrep -c "^${STATUS_COMPLETED}" "$LATEST_STATUS_FILE") -eq $total ]]; then
         echo success
       else

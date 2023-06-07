@@ -67,7 +67,7 @@
           "value": "{{THE_PWD}}"
         }
 {% endif %}
-{% if USE_IPA %}
+{% if USE_IPA == 'yes' %}
         ,{
           "name": "hive_metastore_enable_ldap_auth",
           "value": "true"
@@ -174,7 +174,7 @@
           "value": "{{THE_PWD}}"
         }
 {% endif %}
-{% if USE_IPA %}
+{% if USE_IPA == 'yes' %}
         ,{
           "name": "hiveserver2_enable_ldap_auth",
           "value": "true"
@@ -202,8 +202,19 @@
           "roleType": "HIVESERVER2",
           "base": true,
           "configs": [
-{% if ENABLE_TLS == 'yes' %}
+{% if USE_IPA == 'yes' %}
             {
+              "name": "hive_hs2_config_safety_valve",
+              "value": "<property><name>hive.server2.authentication.ldap.url</name><value>ldaps://{{IPA_HOST}}</value><description>Workaround for CDPD-21585</description></property><property><name>hive.server2.authentication.ldap.baseDN</name><value>cn=users,cn=accounts,dc=workshop,dc=com</value><description>Workaround for CDPD-21585</description></property><property><name>hive.server2.authentication</name><value>LDAP</value><description>Workaround for CDPD-21585</description></property><property><name>metastore.warehouse.tenant.colocation</name><value>true</value></property>"
+            }
+{% else %}
+            {
+              "name": "hive_hs2_config_safety_valve",
+              "value": "<property><name>metastore.warehouse.tenant.colocation</name><value>true</value></property>"
+            }
+{% endif %}
+{% if ENABLE_TLS == 'yes' %}
+            ,{
               "name": "ssl_enabled",
               "value": "true"
             },
@@ -214,15 +225,6 @@
             {
               "name": "ssl_server_keystore_location",
               "value": "/opt/cloudera/security/jks/keystore.jks"
-            }
-{% endif %}
-{% if ENABLE_TLS == 'yes' and USE_IPA %}
-            ,
-{% endif %}
-{% if USE_IPA %}
-            {
-              "name": "hive_hs2_config_safety_valve",
-              "value": "<property><name>hive.server2.authentication.ldap.url</name><value>ldaps://{{IPA_HOST}}</value><description>Workaround for CDPD-21585</description></property><property><name>hive.server2.authentication.ldap.baseDN</name><value>cn=users,cn=accounts,dc=workshop,dc=com</value><description>Workaround for CDPD-21585</description></property><property><name>hive.server2.authentication</name><value>LDAP</value><description>Workaround for CDPD-21585</description></property>"
             }
 {% endif %}
           ]
