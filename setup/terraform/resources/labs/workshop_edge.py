@@ -58,7 +58,7 @@ class EdgeWorkshop(AbstractWorkshop):
                 break
 
         nf.delete_all(root_pg)
-        # efm.delete_all(flow_id)
+        efm.delete_all(flow_id)
         schreg.delete_all_schemas()
         reg_client = versioning.get_registry_client('NiFi Registry')
         if reg_client:
@@ -134,6 +134,7 @@ class EdgeWorkshop(AbstractWorkshop):
     def lab3_expand_edge_flow(self):
         # Expand the CEM flow
         if efm.get_efm_version() >= [1, 4, 0, 0]:
+            # This has been tested for CPP agents only
             success_relationship = 'success'
             # MiNiFi CPP does natively has EvaluateJsonPath, so here we change
             # it to ExtractText instead as a workaround
@@ -144,7 +145,7 @@ class EdgeWorkshop(AbstractWorkshop):
                 (500, 100),
                 {
                     'Regex Mode': 'true',
-                    'Include Capture Group 0': 'true',
+                    'Include Capture Group 0': 'false',
                     'sensor_0': r'"sensor_0"\s*:\s*([0-9.]+)',
                     'sensor_1': r'"sensor_1"\s*:\s*([0-9.]+)',
                 },
@@ -160,6 +161,7 @@ class EdgeWorkshop(AbstractWorkshop):
                 },
                 auto_terminate=['error', 'failure'])
         else:
+            # This has been tested for Java agents only
             success_relationship = 'Message'
             extract_proc = efm.create_processor(
                 self.context.flow_id, self.context.efm_pg_id,

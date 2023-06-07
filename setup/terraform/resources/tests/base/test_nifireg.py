@@ -3,12 +3,15 @@
 """
 Testing NiFi Registry
 """
+import pytest
 from nipyapi import versioning
-from ...labs.utils import nifi
+from ...labs.utils import nifi, efm
 
 nifi.set_environment()
 
 
+@pytest.mark.skipif(efm.get_efm_version() >= [1, 4, 0, 0],
+                    reason='Later versions of EFM don\'t integrate with NiFi Registry')
 def test_nifi_registry_iot(run_id):
     print('TEST:test_nifi_registry_iot:{}'.format(run_id))
     bucket = versioning.get_registry_bucket('IoT')

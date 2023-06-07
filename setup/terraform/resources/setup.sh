@@ -84,46 +84,50 @@ if [[ ! -f $PREINSTALL_COMPLETED_FLAG ]]; then
   if [ "${CM_REPO_AS_TARBALL_URL:-}" == "" ]; then
     paywall_wget "$CM_REPO_FILE_URL" "$CM_REPO_FILE"
   else
-    sed -i.bak 's/^ *Listen  *.*/Listen 3333/' /etc/httpd/conf/httpd.conf
-    systemctl start httpd
+    CM_DOWNLOADED_FILE=/var/www/html/.${CM_VERSION}-${CM_GBN:-}
+    if [[ ! -f $CM_DOWNLOADED_FILE ]]; then
+      sed -i.bak 's/^ *Listen  *.*/Listen 3333/' /etc/httpd/conf/httpd.conf
+      systemctl start httpd
 
-    CM_REPO_AS_TARBALL_FILE=/tmp/cm-repo-as-a-tarball.tar.gz
-    paywall_wget "$CM_REPO_AS_TARBALL_URL" "$CM_REPO_AS_TARBALL_FILE"
-    tar -C /var/www/html -xvf $CM_REPO_AS_TARBALL_FILE
-    CM_REPO_ROOT_DIR=$((tar -tvf $CM_REPO_AS_TARBALL_FILE || true) | head -1 | awk '{print $NF}')
-    if [[ $CM_MAJOR_VERSION == 5 ]]; then
-      CM_REPO_ROOT_DIR=${CM_REPO_ROOT_DIR}/${CM_VERSION}
-    fi
-    rm -f $CM_REPO_AS_TARBALL_FILE
-
-    if [[ $CM_MAJOR_VERSION != 5 ]]; then
-      # In some versions the allkeys.asc file is missing from the repo-as-tarball
-      KEYS_FILE=/var/www/html/${CM_REPO_ROOT_DIR}/allkeys.asc
-      if [ ! -f "$KEYS_FILE" ]; then
-        KEYS_URL="$(dirname "$(dirname "$CM_REPO_AS_TARBALL_URL")")/allkeys.asc"
-        paywall_wget "$KEYS_URL" "$KEYS_FILE"
+      CM_REPO_AS_TARBALL_FILE=/tmp/cm-repo-as-a-tarball.tar.gz
+      paywall_wget "$CM_REPO_AS_TARBALL_URL" "$CM_REPO_AS_TARBALL_FILE"
+      tar -C /var/www/html -xvf $CM_REPO_AS_TARBALL_FILE
+      CM_REPO_ROOT_DIR=$((tar -tvf $CM_REPO_AS_TARBALL_FILE || true) | head -1 | awk '{print $NF}')
+      if [[ $CM_MAJOR_VERSION == 5 ]]; then
+        CM_REPO_ROOT_DIR=${CM_REPO_ROOT_DIR}/${CM_VERSION}
       fi
-    fi
+      rm -f $CM_REPO_AS_TARBALL_FILE
 
-    cat > $CM_REPO_FILE <<EOF
+      if [[ $CM_MAJOR_VERSION != 5 ]]; then
+        # In some versions the allkeys.asc file is missing from the repo-as-tarball
+        KEYS_FILE=/var/www/html/${CM_REPO_ROOT_DIR}/allkeys.asc
+        if [ ! -f "$KEYS_FILE" ]; then
+          KEYS_URL="$(dirname "$(dirname "$CM_REPO_AS_TARBALL_URL")")/allkeys.asc"
+          paywall_wget "$KEYS_URL" "$KEYS_FILE"
+        fi
+      fi
+      touch $CM_DOWNLOADED_FILE
+
+      cat > $CM_REPO_FILE <<EOF
 [cloudera-manager]
 name = Cloudera Manager, Version
 baseurl = http://localhost:3333/$CM_REPO_ROOT_DIR
 gpgcheck = 0
 EOF
+
+      log_status "Cleaning repo cache"
+      yum clean all
+      rm -rf /var/cache/yum/
+      # Force makecache to ensure GPG keys are loaded and accepted
+      yum makecache -y || true
+      yum repolist
+    fi
   fi
 
   log_status "Installing Postgresql repo"
   if [[ $(rpm -qa | grep pgdg-redhat-repo- | wc -l) -eq 0 ]]; then
     yum_install https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
   fi
-
-  log_status "Cleaning repo cache"
-  yum clean all
-  rm -rf /var/cache/yum/
-  # Force makecache to ensure GPG keys are loaded and accepted
-  yum makecache -y || true
-  yum repolist
 
   log_status "Installing Cloudera Manager"
   # NOTE: must disable PG repos for this install due to some weird dependencies on psycopg2,
@@ -229,7 +233,7 @@ EOF
       CPP_MINIFI_TARBALL=$(find /opt/cloudera/cem/ -name "nifi-minifi-cpp-*-bin*.tar.gz" | sort | tail -1)
       if [[ ${CPP_MINIFI_TARBALL:-} != "" ]]; then
         log_status "Installing and configuring MiNiFi CPP"
-        CPP_MINIFI_BASE_NAME=$(basename $CPP_MINIFI_TARBALL | sed 's/-bin.*tar.gz//')
+        CPP_MINIFI_BASE_NAME=$(tar -tvf $CPP_MINIFI_TARBALL | head -1 | awk '{print $NF}' | sed 's#/##' || true)
         tar -zxf ${CPP_MINIFI_TARBALL} -C /opt/cloudera/cem
         rm -f /opt/cloudera/cem/minifi
         ln -s /opt/cloudera/cem/${CPP_MINIFI_BASE_NAME} /opt/cloudera/cem/minifi
@@ -773,29 +777,15 @@ if [[ ${HAS_CEM:-} == "1" ]]; then
 's%^[ #]*(nifi.)?c2.agent.heartbeat.period *=.*%\1c2.agent.heartbeat.period=10000%;'\
 's%^[ #]*(nifi.)?c2.agent.class *=.*%\1c2.agent.class=iot-1%;'\
 's%^[ #]*(nifi.)?c2.agent.identifier *=.*%\1c2.agent.identifier=agent-iot-1%' /opt/cloudera/cem/minifi/conf/minifi.properties
-#    if [[ "$(is_tls_enabled)" == "yes" ]]; then
-#      sed -i.bak \
-#'s%^[ #]*nifi.minifi.security.keystore *=.*%nifi.minifi.security.keystore=/opt/cloudera/security/jks/keystore.jks%;'\
-#'s%^[ #]*nifi.minifi.security.keystoreType *=.*%nifi.minifi.security.keystoreType=JKS%;'\
-#'s%^[ #]*nifi.minifi.security.keystorePasswd *=.*%nifi.minifi.security.keystorePasswd='"${THE_PWD}"'%;'\
-#'s%^[ #]*nifi.minifi.security.keyPasswd *=.*%nifi.minifi.security.keyPasswd='"${THE_PWD}"'%;'\
-#'s%^[ #]*nifi.minifi.security.truststore *=.*%nifi.minifi.security.truststore=/opt/cloudera/security/jks/truststore.jks%;'\
-#'s%^[ #]*nifi.minifi.security.truststoreType *=.*%nifi.minifi.security.truststoreType=JKS%;'\
-#'s%^[ #]*nifi.minifi.security.truststorePasswd *=.*%nifi.minifi.security.truststorePasswd='"${THE_PWD}"'%;'\
-#'s%^[ #]*nifi.minifi.security.ssl.protocol *=.*%nifi.minifi.security.ssl.protocol=TLS%' /opt/cloudera/cem/minifi/conf/minifi.properties
-#    fi
-    if [[ "$(is_tls_enabled)" == "yes" && $(compare_version "$CEM_VERSION" "1.2.2.0") != "<" ]]; then
-      true
-#      sed -i.bak -E \
-#'s%^[ #]*nifi.c2.rest.url *=.*%nifi.c2.rest.url=https://'"${CLUSTER_HOST}"':10088/efm/api/c2-protocol/heartbeat%;'\
-#'s%^[ #]*nifi.c2.rest.url.ack *=.*%nifi.c2.rest.url.ack=https://'"${CLUSTER_HOST}"':10088/efm/api/c2-protocol/acknowledge%;'\
-#'s%^[ #]*(nifi.)?c2.security.truststore.location *=.*%\1c2.security.truststore.location=/opt/cloudera/security/jks/truststore.jks%;'\
-#'s%^[ #]*(nifi.)?c2.security.truststore.password *=.*%\1c2.security.truststore.password='"${THE_PWD}"'%;'\
-#'s%^[ #]*(nifi.)?c2.security.truststore.type *=.*%\1c2.security.truststore.type=JKS%;'\
-#'s%^[ #]*(nifi.)?c2.security.keystore.location *=.*%\1c2.security.keystore.location=/opt/cloudera/security/jks/keystore.jks%;'\
-#'s%^[ #]*(nifi.)?c2.security.keystore.password *=.*%\1c2.security.keystore.password='"${THE_PWD}"'%;'\
-#'s%^[ #]*(nifi.)?c2.security.keystore.type *=.*%\1c2.security.keystore.type=JKS%;'\
-#'s%^[ #]*(nifi.)?c2.security.need.client.auth *=.*%\1c2.security.need.client.auth=true%' /opt/cloudera/cem/minifi/conf/minifi.properties
+    if [[ "$(is_tls_enabled)" == "yes" ]]; then
+      sed -i.bak -E \
+'s%^[ #]*nifi.c2.rest.url *=.*%nifi.c2.rest.url=https://'"${CLUSTER_HOST}"':10088/efm/api/c2-protocol/heartbeat%;'\
+'s%^[ #]*nifi.c2.rest.url.ack *=.*%nifi.c2.rest.url.ack=https://'"${CLUSTER_HOST}"':10088/efm/api/c2-protocol/acknowledge%;'\
+'s%^[ #]*nifi.remote.input.secure *=.*%nifi.remote.input.secure=true%;'\
+'s%^[ #]*nifi.security.client.certificate *=.*%nifi.security.client.certificate=/opt/cloudera/security/x509/cert.pem%;'\
+'s%^[ #]*nifi.security.client.private.key *=.*%nifi.security.client.private.key=/opt/cloudera/security/x509/key.pem%;'\
+'s%^[ #]*nifi.security.client.pass.phrase *=.*%nifi.security.client.pass.phrase='"${THE_PWD}"'%;'\
+'s%^[ #]*nifi.security.client.ca.certificate *=.*%nifi.security.client.ca.certificate=/opt/cloudera/security/x509/truststore.pem%' /opt/cloudera/cem/minifi/conf/minifi.properties
     else
       sed -i.bak \
 's%^[ #]*nifi.c2.rest.url *=.*%nifi.c2.rest.url=http://'"${CLUSTER_HOST}"':10088/efm/api/c2-protocol/heartbeat%;'\

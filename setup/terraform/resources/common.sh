@@ -182,7 +182,7 @@ function load_stack() {
   else
     ENABLE_TLS=no
   fi
-  if [[ "${CEM_URL:-}" == "" && "${EFM_TARBALL_URL:-}${MINIFITK_TARBALL_URL:-}${MINIFI_TARBALL_URL:-}" == "" ]]; then
+  if [[ "${CEM_URL:-}" == "" && "${EFM_TARBALL_URL:-}${MINIFI_TARBALL_URL:-}" == "" ]]; then
     export HAS_CEM=0
   else
     export HAS_CEM=1
@@ -324,13 +324,13 @@ function validate_stack() {
     fi
   fi
 
-  if [[ ! ("${CEM_URL:-}" == "" && "${EFM_TARBALL_URL:-}${MINIFITK_TARBALL_URL:-}${MINIFI_TARBALL_URL:-}" == "") ]]; then
+  if [[ ! ("${CEM_URL:-}" == "" && "${EFM_TARBALL_URL:-}${MINIFI_TARBALL_URL:-}" == "") ]]; then
     export HAS_CEM=1
-    if [[ "${CEM_URL:-}" != "" && "${EFM_TARBALL_URL:-}${MINIFITK_TARBALL_URL:-}${MINIFI_TARBALL_URL:-}" != "" ]]; then
+    if [[ "${CEM_URL:-}" != "" && "${EFM_TARBALL_URL:-}${MINIFI_TARBALL_URL:-}" != "" ]]; then
       echo "${C_RED}ERROR: The following parameter combinations are mutually exclusive:" > /dev/stderr
       echo "         - CEM_URL must be specified" > /dev/stderr
       echo "           OR" > /dev/stderr
-      echo "         - EFM_TARBALL_URL and MINIFITK_TARBALL_URL and MINIFI_TARBALL_URL must be specified${C_NORMAL}" > /dev/stderr
+      echo "         - EFM_TARBALL_URL and MINIFI_TARBALL_URL must be specified${C_NORMAL}" > /dev/stderr
       errors=1
     fi
   fi

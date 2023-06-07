@@ -100,6 +100,8 @@ def _get_agent_manifests():
 
 
 def get_efm_version():
+    global _SWAGGER_URL
+    _ensure_urls()
     resp = _get_session().get(_SWAGGER_URL)
     resp_json = resp.json()
     assert ('info' in resp_json and 'version' in resp_json['info'])
