@@ -44,7 +44,7 @@ function check_url() {
 
 # need to load the stack for calling get_service_urls
 source $BASE_DIR/resources/common.sh
-validate_stack $NAMESPACE $BASE_DIR/resources "$(get_license_file_path)"
+validate_stack $NAMESPACE $BASE_DIR/resources "${TF_VAR_cdp_license_file:-}"
 
 SERVICE_URLS=$(get_service_urls)
 WEB_URL='http://{host}/api/ping'

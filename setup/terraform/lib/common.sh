@@ -192,7 +192,7 @@ function maybe_launch_docker() {
     fi
     local license_file_mount=""
     if [[ ! -z ${TF_VAR_cdp_license_file:-} ]]; then
-      license_file_mount="-v $TF_VAR_cdp_license_file:$LICENSE_FILE_MOUNTPOINT"
+      license_file_mount="-v '$TF_VAR_cdp_license_file:$LICENSE_FILE_MOUNTPOINT'"
     fi
 
     for dir in $HOME/.aws $HOME/.azure; do
@@ -252,7 +252,7 @@ function try_in_docker() {
     local docker_img=${EDGE2AI_DOCKER_IMAGE:-$DEFAULT_DOCKER_IMAGE}
     local license_file_mount=""
     if [[ ! -z ${TF_VAR_cdp_license_file:-} ]]; then
-      license_file_mount="-v $TF_VAR_cdp_license_file:$LICENSE_FILE_MOUNTPOINT"
+      license_file_mount="-v '$TF_VAR_cdp_license_file:$LICENSE_FILE_MOUNTPOINT'"
     fi
     exec docker run --rm \
       --platform linux/amd64 \
@@ -402,41 +402,57 @@ function load_env() {
   normalize_boolean TF_VAR_use_elastic_ip false
   normalize_boolean TF_VAR_pvc_data_services false
   normalize_boolean TF_VAR_deploy_cdsw_model true
+
+  export TF_VAR_cdp_license_file_original=${TF_VAR_cdp_license_file:-}
+  export TF_VAR_cdp_license_file=$(get_license_file_path)
 }
 
 function get_license_file_path() {
-  if [[ $(df | grep "$LICENSE_FILE_MOUNTPOINT" | wc -l) -eq 1 ]]; then
+  if [[ -z ${TF_VAR_cdp_license_file:-} ]]; then
+    echo ""
+  elif [[ -s $TF_VAR_cdp_license_file ]]; then
+    echo "$TF_VAR_cdp_license_file"
+  elif [[ $(df | grep "$LICENSE_FILE_MOUNTPOINT" | wc -l) -eq 1 ]]; then
     # we are running inside docker
     echo "$LICENSE_FILE_MOUNTPOINT"
   else
-    echo "$TF_VAR_cdp_license_file"
+    echo "/file/not/found"
   fi
 }
 
 function validate_license_file() {
-  if [[ ! -z ${TF_VAR_cdp_license_file:-} && ! -s $(get_license_file_path) ]]; then
-    echo "${C_RED}ERROR: License file "\""${TF_VAR_cdp_license_file}"\"" not found.${C_NORMAL}"
+  if [[ ! -z ${TF_VAR_cdp_license_file:-} && ! -s $TF_VAR_cdp_license_file ]]; then
+    echo "${C_RED}ERROR: License file "\""${TF_VAR_cdp_license_file_original}"\"" not found.${C_NORMAL}"
     abort
   fi
 }
 
+function license_metadata() {
+  egrep -v "^([A-Za-z0-9=-])" "$TF_VAR_cdp_license_file"
+}
+
 function validate_license() {
-  if [[ ! -z ${TF_VAR_cdp_license_file:-} ]]; then
-    if [[ -z $(get_remote_repo_username) || -z $(get_remote_repo_password) ]]; then
-      echo "${C_RED}ERROR: Invalid license in file "\""${TF_VAR_cdp_license_file}"\"".${C_NORMAL}"
-      abort
-    fi
-  fi
+  validate_license_file
+  [[ $(egrep -c 'BEGIN PGP SIGNED MESSAGE|BEGIN PGP SIGNATURE|END PGP SIGNATURE' "$TF_VAR_cdp_license_file") -eq 3 ]] && \
+  (license_metadata | jq . > /dev/null) && \
+  [[ ! -z $(license_metadata | jq -r .name) ]] && \
+  [[ ! -z $(license_metadata | jq -r .uuid) ]] && \
+  [[ ! -z $(license_metadata | jq -r .startDate) && $(license_metadata | jq -r .startDate) < "$(date +%Y-%m-%d)" ]] && \
+  [[ ! -z $(license_metadata | jq -r .expirationDate) && $(license_metadata | jq -r .expirationDate) > "$(date +%Y-%m-%d)" ]] && \
+  return
+
+  echo "${C_RED}ERROR: The license in file "\""${TF_VAR_cdp_license_file_original}"\"" is either invalid or expired.${C_NORMAL}"
+  abort
 }
 
 function get_remote_repo_username() {
-  validate_license_file
-  grep '"uuid"' "$(get_license_file_path)" | awk -F\" '{printf "%s", $4}'
+  validate_license
+  grep '"uuid"' "$TF_VAR_cdp_license_file" | awk -F\" '{printf "%s", $4}'
 }
 
 function get_remote_repo_password() {
-  validate_license_file
-  local name=$(grep '"name"' "$(get_license_file_path)" | awk -F\" '{print $4}')
+  validate_license
+  local name=$(grep '"name"' "$TF_VAR_cdp_license_file" | awk -F\" '{print $4}')
   echo -n "${name}$(get_remote_repo_username)" | openssl dgst -sha256 -hex | egrep -o '[a-f0-9]{12}' | head -1
 }
 
@@ -724,7 +740,7 @@ EOF
 
   if [[ $TF_VAR_pvc_data_services == "true" ]]; then
     if [[ -z ${TF_VAR_cdp_license_file:-} ]]; then
-      echo "${C_RED}ERROR: When TF_VAR_pvc_data_services=true you must specify a license file for the TF_VAR_cdp_license_file property.${C_NORMAL}"
+      echo "${C_RED}ERROR: When TF_VAR_pvc_data_services=true you must specify a license file using the TF_VAR_cdp_license_file property.${C_NORMAL}"
       abort
     fi
   fi
@@ -1260,6 +1276,8 @@ fi
 #
 
 ARGS=("$@")
+# Clean old ip address files
+find $BASE_DIR -name ".hosts.*" -mmin +15 -delete
 # Caffeine check must be first
 check_for_caffeine "$@"
 ensure_ulimit

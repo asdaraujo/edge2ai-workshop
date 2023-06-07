@@ -17,7 +17,7 @@ PROXY_PORT=${3:-}
 export NO_DOCKER_EXEC=1
 source $BASE_DIR/lib/common.sh
 
-SERVICE_URLS=$(try_in_docker $NAMESPACE 'source $BASE_DIR/resources/common.sh; validate_stack $NAMESPACE $BASE_DIR/resources $(get_license_file_path); get_service_urls')
+SERVICE_URLS=$(try_in_docker $NAMESPACE 'source $BASE_DIR/resources/common.sh; validate_stack $NAMESPACE $BASE_DIR/resources "${TF_VAR_cdp_license_file:-}"; get_service_urls')
 if [ "$SERVICE_URLS" == "" ]; then
   echo "ERROR: Couldn't retrieve the service URLs for namespace $NAMESPACE."
   exit 1

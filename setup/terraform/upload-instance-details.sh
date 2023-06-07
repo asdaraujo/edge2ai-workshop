@@ -15,7 +15,7 @@ source $BASE_DIR/lib/common.sh
 
 # need to load the stack for calling get_service_urls
 source $BASE_DIR/resources/common.sh
-validate_stack $NAMESPACE $BASE_DIR/resources "$(get_license_file_path)"
+validate_stack $NAMESPACE $BASE_DIR/resources "${TF_VAR_cdp_license_file:-}"
 
 WEB_IP_ADDRESS=${2:-}
 ADMIN_EMAIL=${3:-$TF_VAR_web_server_admin_email}
