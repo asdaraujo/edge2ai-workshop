@@ -190,32 +190,35 @@ function maybe_launch_docker() {
         docker pull --platform linux/amd64 $docker_img || true
       fi
     fi
-    local license_file_mount=""
-    if [[ ! -z ${TF_VAR_cdp_license_file:-} ]]; then
-      license_file_mount="-v '$TF_VAR_cdp_license_file:$LICENSE_FILE_MOUNTPOINT'"
-    fi
-
     for dir in $HOME/.aws $HOME/.azure; do
       if [[ ! -d $dir ]]; then
         mkdir -p $dir
         chmod 755 $dir
       fi
     done
-    local cmd=./$(basename $0)
-    exec docker run -ti --rm \
-      --platform linux/amd64 \
-      --detach-keys="ctrl-@" \
-      --entrypoint="" \
-      -v $BASE_DIR/../..:/edge2ai-workshop \
-      -v $HOME/.aws:/root/.aws \
-      -v $HOME/.azure:/root/.azure \
-      -e DEBUG=${DEBUG:-} \
-      -e NO_PROMPT=${NO_PROMPT:-} \
-      -e NO_LOG_FETCH=${NO_LOG_FETCH:-} \
-      -e HOSTS_ADD=$(basename $PUBLIC_IPS_FILE) \
-      $license_file_mount \
-      $docker_img \
-      $cmd $*
+    local docker_cmd=./$(basename $0)
+    local cmd=(
+      exec docker run -ti --rm
+        --platform linux/amd64
+        --detach-keys="ctrl-@"
+        --entrypoint=""
+        -v $BASE_DIR/../..:/edge2ai-workshop
+        -v $HOME/.aws:/root/.aws
+        -v $HOME/.azure:/root/.azure
+        -e DEBUG=${DEBUG:-}
+        -e NO_PROMPT=${NO_PROMPT:-}
+        -e NO_LOG_FETCH=${NO_LOG_FETCH:-}
+        -e HOSTS_ADD=$(basename $PUBLIC_IPS_FILE)
+    )
+    if [[ ! -z ${TF_VAR_cdp_license_file:-} ]]; then
+      cmd=("${cmd[@]}" -v "$TF_VAR_cdp_license_file:$LICENSE_FILE_MOUNTPOINT")
+    fi
+    cmd=(
+      "${cmd[@]}"
+        $docker_img
+        $docker_cmd $*
+    )
+    "${cmd[@]}"
   fi
   if [[ "${INSIDE_DOCKER_CONTAINER:-0}" == "0" ]]; then
     if [[ ${NO_DOCKER_MSG:-} == "" ]]; then
@@ -250,24 +253,28 @@ function try_in_docker() {
   local -a cmd=("$@")
   if [[ "${NO_DOCKER:-}" == "" && "$(is_docker_running)" == "yes" ]]; then
     local docker_img=${EDGE2AI_DOCKER_IMAGE:-$DEFAULT_DOCKER_IMAGE}
-    local license_file_mount=""
+    local cmd=(
+      exec docker run --rm
+        --platform linux/amd64
+        --detach-keys="ctrl-@"
+        --entrypoint=""
+        -v $BASE_DIR/../..:/edge2ai-workshop
+        -v $HOME/.aws:/root/.aws
+        -v $HOME/.azure:/root/.azure
+        -e DEBUG=${DEBUG:-}
+        -e NO_PROMPT=${NO_PROMPT:-}
+        -e NO_LOG_FETCH=${NO_LOG_FETCH:-}
+        -e HOSTS_ADD=$(basename $PUBLIC_IPS_FILE)
+    )
     if [[ ! -z ${TF_VAR_cdp_license_file:-} ]]; then
-      license_file_mount="-v '$TF_VAR_cdp_license_file:$LICENSE_FILE_MOUNTPOINT'"
+      cmd=("${cmd[@]}" -v "$TF_VAR_cdp_license_file:$LICENSE_FILE_MOUNTPOINT")
     fi
-    exec docker run --rm \
-      --platform linux/amd64 \
-      --detach-keys="ctrl-@" \
-      --entrypoint="" \
-      -v $BASE_DIR/../..:/edge2ai-workshop \
-      -v $HOME/.aws:/root/.aws \
-      -v $HOME/.azure:/root/.azure \
-      -e DEBUG=${DEBUG:-} \
-      -e NO_PROMPT=${NO_PROMPT:-} \
-      -e NO_LOG_FETCH=${NO_LOG_FETCH:-} \
-      -e HOSTS_ADD=$(basename $PUBLIC_IPS_FILE) \
-      $license_file_mount \
-      $docker_img \
-      /bin/bash -c "cd /edge2ai-workshop/setup/terraform; export BASE_DIR=\$PWD; export NO_DOCKER_MSG=1; source lib/common.sh; load_env $namespace; ${cmd[*]}"
+    cmd=(
+      "${cmd[@]}"
+        $docker_img
+        /bin/bash -c "cd /edge2ai-workshop/setup/terraform; export BASE_DIR=\$PWD; export NO_DOCKER_MSG=1; source lib/common.sh; load_env $namespace; ${cmd[*]}"
+    )
+    "${cmd[@]}"
   else
     (load_env $namespace; eval "${cmd[*]}")
   fi
