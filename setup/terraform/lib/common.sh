@@ -404,7 +404,7 @@ function load_env() {
   export TF_VAR_ssh_public_key=$NAMESPACE_DIR/${TF_VAR_key_name}.pem.pub
   export TF_VAR_web_ssh_private_key=$NAMESPACE_DIR/${TF_VAR_web_key_name}.pem
   export TF_VAR_web_ssh_public_key=$NAMESPACE_DIR/${TF_VAR_web_key_name}.pem.pub
-  export TF_VAR_my_public_ip=$(curl -sL ifconfig.me || curl -sL ipapi.co/ip || curl -sL icanhazip.com)
+  export TF_VAR_my_public_ip=$(curl -sL http://ifconfig.me || curl -sL http://api.ipify.org/ || curl -sL https://ipinfo.io/ip)
 
   normalize_boolean TF_VAR_use_elastic_ip false
   normalize_boolean TF_VAR_pvc_data_services false
@@ -1286,7 +1286,7 @@ fi
 
 ARGS=("$@")
 # Clean old ip address files
-find $BASE_DIR -name ".hosts.*" -mmin +15 -delete
+find $BASE_DIR -name ".hosts.*" -mmin +15 -delete 2>/dev/null
 # Caffeine check must be first
 check_for_caffeine "$@"
 ensure_ulimit

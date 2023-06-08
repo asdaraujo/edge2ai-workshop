@@ -281,7 +281,7 @@ function fetch_logs() {
 STATUS_DIR=${BASE_DIR}/.setup-status
 LATEST_STATUS_FILE=${STATUS_DIR}/latest-status.${NAMESPACE}
 mkdir -p "$STATUS_DIR"
-find "$STATUS_DIR" -type f -mtime +2 -delete # delete old stuff, if any
+find "$STATUS_DIR" -type f -mtime +2 -delete 2> /dev/null # delete old stuff, if any
 TIMESTAMP=$(date +%s)
 CONTROL_PATH_PREFIX="/tmp/control-path.${NAMESPACE}.${TIMESTAMP}"
 STATUS_FILE_PREFIX="$STATUS_DIR/setup-status.${NAMESPACE}.${TIMESTAMP}"

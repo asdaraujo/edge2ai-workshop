@@ -227,7 +227,12 @@ def delete_all(pg):
     canvas.schedule_process_group(pg.id, False)
     for conn in canvas.list_all_connections(pg.id):
         LOG.debug('Connection: ' + conn.id)
-        canvas.delete_connection(conn, purge=True)
+        try:
+            canvas.delete_connection(conn, purge=True)
+        except ValueError as exc:
+            # Avoid failure if the connection to be deleted is not there for some reason
+            if 'Unable to find connection with id' not in str(exc):
+                raise exc
     for input_port in canvas.list_all_input_ports(pg.id):
         LOG.debug('Input Port: ' + input_port.id)
         canvas.delete_port(input_port)

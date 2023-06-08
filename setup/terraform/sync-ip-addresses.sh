@@ -32,7 +32,7 @@ if [[ $NO_REFRESH == "" ]]; then
 fi
 
 # Ensure admin has access to web server for their local machine
-add_ingress "$web_sg" "$(curl ifconfig.me 2>/dev/null)/32" tcp 80 "WEB_ADMIN" force
+add_ingress "$web_sg" "$(curl -sL http://ifconfig.me || curl -sL http://api.ipify.org/ || curl -sL https://ipinfo.io/ip)/32" tcp 80 "WEB_ADMIN" force
 
 get_ips > $IP_FILE
 for ip in $(cat $IP_FILE); do

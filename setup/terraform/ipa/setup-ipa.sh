@@ -101,7 +101,7 @@ EOF
 log_status "Setting host and domain names"
 export PRIVATE_IP=$(hostname -I | awk '{print $1}')
 export LOCAL_HOSTNAME=$(hostname -f)
-export PUBLIC_IP=$(curl -s http://ifconfig.me || curl -s http://api.ipify.org/)
+export PUBLIC_IP=$(curl -sL http://ifconfig.me || curl -sL http://api.ipify.org/ || curl -sL https://ipinfo.io/ip)
 export PUBLIC_DNS=ipa.${PUBLIC_IP}.nip.io
 
 sed -i.bak "/${LOCAL_HOSTNAME}/d;/^${PRIVATE_IP}/d;/^::1/d" /etc/hosts

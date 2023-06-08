@@ -722,7 +722,7 @@ function create_certs() {
   openssl genrsa -des3 -out ${KEY_PEM} -passout pass:${KEY_PWD} 2048
 
   # Create CSR
-  local public_ip=$(curl -s http://ifconfig.me || curl -s http://api.ipify.org/)
+  local public_ip=$(curl -sL http://ifconfig.me || curl -sL http://api.ipify.org/ || curl -sL https://ipinfo.io/ip)
   ALT_NAMES=""
   if [[ ! -z ${LOCAL_HOSTNAME:-} ]]; then
     ALT_NAMES="DNS:${LOCAL_HOSTNAME},"
@@ -1272,11 +1272,17 @@ function enable_py3() {
 }
 
 function get_public_ip() {
-  export PUBLIC_IP=$(curl -s http://ifconfig.me || curl -s http://api.ipify.org/)
-  if [[ ! $PUBLIC_IP =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-    echo "ERROR: Could not retrieve public IP for this instance. Probably a transient error. Please try again."
-    exit 1
-  fi
+  local retries=5
+  while [[ $retries -gt 0 ]]; do
+    export PUBLIC_IP=$(curl -sL http://ifconfig.me || curl -sL http://api.ipify.org/ || curl -sL https://ipinfo.io/ip)
+    if [[ $PUBLIC_IP =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+      return
+    fi
+    sleep 5
+    retries=$((retries - 1))
+  done
+  echo "ERROR: Could not retrieve public IP for this instance. Probably a transient error. Please try again."
+  exit 1
 }
 
 function deploy_os_prereqs() {
