@@ -27,9 +27,14 @@ WEB_INSTANCE_LIST_FILE=/tmp/.instance.web.$$
 IPA_INSTANCE_LIST_FILE=/tmp/.instance.ipa.$$
 
 function show_costs() {
+  local cluster_price=0
   local web_price=0
   local ipa_price=0
   local ecs_price=0
+  local cluster_instance_type=$(cluster_instances 0 | cluster_attr instance_type)
+  if [[ $cluster_instance_type != "" ]]; then
+    cluster_price=$(get_instance_hourly_cost $cluster_instance_type)
+  fi
   local web_instance_type=$(web_instance | web_attr instance_type)
   if [[ $web_instance_type != "" ]]; then
     web_price=$(get_instance_hourly_cost $web_instance_type)
@@ -42,9 +47,8 @@ function show_costs() {
   if [[ $ecs_instance_type != "" ]]; then
     ecs_price=$(get_instance_hourly_cost $ecs_instance_type)
   fi
-  local cluster_price=$(get_instance_hourly_cost $TF_VAR_cluster_instance_type)
 
-  if [[ ($web_instance_type == "" || $web_price != "0") && ($ipa_instance_type == "" || $ipa_price != "0") && ($ecs_instance_type == "" || $ecs_price != "0") && $cluster_price != "" ]]; then
+  if [[ ($cluster_instance_type == "" || $cluster_price != "0") && ($web_instance_type == "" || $web_price != "0") && ($ipa_instance_type == "" || $ipa_price != "0") && ($ecs_instance_type == "" || $ecs_price != "0") ]]; then
     echo -e "\nCLOUD COSTS:"
     echo "============"
     printf "%-11s %-15s %3s %15s %15s %15s\n" "Purpose" "Instance Type" "Qty" "Unit USD/Hr" "Total USD/Hr" "Total USD/Day"
@@ -55,9 +59,11 @@ function show_costs() {
       printf "%-11s %-15s %3d %15.4f %15.4f %15.4f\n" "IPA" "$ipa_instance_type" "1" "$ipa_price" "$ipa_price" "$(calc "24*$ipa_price")"
     fi
     if [[ $ecs_instance_type != "" ]]; then
-      printf "%-11s %-15s %3d %15.4f %15.4f %15.4f\n" "ECS" "$ecs_instance_type" "1" "$ecs_price" "$(calc "$TF_VAR_cluster_count*$ecs_price")" "$(calc "24*$TF_VAR_cluster_count*$ecs_price")"
+      printf "%-11s %-15s %3d %15.4f %15.4f %15.4f\n" "ECS" "$ecs_instance_type" "$TF_VAR_cluster_count" "$ecs_price" "$(calc "$TF_VAR_cluster_count*$ecs_price")" "$(calc "24*$TF_VAR_cluster_count*$ecs_price")"
     fi
-    printf "%-11s %-15s %3d %15.4f %15.4f %15.4f\n" "Cluster" "$TF_VAR_cluster_instance_type" "$TF_VAR_cluster_count" "$cluster_price" "$(calc "$TF_VAR_cluster_count*$cluster_price")" "$(calc "24*$TF_VAR_cluster_count*$cluster_price")"
+    if [[ $cluster_instance_type != "" ]]; then
+      printf "%-11s %-15s %3d %15.4f %15.4f %15.4f\n" "Cluster" "$cluster_instance_type" "$TF_VAR_cluster_count" "$cluster_price" "$(calc "$TF_VAR_cluster_count*$cluster_price")" "$(calc "24*$TF_VAR_cluster_count*$cluster_price")"
+    fi
     printf "%-11s %35s %15.4f ${C_BG_MAGENTA}${C_WHITE}%15.4f${C_NORMAL}\n" "GRAND TOTAL" "---------------------------------->" "$(calc "$web_price+$ipa_price+$TF_VAR_cluster_count*$cluster_price+$TF_VAR_cluster_count*$ecs_price")" "$(calc "24*($web_price+$ipa_price+$TF_VAR_cluster_count*$cluster_price+$TF_VAR_cluster_count*$ecs_price)")"
   else
     echo -e "\nUnable to retrieve cloud costs."
@@ -173,10 +179,12 @@ function show_details() {
       echo ""
     fi
 
-    echo "CLUSTER VMS:"
-    echo "============"
-    printf "%-40s %-55s %-15s %-15s %-9s\n" "Cluster Name" "Public DNS Name" "Public IP" "Private IP" "Stoppable"
-    cat ${INSTANCE_LIST_FILE}.$namespace
+    if [[ -s ${INSTANCE_LIST_FILE}.$namespace ]]; then
+      echo "CLUSTER VMS:"
+      echo "============"
+      printf "%-40s %-55s %-15s %-15s %-9s\n" "Cluster Name" "Public DNS Name" "Public IP" "Private IP" "Stoppable"
+      cat ${INSTANCE_LIST_FILE}.$namespace
+    fi
 
     if [[ $show_summary == "no" ]]; then
       show_costs
