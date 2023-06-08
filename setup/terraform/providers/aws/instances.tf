@@ -57,7 +57,7 @@ resource "aws_network_interface" "eni_cluster" {
 resource "aws_eip" "eip_cluster" {
   count    = (var.use_elastic_ip ? var.cluster_count : 0)
   instance = aws_instance.cluster[count.index].id
-  vpc      = true
+  domain   = "vpc"
 
   tags = {
     Name    = "${var.owner}-${var.name_prefix}-cluster-eip-${count.index}"
@@ -113,7 +113,7 @@ resource "aws_network_interface" "eni_web" {
 resource "aws_eip" "eip_web" {
   count    = (var.launch_web_server ? (var.use_elastic_ip ? 1 : 0) : 0)
   instance = aws_instance.web[count.index].id
-  vpc      = true
+  domain   = "vpc"
 
   tags = {
     Name    = "${var.owner}-${var.name_prefix}-web-eip"
@@ -167,7 +167,7 @@ resource "aws_network_interface" "eni_ipa" {
 resource "aws_eip" "eip_ipa" {
   count    = (var.use_ipa ? 1 : 0)
   instance = aws_instance.ipa.0.id
-  vpc      = true
+  domain   = "vpc"
 
   tags = {
     Name    = "${var.owner}-${var.name_prefix}-ipa-eip"
@@ -230,7 +230,7 @@ resource "aws_network_interface" "eni_ecs" {
 resource "aws_eip" "eip_ecs" {
   count    = (var.use_elastic_ip ? (var.pvc_data_services ? var.cluster_count : 0) : 0)
   instance = aws_instance.ecs[count.index].id
-  vpc      = true
+  domain   = "vpc"
 
   tags = {
     Name    = "${var.owner}-${var.name_prefix}-ecs-eip-${count.index}"
