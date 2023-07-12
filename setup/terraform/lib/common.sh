@@ -1286,7 +1286,7 @@ fi
 
 ARGS=("$@")
 # Clean old ip address files
-find $BASE_DIR -name ".hosts.*" -mmin +15 -delete 2>/dev/null
+find $BASE_DIR -name ".hosts.*" -mmin +15 -delete 2>/dev/null || true
 # Caffeine check must be first
 check_for_caffeine "$@"
 ensure_ulimit
