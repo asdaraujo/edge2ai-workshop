@@ -16,9 +16,9 @@ JAVA_PACKAGE_NAME=java-11-openjdk-devel
 MAVEN_BINARY_URL=https://downloads.apache.org/maven/maven-3/3.8.8/binaries/apache-maven-3.8.8-bin.tar.gz
 
 #####  CM
-CM_VERSION=7.9.5
+CM_VERSION=7.7.1
 CM_MAJOR_VERSION=${CM_VERSION%%.*}
-CM_REPO_AS_TARBALL_URL=https://archive.cloudera.com/p/cm7/7.9.5/repo-as-tarball/cm7.9.5-redhat7.tar.gz
+CM_REPO_AS_TARBALL_URL=https://archive.cloudera.com/p/cm7/7.7.1/repo-as-tarball/cm7.7.1-redhat7.tar.gz
 CM_BASE_URL=
 CM_REPO_FILE_URL=
 
@@ -63,12 +63,12 @@ MINIFI_TARBALL_URL=https://archive.cloudera.com/p/CEM/centos7/1.x/updates/1.2.2.
 MINIFITK_TARBALL_URL=https://archive.cloudera.com/p/CEM/centos7/1.x/updates/1.2.2.0/tars/minifi/minifi-toolkit-0.6.0.1.2.2.0-14-bin.tar.gz
 
 #####   CSA
-CSA_VERSION=1.9.0.0
-FLINK_VERSION=1.15.1
-FLINK_BUILD=1.15.1-csa1.9.0.0-cdh7.1.8.0-801-38169064
-CSA_PARCEL_REPO=https://archive.cloudera.com/p/csa/1.9.0.0/parcels/
-FLINK_CSD_URL=https://archive.cloudera.com/p/csa/1.9.0.0/csd/FLINK-1.15.1-csa1.9.0.0-cdh7.1.8.0-801-38169064.jar
-SSB_CSD_URL=https://archive.cloudera.com/p/csa/1.9.0.0/csd/SQL_STREAM_BUILDER-1.15.1-csa1.9.0.0-cdh7.1.8.0-801-38169064.jar
+CSA_VERSION=1.10.0.0
+FLINK_VERSION=1.16.1
+FLINK_BUILD=1.16.1-csa1.10.0.0-cdh7.1.8.0-801-41959971
+CSA_PARCEL_REPO=https://archive.cloudera.com/p/csa/1.10.0.0/parcels/
+FLINK_CSD_URL=https://archive.cloudera.com/p/csa/1.10.0.0/csd/FLINK-1.16.1-csa1.10.0.0-cdh7.1.8.0-801-41959971.jar
+SSB_CSD_URL=https://archive.cloudera.com/p/csa/1.10.0.0/csd/SQL_STREAM_BUILDER-1.16.1-csa1.10.0.0-cdh7.1.8.0-801-41959971.jar
 
 # Parcels to be pre-downloaded during install.
 # Cloudera Manager will download any parcels that are not already downloaded previously.
