@@ -188,7 +188,7 @@ EOF
       tar -zxf $CEM_TARBALL_PATH -C /opt/cloudera/cem
       rm -f $CEM_TARBALL_PATH
     else
-      for url in ${EFM_TARBALL_URL:-} ${MINIFI_TARBALL_URL:-}; do
+      for url in ${EFM_TARBALL_URL:-} ${MINIFI_TARBALL_URL:-} ${MINIFI_EXTRA_TARBALL_URL:-}; do
         TARBALL_NAME=$(basename ${url%%\?*})
         TARBALL_PATH=/opt/cloudera/cem/${TARBALL_NAME}
         paywall_wget "$url" "$TARBALL_PATH"
@@ -243,6 +243,28 @@ EOF
 
         # Disabling services here for packer images - will reenable later
         systemctl disable minifi
+      fi
+
+      CPP_MINIFI_EXTRA_TARBALL=$(find /opt/cloudera/cem/ -name "nifi-minifi-cpp-*-extra-extensions*.tar.gz" | sort | tail -1)
+      if [[ ${CPP_MINIFI_EXTRA_TARBALL:-} != "" ]]; then
+        log_status "Installing and configuring Python extension for MiNiFi CPP"
+        TMP_LIB_DIR=/tmp/minifi-libs.$$
+        rm -rf $TMP_LIB_DIR
+        mkdir -p $TMP_LIB_DIR
+        tar -zxf ${CPP_MINIFI_EXTRA_TARBALL} -C $TMP_LIB_DIR
+        cp -f $TMP_LIB_DIR/extra-extensions/{libminifi-script-extension.so,libminifi-python-script-extension.so} /opt/cloudera/cem/minifi/extensions
+        rm -rf /opt/cloudera/cem/minifi/minifi-python/{examples,google,h2o}
+        rm -rf $TMP_LIB_DIR
+
+        # Ensure MiNiFi uses Python 3.8 instead of the default system version (3.6)
+        sed -i 's#export MINIFI_HOME#source /opt/rh/rh-python38/enable\nexport MINIFI_HOME#' /etc/rc.d/init.d/minifi
+        systemctl daemon-reload
+        yum -y install --enablerepo=epel patchelf
+        patchelf /opt/cloudera/cem/minifi/extensions/libminifi-python-script-extension.so --replace-needed libpython3.so libpython3.8.so
+
+        # Install needed modules
+        source /opt/rh/rh-python38/enable
+        pip install numpy pandas scikit-learn==1.1.1 xgboost==1.6.2
       fi
     fi
   fi
