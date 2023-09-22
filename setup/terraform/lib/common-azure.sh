@@ -13,6 +13,7 @@ AVAILABLE_SCRIPTS=(
   manage-instances
   manage-ip
   open-registration
+  rsync-resources
   run-on-all-clusters
   run-on-cluster
   start-instances

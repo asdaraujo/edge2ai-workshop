@@ -98,14 +98,21 @@ if [[ ! -f $PREINSTALL_COMPLETED_FLAG ]]; then
       fi
       rm -f $CM_REPO_AS_TARBALL_FILE
 
+      KEYS_FILE=/var/www/html/${CM_REPO_ROOT_DIR%/}/allkeys.asc
       if [[ $CM_MAJOR_VERSION != 5 ]]; then
         # In some versions the allkeys.asc file is missing from the repo-as-tarball
-        KEYS_FILE=/var/www/html/${CM_REPO_ROOT_DIR}/allkeys.asc
         if [ ! -f "$KEYS_FILE" ]; then
           KEYS_URL="$(dirname "$(dirname "$CM_REPO_AS_TARBALL_URL")")/allkeys.asc"
           paywall_wget "$KEYS_URL" "$KEYS_FILE"
         fi
       fi
+
+#      KEYS_FILE_SHA256=/var/www/html/${CM_REPO_ROOT_DIR%/}/allkeyssha256.asc
+#      if [[ ! -f $KEYS_FILE_SHA256 ]]; then
+#        # If allkeyssha256.asc is missing, link it to allkeys.asc
+#        ln -s $KEYS_FILE $KEYS_FILE_SHA256
+#      fi
+
       touch $CM_DOWNLOADED_FILE
 
       cat > $CM_REPO_FILE <<EOF
@@ -122,6 +129,13 @@ EOF
       yum makecache -y || true
       yum repolist
     fi
+  fi
+
+  # Install Java after seting CM repo, in case we're sourcing Java from there
+  log_status "Installing JDK package ${JAVA_PACKAGE_NAME}"
+  yum_install ${JAVA_PACKAGE_NAME}
+  if ! javac; then
+    set_java_alternatives
   fi
 
   log_status "Installing Postgresql repo"
@@ -165,6 +179,7 @@ EOF
   rm -f /usr/bin/python3 /usr/bin/pip3
   ln -s /opt/rh/rh-python38/root/bin/python3 /usr/bin/python3
   ln -s /opt/rh/rh-python38/root/bin/pip3 /usr/bin/pip3
+  ln -s /opt/rh/rh-python38/root/usr/bin/python3.8 /usr/local/bin/python3.8
 
   log_status "Installing JDBC connector"
   cp /usr/share/java/postgresql-jdbc.jar /usr/share/java/postgresql-connector-java.jar

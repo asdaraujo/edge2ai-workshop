@@ -774,7 +774,7 @@ EOF
     ipa cert-request ${CSR_PEM} --principal=host/$(hostname -f)
     echo -e "-----BEGIN CERTIFICATE-----\n$(ipa host-find $(hostname -f) | grep Certificate: | tail -1 | awk '{print $NF}')\n-----END CERTIFICATE-----" | openssl x509 > ${HOST_PEM}
 
-    # Wait for IP to be ready and download IPA cert
+    # Wait for IPA to be ready and download IPA cert
     mkdir -p $(dirname $ROOT_PEM)
     wait_for_ipa "$ipa_host"
     curl -s -o $ROOT_PEM -w "%{http_code}" "http://${ipa_host}/ca.crt"
@@ -1031,7 +1031,7 @@ function get_service_urls() {
       fi
       if [[ ${HAS_FLINK:-0} == 1 ]]; then
         local flink_version=$(jq -r '.products[] | select(.product == "FLINK").version' $tmp_template_file | sed 's/.*csa//;s/-.*//;s/[a-z]//g')
-        local is_ge_17=$([[ $(echo -e "1.7.0.0\n$flink_version" | sort -t. -k1n -k2n -k3n -k4n | head -1) == "1.7.0.0" ]] && echo yes || echo no)
+        local is_ge_17=$([[ $(echo -e "1.7.0.0\n$flink_version" | sort -V | head -1) == "1.7.0.0" ]] && echo yes || echo no)
         local flink_port=$(service_port $tmp_template_file FLINK FLINK_HISTORY_SERVER historyserver_web_port)
         echo "FLINK=Flink Dashboard=${protocol}://{host}:${flink_port}/"
         local ssb_port=""
@@ -1314,7 +1314,7 @@ function deploy_os_prereqs() {
   fi
 
   log_status "Installing base dependencies"
-  yum_install ${JAVA_PACKAGE_NAME} vim wget curl git bind-utils figlet cowsay jq rng-tools
+  yum_install vim wget curl git bind-utils figlet cowsay jq rng-tools
   # For troubleshooting purposes, when needed
   yum_install sysstat strace iotop lsof
 }
@@ -1402,7 +1402,7 @@ net.ipv6.conf.default.disable_ipv6 = 1
 net.ipv6.conf.lo.disable_ipv6 = 1
 EOF
   sysctl -p
-  timedatectl set-timezone UTC
+  timedatectl set-timezone UTC || true
 
   log_status "Disabling firewalls"
   iptables-save > $BASE_DIR/firewall.rules
@@ -1769,5 +1769,57 @@ function wait_for_parcel_state() {
   if [[ $stage != "$final_state" ]]; then
     echo "ERROR: Failed to process parcel $product $build. Current state: $stage"
     return 1
+  fi
+}
+
+function set_java_alternatives() {
+  local link_dir=/usr/bin
+  local java_home=$(ls -1d /usr/java/*-cloudera 2>/dev/null| sort | tail -1 || true)
+  if [[ $java_home != "" && -d $java_home ]]; then
+    local jre_dir=$java_home/jre/bin
+    local jdk_dir=$java_home/bin
+    
+    sudo alternatives --install $link_dir/java java $jre_dir/java 20000  \
+      --slave $link_dir/keytool     keytool     $jre_dir/keytool         \
+      --slave $link_dir/orbd        orbd        $jre_dir/orbd            \
+      --slave $link_dir/pack200     pack200     $jre_dir/pack200         \
+      --slave $link_dir/rmid        rmid        $jre_dir/rmid            \
+      --slave $link_dir/rmiregistry rmiregistry $jre_dir/rmiregistry     \
+      --slave $link_dir/servertool  servertool  $jre_dir/servertool      \
+      --slave $link_dir/tnameserv   tnameserv   $jre_dir/tnameserv       \
+      --slave $link_dir/unpack200   unpack200   $jre_dir/unpack200       \
+      --slave $link_dir/jcontrol    jcontrol    $jre_dir/jcontrol        \
+      --slave $link_dir/javaws      javaws      $jre_dir/javaws
+    
+    sudo alternatives --install $link_dir/javac javac $jdk_dir/javac 20000  \
+      --slave $link_dir/appletviewer appletviewer $jdk_dir/appletviewer     \
+      --slave $link_dir/apt          apt          $jdk_dir/apt              \
+      --slave $link_dir/extcheck     extcheck     $jdk_dir/extcheck         \
+      --slave $link_dir/idlj         idlj         $jdk_dir/idlj             \
+      --slave $link_dir/jar          jar          $jdk_dir/jar              \
+      --slave $link_dir/jarsigner    jarsigner    $jdk_dir/jarsigner        \
+      --slave $link_dir/javadoc      javadoc      $jdk_dir/javadoc          \
+      --slave $link_dir/javah        javah        $jdk_dir/javah            \
+      --slave $link_dir/javap        javap        $jdk_dir/javap            \
+      --slave $link_dir/jcmd         jcmd         $jdk_dir/jcmd             \
+      --slave $link_dir/jconsole     jconsole     $jdk_dir/jconsole         \
+      --slave $link_dir/jdb          jdb          $jdk_dir/jdb              \
+      --slave $link_dir/jhat         jhat         $jdk_dir/jhat             \
+      --slave $link_dir/jinfo        jinfo        $jdk_dir/jinfo            \
+      --slave $link_dir/jmap         jmap         $jdk_dir/jmap             \
+      --slave $link_dir/jps          jps          $jdk_dir/jps              \
+      --slave $link_dir/jrunscript   jrunscript   $jdk_dir/jrunscript       \
+      --slave $link_dir/jsadebugd    jsadebugd    $jdk_dir/jsadebugd        \
+      --slave $link_dir/jstack       jstack       $jdk_dir/jstack           \
+      --slave $link_dir/jstat        jstat        $jdk_dir/jstat            \
+      --slave $link_dir/jstatd       jstatd       $jdk_dir/jstatd           \
+      --slave $link_dir/native2ascii native2ascii $jdk_dir/native2ascii     \
+      --slave $link_dir/policytool   policytool   $jdk_dir/policytool       \
+      --slave $link_dir/rmic         rmic         $jdk_dir/rmic             \
+      --slave $link_dir/schemagen    schemagen    $jdk_dir/schemagen        \
+      --slave $link_dir/serialver    serialver    $jdk_dir/serialver        \
+      --slave $link_dir/wsgen        wsgen        $jdk_dir/wsgen            \
+      --slave $link_dir/wsimport     wsimport     $jdk_dir/wsimport         \
+      --slave $link_dir/xjc          xjc          $jdk_dir/xjc
   fi
 }

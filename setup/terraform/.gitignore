@@ -21,7 +21,7 @@
 .smm
 .terraform/
 .terraform.lock.hcl
-.test.env.template
+.test.env.template*
 .tf.json*
 .web.key.file.name
 NO_VERSION_CHECK

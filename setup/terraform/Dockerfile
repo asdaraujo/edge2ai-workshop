@@ -1,4 +1,4 @@
-FROM golang:alpine
+FROM golang:1.21.0-alpine3.18
 
 LABEL maintainer="Andre Araujo <araujo@cloudera.com>"
 LABEL site="https://github.com/asdaraujo/edge2ai-workshop/tree/master/setup"
@@ -34,14 +34,17 @@ RUN wget https://releases.hashicorp.com/terraform/${TERRAFORM12VERSION}/terrafor
 RUN apk --no-cache add \
         binutils \
         curl \
+    && mkdir -p /downloads \
     && curl -sL https://alpine-pkgs.sgerrand.com/sgerrand.rsa.pub -o /etc/apk/keys/sgerrand.rsa.pub \
-    && curl -sLO https://github.com/sgerrand/alpine-pkg-glibc/releases/download/${GLIBC_VER}/glibc-${GLIBC_VER}.apk \
-    && curl -sLO https://github.com/sgerrand/alpine-pkg-glibc/releases/download/${GLIBC_VER}/glibc-bin-${GLIBC_VER}.apk \
-    && curl -sLO https://github.com/sgerrand/alpine-pkg-glibc/releases/download/${GLIBC_VER}/glibc-i18n-${GLIBC_VER}.apk \
-    && apk add --no-cache \
-        glibc-${GLIBC_VER}.apk \
-        glibc-bin-${GLIBC_VER}.apk \
-        glibc-i18n-${GLIBC_VER}.apk \
+    && curl -sL https://github.com/sgerrand/alpine-pkg-glibc/releases/download/${GLIBC_VER}/glibc-${GLIBC_VER}.apk -o /downloads/glibc-${GLIBC_VER}.apk \
+    && curl -sL https://github.com/sgerrand/alpine-pkg-glibc/releases/download/${GLIBC_VER}/glibc-bin-${GLIBC_VER}.apk -o /downloads/glibc-bin-${GLIBC_VER}.apk \
+    && curl -sL https://github.com/sgerrand/alpine-pkg-glibc/releases/download/${GLIBC_VER}/glibc-i18n-${GLIBC_VER}.apk -o /downloads/glibc-i18n-${GLIBC_VER}.apk \
+    && apk add --no-cache --force-overwrite \
+        /downloads/glibc-${GLIBC_VER}.apk \
+        /downloads/glibc-bin-${GLIBC_VER}.apk \
+        /downloads/glibc-i18n-${GLIBC_VER}.apk \
+    && rm /usr/glibc-compat/lib/ld-linux-x86-64.so.2 \
+    && /usr/glibc-compat/sbin/ldconfig \
     && /usr/glibc-compat/bin/localedef -i en_US -f UTF-8 en_US.UTF-8 \
     && curl -sL https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip \
     && unzip awscliv2.zip \
@@ -52,7 +55,7 @@ RUN apk --no-cache add \
         /usr/local/aws-cli/v2/current/dist/aws_completer \
         /usr/local/aws-cli/v2/current/dist/awscli/data/ac.index \
         /usr/local/aws-cli/v2/current/dist/awscli/examples \
-        glibc-*.apk \
+        /downloads/glibc-*.apk \
     && apk --no-cache del \
         binutils \
     && rm -rf /var/cache/apk/*
@@ -65,7 +68,7 @@ RUN which python || ln -s $(which python3) /usr/bin/python
 
 # Azure CLI
 RUN apk add --no-cache -q --virtual=build gcc musl-dev python3-dev libffi-dev openssl-dev cargo make \
-     && pip install --no-cache-dir azure-cli==2.28.0 -q \
+     && pip install --no-cache-dir azure-cli==2.52.0 -q \
      && apk del --purge build
 
 WORKDIR /edge2ai-workshop/setup/terraform
