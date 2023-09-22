@@ -1,3 +1,5 @@
+:hash_symbol: #
+
 = Streams Replication
 
 NOTE: This lab assumes that the link:streaming.adoc[From Edge to Streams Processing] has been completed. If you haven't, please ask your instructor to set your cluster state for you.
@@ -6,7 +8,7 @@ In this workshop you will use Streams Replication Manager (SRM) to replicate Kaf
 
 The labs in this workshop will require two clusters so that we can configure replication between them. If you were assigned two clusters by your instructor, you can perform all the configuration yourself. Otherwise, please pair up with another workshop attended and work together to configure replication between your individual clusters.
 
-We will refer to the two clusters as *Cluster A* and *Cluster B*, throughout the labs and will use the aliases `cluster_a` and `cluster_b`, respectively, throughout the exercises. These aliases can be changed to suit your needs/preferences (e.g. you could use `nyc` and `paris`, as long as you maintain consistency across all exercises).
+We will refer to the two clusters as *Cluster A* and *Cluster B*, throughout the labs and will use the aliases `cluster_a` and `cluster_b`, respectively, throughout the exercises. These aliases can be changed to suit your needs/preferences (e.g. you could use `nyc` and `paris`, as long as you maintain consistency across all exercises). We will also use `CLUSTER_A_FQDN` and `CLUSTER_B_FQDN` to refer to the fully-qualified domain name for cluster A and B hostnames, respectively.
 
 While one SRM cluster can replicate both ways, we will implement the best practice for this type of replication, which consists of Remote Reads and Local Writes. Hence, SRM in Cluster A will replicate messages from Cluster B to Cluster A and vice-versa.
 
@@ -30,14 +32,55 @@ image::images/srm_architecture.png[width=600]
 
 == Labs summary
 
-* *Lab 1* - Install the Streams Replication Manager (SRM) service
-* *Lab 2* - Tuning the SRM service
-* *Lab 3* - Configure replication monitoring
-* *Lab 4* - Enable Kafka Replication with SRM
-* *Lab 5* - Failing over consumers
+* *Lab 1* - Register an External Account for the peer Kafka cluster
+* *Lab 2* - Install the Streams Replication Manager (SRM) service
+* *Lab 3* - Tuning the SRM service
+* *Lab 4* - Configure replication monitoring
+* *Lab 5* - Enable Kafka Replication with SRM
+* *Lab 6* - Failing over consumers
 
 [[lab_1, Lab 1]]
-== Lab 1 - Install the *Streams Replication Manager (SRM)* service
+== Lab 1 - Register an External Account for the peer Kafka cluster
+
+NOTE: Run on *both clusters*
+
+SRM needs credentials to connect to the Kafka clusters involved in replication flows. Access to the cluster that is collocated with SRM is handled automatically in a CDP deployment and typically used Kerberos credentials (in secure clusters). There's no need to provide additional credentials for the local Kafka cluster.
+
+Connecting to the remote cluster(s), though, require proper credentials to be provided. We recommend that you use LDAP credentials in this case, which makes configuration and integration much simpler than when using Kerberos.
+
+In this lab you will register the peer Kafka cluster as an External Account in Cloudera Manager. The External Account has all the information required for SRM to connect to the remote cluster.
+
+. In Cloudera Manager, click on *Administration > External Accounts*.
+. Click on the *Kafka Credentials* tab and then on the *Add Kafka Credentials* button.
+
++
+[cols=".^1s,^.^1a,^.^1a",options="header"]
+|===
+| Property | On Cluster A | On Cluster B
+| Name | `cluster_b` | `cluster_a`
+| Bootstrap Servers | `<CLUSTER_B_FQDN>:9092` | `<CLUSTER_A_FQDN>:9092`
+| Security Protocol 2+| `PLAINTEXT`
+|===
+
+. If you are using secure clusters, with TLS and authentication enabled, add (or update) the following properties:
++
+[cols=".^1s,^.^1a,^.^1a",options="header"]
+|===
+| Property | On Cluster A | On Cluster B
+| Bootstrap Servers | `<CLUSTER_B_FQDN>:9093` | `<CLUSTER_A_FQDN>:9093`
+| Security Protocol 2+| `SASL_SSL`
+| SASL Mechanism 2+| `PLAIN`
+| JAAS Template 2+| `org.apache.kafka.common.security.plain.PlainLoginModule required username="admin" password="{hash_symbol}{hash_symbol}JAAS_SECRET_1{hash_symbol}{hash_symbol}";`
+
+NOTE: `{hash_symbol}{hash_symbol}JAAS_SECRET_1{hash_symbol}{hash_symbol}` is a literal string. It will be replaced with the content of the "JAAS Secret 1" property at runtime.
+| JAAS Secret 1 2+| `Supersecret1`
+| Truststore Password 2+| `Supersecret1`
+| Truststore Path 2+| `/opt/cloudera/security/jks/truststore.jks`
+| Truststore Type 2+| `JKS`
+|===
+
+[[lab_2, Lab 2]]
+== Lab 2 - Install the *Streams Replication Manager (SRM)* service
 
 NOTE: Run on *both clusters*
 
@@ -53,70 +96,67 @@ image::images/add_service.png[width=800]
 +
 image::images/select_dependencies.png[width=800]
 
-. On the *Assign Roles* page, leave the selected defaults as is and click *Continue*
+. On the *Assign Roles* page, assign the following roles to your cluster node and click *Continue*
++
+* SRM Driver
+* SRM Service
 
 . On the *Review Changes* page set the following properties:
 +
-NOTE: Replace the `CLUSTER_A_FQDN` and `CLUSTER_B_FQDN` placeholders in the values below with the fully-qualified domain name for clusters A and B, respectively. You can use the fully-qualified host names you get for your clusters in the workshop landing page.
+[cols=".^1s,^.^1a,^.^1a",options="header"]
+|===
+| Property | On Cluster A | On Cluster B
+3+^.| _Service-wide properties_
+| External Kafka Accounts | `cluster_b` | `cluster_a`
+| Streams Replication Manager Co-located Kafka Cluster Alias | `cluster_a` | `cluster_b`
+| Streams Replication Manager Cluster alias 2+| `cluster_a,cluster_b`
+.8+| *Streams Replication Manager's Replication Configs*
 
-.. On *_Cluster A only_*:
+(click the "`+`" button on the right to add each property separately)
+| `cluster_b\->cluster_a.enabled=true` | `cluster_a\->cluster_b.enabled=true`
+2+^.| `replication.factor=1`
+2+^.| `heartbeats.topic.replication.factor=1`
+2+^.| `checkpoints.topic.replication.factor=1`
+2+^.| `offset-syncs.topic.replication.factor=1`
+2+^.| `offset.storage.replication.factor=1`
+2+^.| `config.storage.replication.factor=1`
+2+^.| `status.storage.replication.factor=1`
+| Metrics Topics Replication Factor 2+| 1
+| SRM Control Topics Replication Factor 2+| 1
+3+^.| _SRM Service properties_
+| Streams Replication Manager Service Target Cluster | `cluster_a` | `cluster_b`
+| SRM Service Advertisement Topics Replication Factor For Remote Queries 2+| 1
+| Streams Applications Internal Topics Replication Factor 2+| 1
+3+^.| _SRM Driver properties_
+| Streams Replication Manager Driver Target Cluster | `cluster_a` | `cluster_b`
+3+^.| _Gateway properties_
+| Streams Replication Manager Driver Target Cluster 2+| `Supersecret1`
+| Gateway TLS/SSL Trust Store File 2+| `/opt/cloudera/security/jks/truststore.jks`
+
+NOTE: Only for secure clusters
+| Gateway TLS/SSL Trust Store Password 2+| `Supersecret1`
+
+NOTE: Only for secure clusters
+|===
 +
-[cols=2,options="header"]
-|===
-| Property | value
-| *Streams Replication Manager Cluster alias* | `cluster_a, cluster_b`
-.11+| *Streams Replication Manager's Replication Configs*
-
-(click the "`+`" button to separately add each property on the right)
-| `cluster_a.bootstrap.servers=<CLUSTER_A_FQDN>:9092`
-| `cluster_b.bootstrap.servers=<CLUSTER_B_FQDN>:9092`
-| `cluster_b\->cluster_a.enabled=true`
-| `replication.factor=1`
-| `heartbeats.topic.replication.factor=1`
-| `checkpoints.topic.replication.factor=1`
-| `offset-syncs.topic.replication.factor=1`
-| `offset.storage.replication.factor=1`
-| `config.storage.replication.factor=1`
-| `status.storage.replication.factor=1`
-| `metrics.topic.replication.factor=1`
-| *Streams Replication Manager Driver Target Cluster* | `cluster_a`
-| *Streams Replication Manager Service Target Cluster* | `cluster_a`
-|===
-
-.. On *_Cluster B only_*:
-+
-[%autowidth,cols=2,options="header"]
-|===
-| Property | Value
-| *Streams Replication Manager Cluster alias* | `cluster_a, cluster_b`
-.11+| *Streams Replication Manager's Replication Configs*
-
-(click the "`+`" button to separately add each property on the right)
-| `cluster_a.bootstrap.servers=<CLUSTER_A_FQDN>:9092`
-| `cluster_b.bootstrap.servers=<CLUSTER_B_FQDN>:9092`
-| `cluster_a\->cluster_b.enabled=true`
-| `replication.factor=1`
-| `heartbeats.topic.replication.factor=1`
-| `checkpoints.topic.replication.factor=1`
-| `offset-syncs.topic.replication.factor=1`
-| `offset.storage.replication.factor=1`
-| `config.storage.replication.factor=1`
-| `status.storage.replication.factor=1`
-| `metrics.topic.replication.factor=1`
-| *Streams Replication Manager Driver Target Cluster* | `cluster_b`
-| *Streams Replication Manager Service Target Cluster* | `cluster_b`
-|===
+NOTE: The multiple replication factor properties above are only necessary because the workshop cluster has a single node. The values for these properties don't need to be changed for normal deployments.
 
 . Click *Continue* once all the properties are set correctly
 
-. Wait for the *First Run Command* to finish and click *Continue*
-
 . Click *Finish*
+
+. Click on the *Streams Replication Manager* service and then on *Configuration*. Set the following property and *Save Changes*:
++
+[cols=".^1s,^.^1a,^.^1a",options="header"]
+|===
+| Property | On Cluster A | On Cluster B
+| SRM Client's Secure Storage Password 2+| `Supersecret1`
+|===
 
 You now have a working Streams Replication Manager service!
 
-[[lab_2, Lab 2]]
-== Lab 2 - Tune the *Streams Replication Manager (SRM)* service
+[[lab_3, Lab 3]]
+== Lab 3 - Tune the *Streams Replication Manager (SRM)* service
 
 NOTE: Run on *both clusters*
 
@@ -126,22 +166,22 @@ The SRM service comes configured with some default refresh intervals that are us
 . On the search box, type "*interval*" to filter the configuration properties
 . Set the following properties:
 +
-[%autowidth,cols=2,options="header"]
+[cols=".^1s,^.^1a,^.^1a",options="header"]
 |===
-| Property | Value
-| *Refresh Topics Interval Seconds* | `30 seconds`
-| *Refresh Groups Interval Seconds* | `30 seconds`
-| *Sync Topic Configs Interval Seconds* | `30 seconds`
+| Property | On Cluster A | On Cluster B
+| Refresh Topics Interval Seconds 2+| `30 seconds`
+| Refresh Groups Interval Seconds 2+| `30 seconds`
+| Sync Topic Configs Interval Seconds 2+| `30 seconds`
 |===
 
 . Click on *Save Changes*
 
 . Click on *Actions > Deploy Client Configuration* and wait for the client configuration deployment to finish.
 
-. Click on *Actions > Restart* and wait for the service restart to finish.
+. Click on *Actions > Start* and wait for the service restart to finish.
 
-[[lab_3, Lab 3]]
-== Lab 3 - Configure replication monitoring
+[[lab_4, Lab 4]]
+== Lab 4 - Configure replication monitoring
 
 NOTE: Run on *both* clusters
 
@@ -151,13 +191,10 @@ In this lab we will configure Streams Messaging Manager (SMM) to monitor the Kaf
 . On the search box, type "*replication*" to filter the configuration properties
 . Set the following properties for the service:
 +
-[%autowidth,cols=2,options="header"]
+[cols=".^1s,^.^1a,^.^1a",options="header"]
 |===
-| Property | value
-| *Configure Streams Replication Manager* | `Checked`
-| *Streams Replication Manager Rest Protocol* | `http`
-| *Streams Replication Manager Rest Host* | `<FQDN_of_SRM_Service_host>`
-| *Streams Replication Manager Rest Port* | `6670`
+| Property | On Cluster A | On Cluster B
+| STREAMS_REPLICATION_MANAGER Service 2+| Check the "Streams Replication Manager" option
 |===
 
 . Click on *Save Changes*
@@ -178,14 +215,16 @@ Note that, so far, only the `heartbeats` topic is being replicated. In the next 
 
 TIP: If the replication appears as *INACTIVE* at any point in time, please wait a few seconds and refresh the screen.
 
-[[lab_4, Lab 4]]
-== Lab 4 - Enable Kafka Replication with Streams Replication Manager (SRM)
+[[lab_5, Lab 5]]
+== Lab 5 - Enable Kafka Replication with Streams Replication Manager (SRM)
 
 NOTE: Run on the clusters indicated in the steps instructions
 
 In this lab, we will enable Active-Active replication where messages produced in Cluster A are replicated to Cluster B, and messages produced in Cluster B are replicated to Cluster A.
 
-SRM has a _whitelist_ and a _blacklist_ for topics. Only topics that are in the whitelist _but not_ in the blacklist are replicated. The administrator can selectively control which topics to replicate but managing those lists. The same applies to consumer groups offset replication.
+SRM has a _whitelist_ and a _blacklist_ for topics. Only topics that are in the whitelist _but not_ in the blacklist are replicated. The administrator can selectively control which topics to replicate but managing those lists. The same applies to consumer groups offset replication. These lists are managed from the command line, using the `srm-control` tool.
+
+You will first set up the replication from Cluster A to Cluster B. Once finished, repeat the same steps in the other direction, replacing `cluster_a` with `cluster_b` in the instructions below and vice-versa.
 
 . *Cluster A*: To prepare for the activities in this lab, let's first create a new Kafka topic using SMM. On the SMM Web UI, click on the *Topics* icon (image:images/topics_icon.png[width=25])` on the left-hand side menu, then *Add New* button, and add the following properties:
 +
