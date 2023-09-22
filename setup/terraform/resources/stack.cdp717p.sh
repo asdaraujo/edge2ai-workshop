@@ -10,23 +10,25 @@ ENABLE_KERBEROS=no
 ENABLE_TLS=no
 
 #####  Java Package
-JAVA_PACKAGE_NAME=java-1.8.0-openjdk-devel
+JAVA_PACKAGE_NAME=java-11-openjdk-devel
 
 ##### Maven binary
-MAVEN_BINARY_URL=https://downloads.apache.org/maven/maven-3/3.8.8/binaries/apache-maven-3.8.8-bin.tar.gz
+MAVEN_BINARY_URL=https://downloads.apache.org/maven/maven-3/3.9.4/binaries/apache-maven-3.9.4-bin.tar.gz
 
 #####  CM
 CM_VERSION=7.6.1
+_CM_BUILD_PATH=${CM_VERSION}
 CM_MAJOR_VERSION=${CM_VERSION%%.*}
-CM_REPO_AS_TARBALL_URL=https://archive.cloudera.com/p/cm7/7.6.1/repo-as-tarball/cm7.6.1-redhat7.tar.gz
+CM_REPO_AS_TARBALL_URL=https://archive.cloudera.com/p/cm${CM_MAJOR_VERSION}/${_CM_BUILD_PATH}/repo-as-tarball/cm${CM_VERSION}-redhat7.tar.gz
 CM_BASE_URL=
 CM_REPO_FILE_URL=
 
 #####  CDH
 CDH_VERSION=7.1.7
-CDH_BUILD=7.1.7-1.cdh7.1.7.p1000.24102687
+CDH_BUILD=${CDH_VERSION}-1.cdh${CDH_VERSION}.p1000.24102687
+_CDH_BUILD_PATH=${CDH_VERSION}.1000
 CDH_MAJOR_VERSION=${CDH_VERSION%%.*}
-CDH_PARCEL_REPO=https://archive.cloudera.com/p/cdh7/7.1.7.1000/parcels/
+CDH_PARCEL_REPO=https://archive.cloudera.com/p/cdh${CDH_MAJOR_VERSION}/${_CDH_BUILD_PATH}/parcels/
 
 #####  CFM
 CFM_VERSION=2.1.3.0
@@ -47,8 +49,8 @@ ANACONDA_PARCEL_REPO=https://repo.anaconda.com/pkgs/misc/parcels/
 # If version is set, install will be attempted
 CDSW_VERSION=1.10.0
 CDSW_BUILD=1.10.0.p1.19362179
-CDSW_PARCEL_REPO=https://archive.cloudera.com/p/cdsw1/1.10.0/parcels/
-CDSW_CSD_URL=https://archive.cloudera.com/p/cdsw1/1.10.0/csd/CLOUDERA_DATA_SCIENCE_WORKBENCH-CDPDC-1.10.0.jar
+CDSW_PARCEL_REPO=https://archive.cloudera.com/p/cdsw1/${CDSW_VERSION}/parcels/
+CDSW_CSD_URL=https://archive.cloudera.com/p/cdsw1/${CDSW_VERSION}/csd/CLOUDERA_DATA_SCIENCE_WORKBENCH-CDPDC-${CDSW_VERSION}.jar
 
 #####  CEM
 CEM_VERSION=1.2.2.0
@@ -72,15 +74,15 @@ SSB_CSD_URL=https://archive.cloudera.com/p/csa/1.7.0.1/csd/SQL_STREAM_BUILDER-1.
 
 # Parcels to be pre-downloaded during install.
 # Cloudera Manager will download any parcels that are not already downloaded previously.
-PARCEL_URLS=(
+CDP_PARCEL_URLS=(
   hadoop         "$CDH_BUILD"                         "$CDH_PARCEL_REPO"
   nifi           "$CFM_BUILD"                         "$CFM_PARCEL_REPO"
   cdsw           "$CDSW_BUILD"                        "$CDSW_PARCEL_REPO"
-  Anaconda       "$ANACONDA_VERSION"                  "$ANACONDA_PARCEL_REPO"
+  Anaconda3      "$ANACONDA_VERSION"                  "$ANACONDA_PARCEL_REPO"
   flink          "$FLINK_BUILD"                       "$CSA_PARCEL_REPO"
 )
 
-CSD_URLS=(
+CDP_CSD_URLS=(
   $CFM_NIFI_CSD_URL
   $CFM_NIFIREG_CSD_URL
   $CDSW_CSD_URL
