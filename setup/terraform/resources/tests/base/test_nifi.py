@@ -22,12 +22,14 @@ def test_data_flowing():
 def test_nifi_bulletins():
     bulletins = [b for b in canvas.get_bulletin_board().bulletin_board.bulletins if b.bulletin]
     with exception_context(bulletins):
+        # Ignore bulletins from Default Atlas Reporting Task to avoid some transient authentication errors
         assert [] == \
             ['Bulletin: Time: {}, Level: {}, Source: {}, Node: {}, Message: [{}]'.format(
                 b.timestamp, b.bulletin.level if b.bulletin else 'UNKNOWN',
                 b.bulletin.source_name if b.bulletin else b.source_id,
                 b.node_address, b.bulletin.message if b.bulletin else 'UNKNOWN')
-             for b in sorted(bulletins, key=lambda x: x.id)]
+             for b in sorted(bulletins, key=lambda x: x.id)
+                if not b.bulletin or b.bulletin.source_name != 'Default Atlas Reporting Task']
 
 
 @retry_test(max_retries=10, wait_time_secs=5)

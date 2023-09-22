@@ -1460,7 +1460,7 @@ class FraudWorkshop(AbstractWorkshop):
         Return True is the workshop is runnable (i.e. all the necessary prerequisites are satisfied).
         This method can be overriden to check for necessary prerequisites.
         """
-        return ssb.is_ssb_installed() and ssb.is_csa16_or_later()
+        return cdsw.is_cdsw_installed() and ssb.is_ssb_installed() and ssb.is_csa16_or_later()
 
     def before_setup(self):
         self.context.root_pg = nf.set_environment()

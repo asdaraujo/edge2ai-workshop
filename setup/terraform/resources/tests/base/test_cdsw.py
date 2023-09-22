@@ -3,6 +3,7 @@
 """
 Testing CDSW
 """
+import pytest
 import requests
 from ...labs import exception_context
 from ...labs.utils import cdsw
@@ -14,6 +15,7 @@ MODEL_API_REQUEST = {'feature': '0, 65, 0, 137, 21.95, 83, 19.42, 111, 9.4, 6, 3
 MODEL_API_RESPONSE = {'result': 1}
 
 
+@pytest.mark.skipif(not cdsw.is_cdsw_installed(), reason='CDSW is not installed')
 def test_cdsw_model_existence():
     model = cdsw.get_model()
     with exception_context(model):
@@ -30,12 +32,14 @@ def test_cdsw_model_existence():
         assert model.get('project', {}).get('id', -1) == cdsw.get_project().get('id', -2)
 
 
+@pytest.mark.skipif(not cdsw.is_cdsw_installed(), reason='CDSW is not installed')
 def test_cdsw_project_existence():
     project = cdsw.get_project()
     with exception_context(project):
         assert project.get('id', 0) > 0
 
 
+@pytest.mark.skipif(not cdsw.is_cdsw_installed(), reason='CDSW is not installed')
 def test_cdsw_api_key_operations():
     num_keys_before = len(cdsw.get_model_api_keys())
     api_key = cdsw.create_model_api_key(return_object=True)
@@ -52,6 +56,7 @@ def test_cdsw_api_key_operations():
         assert num_keys_after_delete == num_keys_before
 
 
+@pytest.mark.skipif(not cdsw.is_cdsw_installed(), reason='CDSW is not installed')
 def test_cdsw_model_api():
     model = cdsw.get_model()
     with exception_context(model):

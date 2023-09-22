@@ -91,7 +91,7 @@ def _get_session():
 
 
 def is_dataviz_available():
-    return cdsw.get_release() >= [1, 10]
+    return cdsw.is_cdsw_installed() and cdsw.get_release() >= [1, 10]
 
 
 # APPS API

@@ -31,6 +31,10 @@ def api_post(endpoint, expected_codes=None, **kwargs):
     return _api_request('POST', endpoint, expected_codes, **kwargs)
 
 
+def api_delete(endpoint, expected_codes=None, **kwargs):
+    return _api_request('DELETE', endpoint, expected_codes, **kwargs)
+
+
 def get_smm_version():
     resp = api_get('/api/v1/admin/version')
     assert resp.status_code == requests.codes.ok
@@ -60,7 +64,14 @@ def create_topic(topic_name, partitions=1, replication_factor=1, min_isr=1, clea
             }
         ]
     }
-    resp = api_post('/api/v1/admin/topics', expected_codes=[requests.codes.no_content], json=data)
+    return api_post('/api/v1/admin/topics', expected_codes=[requests.codes.no_content], json=data)
+
+
+def delete_topic(topic_name):
+    if not get_topics(topic_name):
+        return
+    return api_delete('/api/v1/admin/topics?topicName={}'.format(topic_name),
+                      expected_codes=[requests.codes.no_content])
 
 
 def get_aggregation_api_prefix():

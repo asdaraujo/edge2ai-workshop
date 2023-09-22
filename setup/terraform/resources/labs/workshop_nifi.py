@@ -236,7 +236,7 @@ class NiFiWorkshop(AbstractWorkshop):
         kudu_table_name = kudu.get_kudu_table_name('default', 'sensors')
 
         # Set required variables
-        if not self.context.skip_cdsw:
+        if not self.context.skip_cdsw and cdsw.is_cdsw_installed():
             # Set the variable with the CDSW access key
             canvas.update_variable_registry(self.context.sensor_pg, [('cdsw.access.key', cdsw.get_model_access_key())])
             # Set the variable with the CDSW model API key
@@ -286,30 +286,47 @@ class NiFiWorkshop(AbstractWorkshop):
             {'properties': props})
         canvas.create_connection(consume_kafka, fail_funnel, ['parse.failure'])
 
-        predict = nf.create_processor(
-            self.context.sensor_pg, 'Predict machine health',
-            'org.apache.nifi.processors.standard.LookupRecord', (700, 200),
-            {
-                'properties': {
-                    'record-reader': self.context.json_reader_with_schema_svc.id,
-                    'record-writer': self.context.json_writer_svc.id,
-                    'lookup-service': rest_lookup_svc.id,
-                    'result-record-path': '/response',
-                    'routing-strategy': 'route-to-success',
-                    'result-contents': 'insert-entire-record',
-                    'mime.type': "toString('application/json', 'UTF-8')",
-                    'request.body':
-                        "concat('{\"accessKey\":\"', '${cdsw.access.key}', "
-                        "'\",\"request\":{\"feature\":\"', /sensor_0, ', ', "
-                        "/sensor_1, ', ', /sensor_2, ', ', /sensor_3, ', ', "
-                        "/sensor_4, ', ', /sensor_5, ', ', /sensor_6, ', ', "
-                        "/sensor_7, ', ', /sensor_8, ', ', /sensor_9, ', ', "
-                        "/sensor_10, ', ', /sensor_11, '\"}}')",
-                    'request.method': "toString('post', 'UTF-8')",
-                },
-            })
-        canvas.create_connection(predict, fail_funnel, ['failure'])
-        canvas.create_connection(consume_kafka, predict, ['success'])
+        if not self.context.skip_cdsw and cdsw.is_cdsw_installed():
+            predict = nf.create_processor(
+                self.context.sensor_pg, 'Predict machine health',
+                'org.apache.nifi.processors.standard.LookupRecord', (700, 200),
+                {
+                    'properties': {
+                        'record-reader': self.context.json_reader_with_schema_svc.id,
+                        'record-writer': self.context.json_writer_svc.id,
+                        'lookup-service': rest_lookup_svc.id,
+                        'result-record-path': '/response',
+                        'routing-strategy': 'route-to-success',
+                        'result-contents': 'insert-entire-record',
+                        'mime.type': "toString('application/json', 'UTF-8')",
+                        'request.body':
+                            "concat('{\"accessKey\":\"', '${cdsw.access.key}', "
+                            "'\",\"request\":{\"feature\":\"', /sensor_0, ', ', "
+                            "/sensor_1, ', ', /sensor_2, ', ', /sensor_3, ', ', "
+                            "/sensor_4, ', ', /sensor_5, ', ', /sensor_6, ', ', "
+                            "/sensor_7, ', ', /sensor_8, ', ', /sensor_9, ', ', "
+                            "/sensor_10, ', ', /sensor_11, '\"}}')",
+                        'request.method': "toString('post', 'UTF-8')",
+                    },
+                })
+            canvas.create_connection(predict, fail_funnel, ['failure'])
+            canvas.create_connection(consume_kafka, predict, ['success'])
+        else:
+            predict = nf.create_processor(
+                self.context.sensor_pg, 'Predict machine health',
+                'org.apache.nifi.processors.jolt.record.JoltTransformRecord', (700, 200),
+                {
+                    'properties': {
+                        'jolt-record-record-reader': self.context.json_reader_with_schema_svc.id,
+                        'jolt-record-record-writer': self.context.json_writer_svc.id,
+                        'jolt-record-transform-cache-size': '1',
+                        'jolt-record-transform': 'jolt-transform-chain',
+                        'jolt-record-spec': '[{"operation": "default", "spec": {"response": {"result": "${random():mod(2)}"}}}]',
+                    },
+                    'autoTerminatedRelationships': ['original'],
+                })
+            canvas.create_connection(predict, fail_funnel, ['failure'])
+            canvas.create_connection(consume_kafka, predict, ['success'])
 
         update_health = nf.create_processor(
             self.context.sensor_pg, 'Update health flag',

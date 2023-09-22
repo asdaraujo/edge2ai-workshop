@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 from datetime import timedelta
 from . import *
+from . import cm
 
 _CDSW_PROJECT_NAME = 'Edge2AI Workshop'
 _CDSW_MODEL_NAME = 'IoT Prediction Model'
@@ -26,6 +27,10 @@ def get_altus_api_url():
 
 def get_model_endpoint_url():
     return '{}://modelservice.{}/model'.format(get_url_scheme(), get_cdsw_domain_name())
+
+
+def is_cdsw_installed():
+    return len(cm.get_services('CDSW')) > 0
 
 
 def get_session():
@@ -124,6 +129,8 @@ def delete_model_api_key(keyid):
 
 
 def delete_all_model_api_keys():
+    if not is_cdsw_installed():
+        return
     for key in get_model_api_keys():
         delete_model_api_key(key['keyid'])
 
