@@ -59,6 +59,14 @@ EOF
   # This is done even if ENABLE_TLS == no, since ShellInABox always needs a cert
   create_certs "$IPA_HOST"
 
+  log_status "ECS: Installing k9s"
+  yum_install golang
+  cd /tmp
+  git clone https://github.com/derailed/k9s
+  cd k9s/
+  make build
+  cp ./execs/k9s /usr/local/bin
+
   log_status "ECS: Cleaning up"
   rm -f $BASE_DIR/stack.*.sh* $BASE_DIR/stack.sh*
 
