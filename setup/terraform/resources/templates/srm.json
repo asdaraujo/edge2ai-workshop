@@ -55,6 +55,10 @@
           "value" : "30"
         },
         {
+          "name" : "sync.topic.configs.interval.seconds",
+          "value" : "30"
+        },
+        {
           "name" : "metrics.topic.replication.factor",
           "value" : "1"
         }
@@ -136,7 +140,7 @@
               "value" : "cluster_{{CLUSTER_ID}}"
 {% endif %}
             }
-{% if CM_VERSION is ge('7.7.1') %}
+{% if CDH_VERSION is ge('7.1.8') %}
             ,{
               "name" : "streams.replication.manager.service.remote.advertisement.topic.replication.factor",
               "value" : "1"

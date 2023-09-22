@@ -8,7 +8,7 @@
       ]
     }
   ],
-{% if CM_VERSION is lt('7.1.1') %}
+{% if CDH_VERSION is lt('7.1.1') %}
   "products": [
     {
       "product": "STREAMS_MESSAGING_MANAGER",
@@ -31,7 +31,7 @@
           "value": "true"
         },
 {% endif %}
-{% if CM_VERSION is lt('7.1.1') %}
+{% if CDH_VERSION is lt('7.1.1') %}
 {% if ENABLE_TLS == 'yes' %}
         {
           "name" : "cm.metrics.port",
@@ -96,10 +96,16 @@
               "name" : "inactive.producer.timeout.ms",
               "value" : "180000"
             }
-{% if CM_VERSION is ge('7.1.1') %}
+{% if CDH_VERSION is ge('7.1.1') and CDH_VERSION is lt('7.1.9') %}
             ,{
               "name" : "kafka.connect.host",
               "value" : "{{CLUSTER_HOST}}"
+            }
+{% endif %}
+{% if CDH_VERSION is ge('7.1.9') %}
+            ,{
+              "name" : "streams.messaging.manager.internal.topics.replication.factor",
+              "value" : "1"
             }
 {% endif %}
 {% if ENABLE_TLS == 'yes' %}
@@ -127,32 +133,33 @@
               "name": "ssl_server_keystore_password",
               "value": "{{THE_PWD}}"
             }
-{% if CM_VERSION is ge('7.1.1') %}
+{% if CDH_VERSION is ge('7.1.1') %}
             ,{
               "name" : "kafka.connect.protocol",
               "value" : "https"
             }
-{% if CM_VERSION is lt('7.1.6') %}
-            ,{
-              "name" : "kafka.connect.port",
-              "value" : "38085"
-            }
-{% else %}
+{% endif %}
+{% if CDH_VERSION is ge('7.1.1') and CDH_VERSION is lt('7.1.9') %}
             ,{
               "name" : "kafka.connect.port",
               "value" : "28085"
             }
 {% endif %}
-{% endif %}
 {% else %}
-{% if CM_VERSION is ge('7.1.1') and CM_VERSION is lt('7.1.6') %}
+{% if CDH_VERSION is ge('7.1.1') %}
+            ,{
+              "name" : "kafka.connect.protocol",
+              "value" : "http"
+            }
+{% endif %}
+{% if CDH_VERSION is ge('7.1.1') and CDH_VERSION is lt('7.1.9') %}
             ,{
               "name" : "kafka.connect.port",
-              "value" : "38083"
+              "value" : "28083"
             }
 {% endif %}
 {% endif %}
-{% if HAS_SRM and CM_VERSION is lt('7.3.1') %}
+{% if HAS_SRM and CDH_VERSION is lt('7.1.6') %}
             ,{
               "name" : "streams.replication.manager.configure",
               "value" : "true"
@@ -178,7 +185,7 @@
               "value" : "http://{{PUBLIC_DNS}}:7788/api/v1"
             }
 {% endif %}
-{% if CM_VERSION is lt('7.1.1') %}
+{% if CDH_VERSION is lt('7.1.1') %}
               ,{
               "name" : "streams.messaging.manager.storage.connector.connectURI",
               "value" : "jdbc:postgresql://localhost:5432/streamsmsgmgr"
@@ -187,7 +194,7 @@
               "name" : "streams.messaging.manager.storage.connector.password",
               "value" : "{{THE_PWD}}"
             }
-{% elif CM_VERSION is lt('7.7.1') %}
+{% elif CDH_VERSION is lt('7.1.8') %}
             ,{
             "name" : "cm.metrics.service.monitor.host",
             "value" : "{{CLUSTER_HOST}}"

@@ -74,7 +74,7 @@
           "configs" : [
             {
               "name" : "ozone_recon_max_heap_size",
-              "value" : "256"
+              "value" : "1024"
             }
 {% if ENABLE_TLS == 'yes' %}
            ,{
@@ -111,7 +111,7 @@
           "configs" : [
             {
               "name" : "scm_max_heap_size",
-              "value" : "256"
+              "value" : "1024"
             }
 {% if ENABLE_TLS == 'yes' %}
            ,{
@@ -151,8 +151,14 @@
               "value" : "/hadoop-ozone/datanode/data"
             }, {
               "name" : "ozone_datanode_heap_size",
-              "value" : "512"
+              "value" : "1024"
             }
+{% if CDH_VERSION is ge('7.1.9') %}
+           ,{
+              "name" : "ozone-conf/ozone-site.xml_role_safety_valve",
+              "value" : "<property><name>hdds.datanode.client.port</name><value>19864</value></property>"
+            }
+{% endif  %}
 {% if ENABLE_TLS == 'yes' %}
            ,{
               "name" : "ssl_server_keystore_location",
@@ -225,8 +231,14 @@
           "configs" : [
             {
               "name" : "om_max_heap_size",
-              "value" : "256"
+              "value" : "1024"
             }
+{% if CDH_VERSION is ge('7.1.9') %}
+           ,{
+              "name" : "ozone.server.default.replication",
+              "value" : "1"
+            }
+{% endif  %}
 {% if ENABLE_TLS == 'yes' %}
            ,{
               "name" : "ssl_client_truststore_location",

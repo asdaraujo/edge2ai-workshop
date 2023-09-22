@@ -7,8 +7,6 @@
         ,"kafka-KAFKA_BROKER-BASE"
 {% if CDH_VERSION is ge('7.1.1') %}
         ,"kafka-KAFKA_CONNECT-BASE"
-{% endif %}
-{% if CM_VERSION is ge('7.1.1') %}
         ,"cruise_control-CRUISE_CONTROL_SERVER-BASE"
 {% endif %}
       ]
@@ -143,7 +141,7 @@
               "name" : "status.storage.replication.factor",
               "value" : "1"
             }
-{% if CM_VERSION is ge('7.7.1') %}
+{% if CDH_VERSION is ge('7.1.8') %}
             ,{
               "name" : "kafka.connect.secret.storage.topic.configs.min.insync.replicas",
               "value" : "1"
@@ -151,6 +149,16 @@
             {
               "name" : "kafka.connect.secret.storage.topic.replication.factor",
               "value" : "1"
+            }
+{% endif %}
+{% if CDH_VERSION is ge('7.1.0') %}
+            ,{
+              "name" : "rest.port",
+              "value" : "28083"
+            },
+            {
+              "name" : "secure.rest.port",
+              "value" : "28085"
             }
 {% endif %}
 {% if ENABLE_TLS == 'yes' %}
@@ -221,7 +229,7 @@
         }
       ]
     }
-{% if CM_VERSION is ge('7.1.1') %}
+{% if CDH_VERSION is ge('7.1.1') %}
     ,{
       "refName": "cruise_control",
       "serviceType": "CRUISE_CONTROL",
@@ -263,7 +271,7 @@
               "value": "{{THE_PWD}}"
             }
 {% endif %}
-{% if CM_VERSION is lt('7.3.1') %}
+{% if CDH_VERSION is lt('7.1.6') %}
 {% if ENABLE_TLS == 'yes' %}
 {% if ENABLE_KERBEROS == 'yes' %}
             ,{
