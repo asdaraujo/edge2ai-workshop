@@ -176,5 +176,25 @@
         }
       ]
     }
+{% if CDH_VERSION is ge('7.1.9') %}
+    ,{
+      "refName": "core_settings",
+      "serviceType": "CORE_SETTINGS",
+      "displayName": "Core Settings",
+      "serviceConfigs": [
+        {
+          "name": "enable_iceberg",
+          "value": "true"
+        }
+      ],
+      "roleConfigGroups": [
+        {
+          "refName": "core_settings-GATEWAY-BASE",
+          "roleType": "GATEWAY",
+          "base": true
+        }
+      ]
+    }
+{% endif %}
   ]
 }
