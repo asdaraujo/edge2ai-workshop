@@ -14,7 +14,7 @@ resource "null_resource" "deploy_cdp" {
 
   provisioner "file" {
     source      = var.ssh_private_key
-    destination = "~/.ssh/${var.namespace}.pem"
+    destination = "/home/${var.ssh_username}/.ssh/${var.namespace}.pem"
   }
 
   provisioner "file" {
