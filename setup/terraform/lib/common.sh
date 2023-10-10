@@ -435,7 +435,7 @@ function validate_license_file() {
 }
 
 function license_metadata() {
-  egrep -v "^([A-Za-z0-9=-])" "$TF_VAR_cdp_license_file"
+  egrep -v "^([A-Za-z0-9=/\+-])" "$TF_VAR_cdp_license_file"
 }
 
 function validate_license() {
