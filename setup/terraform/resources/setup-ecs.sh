@@ -55,6 +55,13 @@ EOF
   log_status "ECS: Installing IPA client"
   install_ipa_client "$IPA_HOST"
 
+  # Install Java (need keytool to handle certs)
+  log_status "Installing JDK package ${JAVA_PACKAGE_NAME}"
+  yum_install ${JAVA_PACKAGE_NAME}
+  if ! javac; then
+    set_java_alternatives
+  fi
+
   log_status "ECS: Creating TLS certificates"
   # This is done even if ENABLE_TLS == no, since ShellInABox always needs a cert
   create_certs "$IPA_HOST"
