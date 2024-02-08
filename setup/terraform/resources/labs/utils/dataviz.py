@@ -13,7 +13,8 @@ _DATAVIZ_USER = 'admin'
 _CSRF_REGEXPS = [
     r'.*name="csrfmiddlewaretoken" type="hidden" value="([^"]*)"',
     r'.*"csrfmiddlewaretoken": "([^"]*)"',
-    r'.*\.csrf_token\("([^"]*)"\)'
+    r'.*\.csrf_token\("([^"]*)"\)',
+    r'.*csrfToken:\s*"([^"]*)',
 ]
 
 
