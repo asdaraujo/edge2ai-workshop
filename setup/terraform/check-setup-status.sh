@@ -233,6 +233,11 @@ function wait_for_completion() {
     echo "$status_line" >&2
 
     # check for completion
+    if [[ $(is_deployment_valid) != "yes" ]]; then
+      echo failed
+      break
+    fi
+
     if [[ $(egrep -c "^(${STATUS_COMPLETED}|${STATUS_FAILED}|${STATUS_UNKNOWN})" "$LATEST_STATUS_FILE") -eq $total ]]; then
       cp "$LATEST_STATUS_FILE" "${LATEST_STATUS_FILE}.final.$(date +%Y%m%d%H%M%S)"
       if [[ $(egrep -c "^${STATUS_COMPLETED}" "$LATEST_STATUS_FILE") -eq $total ]]; then
@@ -290,18 +295,22 @@ status=$(wait_for_completion)
 if [[ $status == "success" ]]; then
   echo "Instance deployment finished successfully"
 else
-  echo "${C_RED}WARNING: The deployment of the following instance(s) failed to complete:${C_NORMAL}"
-  echo -n "${C_YELLOW}"
-  awk '$1 != "completed" {inst=$2; ip=$3; gsub(/.*STATUS:/, ""); printf "Instance: [%s], IP: %s, Latest status: %s\n", inst, ip, $0}' "$LATEST_STATUS_FILE"
-  echo -n "${C_NORMAL}"
-  if [[ ${NO_LOG_FETCH:-} == "" ]]; then
-    confirm=Y
-    if [[ ${NO_PROMPT:-} == "" ]]; then
-      echo -n "Do you want to fetch the logs for the failed instance(s)? (Y|n) "
-      read confirm
-    fi
-    if [[ $(echo "$confirm" | tr 'a-z' 'A-Z') != "N" ]]; then
-      fetch_logs
+  if [[ ! -f "$LATEST_STATUS_FILE" ]]; then
+    echo "${C_RED}WARNING: The deployment of one or all the instances failed but no details could be retrieved.${C_NORMAL}"
+  else
+    echo "${C_RED}WARNING: The deployment of the following instance(s) failed to complete:${C_NORMAL}"
+    echo -n "${C_YELLOW}"
+    awk '$1 != "completed" {inst=$2; ip=$3; gsub(/.*STATUS:/, ""); printf "Instance: [%s], IP: %s, Latest status: %s\n", inst, ip, $0}' "$LATEST_STATUS_FILE"
+    echo -n "${C_NORMAL}"
+    if [[ ${NO_LOG_FETCH:-} == "" ]]; then
+      confirm=Y
+      if [[ ${NO_PROMPT:-} == "" ]]; then
+        echo -n "Do you want to fetch the logs for the failed instance(s)? (Y|n) "
+        read confirm
+      fi
+      if [[ $(echo "$confirm" | tr 'a-z' 'A-Z') != "N" ]]; then
+        fetch_logs
+      fi
     fi
   fi
   exit 1

@@ -937,6 +937,15 @@ function ensure_tf_json_file() {
   fi
 }
 
+function is_deployment_valid() {
+  ensure_tf_json_file
+  if [[ -f $TF_JSON_FILE ]]; then
+    echo yes
+  else
+    echo no
+  fi
+}
+
 function get_resource_attr() {
   local resource_type=$1
   local name=$2
