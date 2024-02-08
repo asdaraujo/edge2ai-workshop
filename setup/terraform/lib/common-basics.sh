@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export PS4='+ [${BASH_SOURCE#'"$BASE_DIR"/'}:${LINENO}]: ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
+export PS4='+ \D{%Y-%m-%d %H:%M:%S} [${BASH_SOURCE#'"$BASE_DIR"/'}:${LINENO}]: ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
 
 if [[ ${DEBUG:-} != "" ]]; then
   set -x
