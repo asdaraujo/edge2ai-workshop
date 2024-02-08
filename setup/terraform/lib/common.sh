@@ -736,7 +736,8 @@ function check_file_staleness() {
 
 function presign_urls() {
   local stack_file=$1
-  python $BASE_DIR/presign_urls.py "$stack_file"
+  local output_dir=$2
+  python $BASE_DIR/presign_urls.py "$stack_file" "$output_dir"
 }
 
 function validate_env() {

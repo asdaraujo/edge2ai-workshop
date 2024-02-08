@@ -20,6 +20,11 @@ resource "null_resource" "deploy_cdp" {
   }
 
   provisioner "file" {
+    source      = "${var.base_dir}/namespaces/${var.namespace}/stack/"
+    destination = "/tmp/resources"
+  }
+
+  provisioner "file" {
     source      = (var.cdp_license_file == "" ? "/dev/null" : var.cdp_license_file)
     destination = "/tmp/resources/.license"
   }

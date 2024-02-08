@@ -68,7 +68,7 @@ python $BASE_DIR/resources/cm_template.py --cdh-major-version $CDH_MAJOR_VERSION
 # Presign URLs, if needed
 STACK_FILE=$(get_stack_file $NAMESPACE $BASE_DIR/resources exclude-signed)
 echo "Using stack: $STACK_FILE"
-presign_urls $STACK_FILE
+presign_urls $STACK_FILE "${NAMESPACE_DIR}/stack"
 
 # If EXTRA_CIDR_BLOCKS is defined, merge its content with TF_VAR_extra_cidr_blocks
 TF_VAR_extra_cidr_blocks="$(echo "${TF_VAR_extra_cidr_blocks:-},${EXTRA_CIDR_BLOCKS:-}" | sed -E 's#[^0-9.,/]##g;s/,,*/,/g;s/^,//;s/,$//;s/[^,]+/"&"/g;s/^/[/;s/$/]/')"
