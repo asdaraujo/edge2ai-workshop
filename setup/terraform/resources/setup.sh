@@ -272,7 +272,14 @@ EOF
         rm -rf $TMP_LIB_DIR
 
         # Ensure MiNiFi uses Python 3.8 instead of the default system version (3.6)
-        sed -i 's#export MINIFI_HOME#source /opt/rh/rh-python38/enable\nexport MINIFI_HOME#' /etc/rc.d/init.d/minifi
+        if [[ -f /etc/rc.d/init.d/minifi ]]; then
+          sed -i 's#export MINIFI_HOME#source /opt/rh/rh-python38/enable\nexport MINIFI_HOME#' /etc/rc.d/init.d/minifi
+        else
+          # TODO: In recent MiNiFi versions the minifi.sh install script no longer creates /etc/rc.d/init.d/minifi
+          # TODO: Instead, it creates /usr/local/lib/systemd/system/minifi.service. We need another way to inject
+          # TODO: Python 3.9 to the MiNiFi path.
+          true
+        fi
         systemctl daemon-reload
         yum -y install --enablerepo=epel patchelf
         patchelf /opt/cloudera/cem/minifi/extensions/libminifi-python-script-extension.so --replace-needed libpython3.so libpython3.8.so
