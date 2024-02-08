@@ -82,6 +82,10 @@ def _get_parser():
                               help='Enable TLS for the cluster.')
         OPT_PARSER.add_option('--tls-ca-cert', action='store', dest='tls_ca_cert', default=None,
                               help='TLS truststore.')
+        OPT_PARSER.add_option('--remote-repo-usr', action='store', dest='remote_repo_usr', default=None,
+                              help='Username to connect to the Cloudera Archive (paywall).')
+        OPT_PARSER.add_option('--remote-repo-pwd', action='store', dest='remote_repo_pwd', default=None,
+                              help='Password to connect to the Cloudera Archive (paywall).')
     return OPT_PARSER
 
 
@@ -147,7 +151,8 @@ def print_errors(tail_size):
 
 
 class ClusterCreator:
-    def __init__(self, host, krb_princ='scm/admin@WORKSHOP.COM', tls_ca_cert=None):
+    def __init__(self, host, krb_princ='scm/admin@WORKSHOP.COM', tls_ca_cert=None,
+                 remote_repo_usr=None, remote_repo_pwd=None):
         self.host = host
         self.krb_princ = krb_princ
 
@@ -158,6 +163,9 @@ class ClusterCreator:
         self._all_hosts_api = None
         self._cluster_api = None
         self._command_api = None
+
+        self.remote_repo_usr = remote_repo_usr if remote_repo_usr else None
+        self.remote_repo_pwd = remote_repo_pwd if remote_repo_pwd else None
 
         self.WAIT_SLEEP_SECS = 5
         self.WAIT_UNTIL_STABLE_FOR_SECS = 5
@@ -170,12 +178,10 @@ class ClusterCreator:
     def _import_paywall_credentials(self):
         if cm_major_version() >= 7:
             configs = []
-            if 'REMOTE_REPO_USR' in os.environ and os.environ['REMOTE_REPO_USR']:
-                paywall_usr = os.environ['REMOTE_REPO_USR']
-                configs.append(cm_client.ApiConfig(name='REMOTE_REPO_OVERRIDE_USER', value=paywall_usr))
-            if 'REMOTE_REPO_PWD' in os.environ and os.environ['REMOTE_REPO_PWD']:
-                paywall_pwd = os.environ['REMOTE_REPO_PWD']
-                configs.append(cm_client.ApiConfig(name='REMOTE_REPO_OVERRIDE_PASSWORD', value=paywall_pwd))
+            if self.remote_repo_usr:
+                configs.append(cm_client.ApiConfig(name='REMOTE_REPO_OVERRIDE_USER', value=self.remote_repo_usr))
+            if self.remote_repo_pwd:
+                configs.append(cm_client.ApiConfig(name='REMOTE_REPO_OVERRIDE_PASSWORD', value=self.remote_repo_pwd))
             try:
                 if configs:
                     self.cm_api.update_config(message='Importing paywall credentials',
@@ -526,7 +532,8 @@ if __name__ == '__main__':
         krb_princ = 'admin@WORKSHOP.COM'
     else:
         krb_princ = 'scm/admin@WORKSHOP.COM'
-    CLUSTER_CREATOR = ClusterCreator(HOST, krb_princ=krb_princ, tls_ca_cert=options.tls_ca_cert)
+    CLUSTER_CREATOR = ClusterCreator(HOST, krb_princ=krb_princ, tls_ca_cert=options.tls_ca_cert,
+                                     remote_repo_usr=options.remote_repo_usr, remote_repo_pwd=options.remote_repo_pwd)
     try:
         if (options.setup_cm):
             CLUSTER_CREATOR.setup_cm(options.key_file, options.cm_repo_url, options.use_kerberos, options.use_tls,

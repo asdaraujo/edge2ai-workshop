@@ -692,6 +692,8 @@ fi
 log_status "Creating cluster"
 python -u $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
   --create-cluster \
+    --remote-repo-usr "$(get_remote_repo_username)" \
+    --remote-repo-pwd "$(get_remote_repo_password)" \
     --template $TEMPLATE_FILE \
     $(get_create_cluster_tls_option)
 
