@@ -124,7 +124,7 @@ def cluster_id():
 
 
 def local_hostname():
-    return os.environ.get('LOCAL_HOSTNAME', 'edge2ai-0.local.dim')
+    return os.environ.get('HOSTNAME', os.environ.get('LOCAL_HOSTNAME', 'localhost'))
 
 
 def get_log_messages():
@@ -390,12 +390,13 @@ class ClusterCreator:
         # Wait for Service Monitor to be up before restarting Mgmt Services
         # Note: This is to avoid corruption of SMON LevelDB files
         timeout_secs=300
+        smon_url = 'http://{}:9997/'.format(local_hostname())
         while timeout_secs > 0:
             try:
-                requests.get('http://{}:9997/'.format(local_hostname()))
+                requests.get(smon_url)
                 break
-            except:
-                print('STATUS:Waiting for Service Monitor to fully start...')
+            except Exception as exc:
+                print('STATUS:Waiting for Service Monitor to fully start ({})...'.format(smon_url))
                 timeout_secs -= 1
                 time.sleep(1)
 
