@@ -205,6 +205,7 @@ function maybe_launch_docker() {
         -v $BASE_DIR/../..:/edge2ai-workshop
         -v $HOME/.aws:/root/.aws
         -v $HOME/.azure:/root/.azure
+        -e TF_LOG=${TF_LOG:-}
         -e DEBUG=${DEBUG:-}
         -e NO_PROMPT=${NO_PROMPT:-}
         -e NO_LOG_FETCH=${NO_LOG_FETCH:-}
@@ -261,6 +262,7 @@ function try_in_docker() {
         -v $BASE_DIR/../..:/edge2ai-workshop
         -v $HOME/.aws:/root/.aws
         -v $HOME/.azure:/root/.azure
+        -e TF_LOG=${TF_LOG:-}
         -e DEBUG=${DEBUG:-}
         -e NO_PROMPT=${NO_PROMPT:-}
         -e NO_LOG_FETCH=${NO_LOG_FETCH:-}
@@ -498,20 +500,32 @@ function run_terraform() {
   check_terraform_version
   pushd $provider_dir > /dev/null
   export TF_VAR_base_dir=$BASE_DIR
-  date >> $NAMESPACE_DIR/terraform.log
-  echo "Command: validate" >> $NAMESPACE_DIR/terraform.log
-  set +e
-  $TERRAFORM validate >> $NAMESPACE_DIR/terraform.log 2>&1
-  local ret=$?
-  set -e
-  if [[ $ret -ne 0 ]]; then
-    echo "Command: init -upgrade" >> $NAMESPACE_DIR/terraform.log
-    # Sometimes there are issues downloading plugins. So it retries when needed...
-    retry_if_needed 10 1 "$TERRAFORM init -upgrade" >> $NAMESPACE_DIR/terraform.log 2>&1
-  fi
-  echo "Command: ${args[@]}" >> $NAMESPACE_DIR/terraform.log
-  $TERRAFORM "${args[@]}"
+  # Sometimes there are issues downloading plugins. So it retries when needed...
+  local retries=10
+  local ret=0
+  local run_log=/tmp/run.log.$$
+  while [[ $retries -gt 0 ]]; do
+    retry_if_needed 10 1 'terraform_cmd init -upgrade' >> $NAMESPACE_DIR/terraform.log 2>&1
+    set +e
+    terraform_cmd "${args[@]}" 2> >(tee $run_log >&2)
+    ret=$?
+    set -e
+    local timeouts=$(grep -c "timeout while waiting for plugin to start" $run_log)
+    rm -f $run_log
+    # If run timed out because of plugin, keep trying. If the failure had another cause, abort.
+    if [[ $ret == 0 || $timeouts -eq 0 ]]; then
+      break
+    fi
+    retries=$((retries - 1))
+  done
   popd > /dev/null
+  return $ret
+}
+
+function terraform_cmd() {
+  local args=("$@")
+  echo "Command: ${args[@]}" >> $NAMESPACE_DIR/terraform.log
+  $TERRAFORM "${args[@]}" > >(tee -a $NAMESPACE_DIR/terraform.log) 2> >(tee -a $NAMESPACE_DIR/terraform.log >&2)
 }
 
 function check_terraform_version() {
@@ -839,10 +853,14 @@ function retry_if_needed() {
   local cmd=$3
   local ret=0
   while [[ $retries -ge 0 ]]; do
-    set +e
+    reset_errexit=false
+    if [[ -o errexit ]]; then
+      set +e
+      reset_errexit=true
+    fi
     eval "$cmd"
     ret=$?
-    set -e
+    "$reset_errexit" && set -e
     if [[ $ret -eq 0 ]]; then
       return 0
     else

@@ -971,10 +971,14 @@ function retry_if_needed() {
   local cmd=$3
   local ret=0
   while [[ $retries -ge 0 ]]; do
-    set +e
+    reset_errexit=false
+    if [[ -o errexit ]]; then
+      set +e
+      reset_errexit=true
+    fi
     eval "$cmd"
     ret=$?
-    set -e
+    "$reset_errexit" && set -e
     if [[ $ret -eq 0 ]]; then
       return 0
     else
