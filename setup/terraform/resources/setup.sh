@@ -154,9 +154,6 @@ EOF
   yum_install postgresql${PG_VERSION}-server postgresql${PG_VERSION} postgresql${PG_VERSION}-contrib postgresql-jdbc
   systemctl disable postgresql-${PG_VERSION}
 
-  log_status "Handling additional installs"
-  # NPM install is flaky and fails intermittently so we will retry if needed
-  retry_if_needed 5 5 "npm install --quiet forever -g"
   enable_py3
   pip install --quiet --upgrade pip
   # re-source after pip upgrade due to change in path of the pip executable

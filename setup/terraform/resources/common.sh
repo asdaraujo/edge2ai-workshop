@@ -1325,8 +1325,6 @@ function deploy_os_prereqs() {
 
 function deploy_cluster_prereqs() {
   log_status "Installing cluster dependencies"
-  # nodejs, npm and forever are SMM dependencies - required by older versions
-  curl -sL https://rpm.nodesource.com/setup_10.x | sed -E '/(script_deprecation_warning|node_deprecation_warning)$/d' | sudo bash -
   # Install RH python repo for CentOS
   yum_install centos-release-scl
   # Install dependencies
