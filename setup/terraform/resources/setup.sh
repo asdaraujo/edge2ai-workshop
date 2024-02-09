@@ -278,7 +278,7 @@ EOF
           true
         fi
         systemctl daemon-reload
-        yum -y install --enablerepo=epel patchelf
+        yum_install --enablerepo=epel patchelf
         patchelf /opt/cloudera/cem/minifi/extensions/libminifi-python-script-extension.so --replace-needed libpython3.so libpython3.8.so
 
         # Install needed modules
