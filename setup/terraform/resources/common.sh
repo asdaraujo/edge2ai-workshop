@@ -1451,6 +1451,7 @@ EOF
     sed -i "/HOSTNAME=/ d" /etc/sysconfig/network
   fi
   echo "HOSTNAME=${CLUSTER_HOST}" >> /etc/sysconfig/network
+  export HOSTNAME=${CLUSTER_HOST}
 
 }
 
