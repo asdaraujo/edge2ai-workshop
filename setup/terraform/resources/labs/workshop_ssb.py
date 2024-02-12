@@ -99,6 +99,7 @@ class SqlStreamBuilderWorkshop(AbstractWorkshop):
             'password': None,
             'mechanism': 'KERBEROS',
             'ssl.truststore.location': TRUSTSTORE_PATH,
+            'ssl.truststore.password': get_the_pwd(),
         }
         ssb.create_data_provider(KAFKA_PROVIDER_NAME, 'kafka', props)
 

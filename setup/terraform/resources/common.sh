@@ -214,6 +214,7 @@ security.protocol=SASL_SSL
 sasl.mechanism=GSSAPI
 sasl.kerberos.service.name=kafka
 ssl.truststore.location=$TRUSTSTORE_JKS
+ssl.truststore.password=$THE_PWD
 sasl.jaas.config=com.sun.security.auth.module.Krb5LoginModule required useTicketCache=true;
 EOF
     elif [[ $(is_kerberos_enabled) == yes ]]; then
@@ -227,6 +228,7 @@ EOF
       cat > ${KAFKA_CLIENT_PROPERTIES} <<EOF
 security.protocol=SSL
 ssl.truststore.location=$TRUSTSTORE_JKS
+ssl.truststore.password=$THE_PWD
 EOF
     fi
 

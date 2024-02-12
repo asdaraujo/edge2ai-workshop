@@ -53,16 +53,16 @@ CDSW_PARCEL_REPO=https://archive.cloudera.com/p/cdsw1/${CDSW_VERSION}/parcels/
 CDSW_CSD_URL=https://archive.cloudera.com/p/cdsw1/${CDSW_VERSION}/csd/CLOUDERA_DATA_SCIENCE_WORKBENCH-CDPDC-${CDSW_VERSION}.jar
 
 #####  CEM
-CEM_VERSION=1.2.2.0
+CEM_VERSION=1.6.0.0
+CEM_BUILD=${CEM_VERSION}-72
 CEM_MAJOR_VERSION=${CEM_VERSION%%.*}
-EFM_VERSION=1.0.0
-MINIFI_VERSION=0.6.0
-# PUBLIC TARBALL
-CEM_URL=
-# INDIVIDUAL TARBALLS
-EFM_TARBALL_URL=https://archive.cloudera.com/p/CEM/centos7/1.x/updates/1.2.2.0/tars/efm/efm-1.0.0.1.2.2.0-14-bin.tar.gz
-MINIFI_TARBALL_URL=https://archive.cloudera.com/p/CEM/centos7/1.x/updates/1.2.2.0/tars/minifi/minifi-0.6.0.1.2.2.0-14-bin.tar.gz
-MINIFITK_TARBALL_URL=https://archive.cloudera.com/p/CEM/centos7/1.x/updates/1.2.2.0/tars/minifi/minifi-toolkit-0.6.0.1.2.2.0-14-bin.tar.gz
+EFM_TARBALL_URL=https://archive.cloudera.com/p/CEM/ubuntu20/${CEM_MAJOR_VERSION}.x/updates/${CEM_VERSION}/tars/efm/efm-${CEM_BUILD}-bin.tar.gz
+
+#####  CEM AGENTS
+MINIFI_VERSION=1.23.06
+MINIFI_BUILD=${MINIFI_VERSION}-b27
+MINIFI_TARBALL_URL=https://archive.cloudera.com/p/cem-agents/${MINIFI_VERSION}/ubuntu18/apt/tars/nifi-minifi-cpp/nifi-minifi-cpp-${MINIFI_BUILD}-bin-centos.tar.gz
+MINIFITK_TARBALL_URL=https://archive.cloudera.com/p/cem-agents/${MINIFI_VERSION}/ubuntu18/apt/tars/nifi-minifi-cpp/nifi-minifi-cpp-${MINIFI_BUILD}-extra-extensions-centos.tar.gz
 
 #####   CSA
 CSA_VERSION=1.7.0.1

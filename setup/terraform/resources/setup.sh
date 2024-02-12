@@ -151,6 +151,10 @@ EOF
   systemctl disable cloudera-scm-server
 
   log_status "Installing PostgreSQL"
+  # PostgreSQL has a dependency on Java 8, so the install below will install the OpenJDK 8 package
+  # We set the java alternatives manually here so that Java 8 doesn't take priority after the install
+  CURRENT_JAVA=$(update-alternatives --display java | grep "link currently points to" | awk '{print $NF}')
+  update-alternatives --set java "$CURRENT_JAVA"
   yum_install postgresql${PG_VERSION}-server postgresql${PG_VERSION} postgresql${PG_VERSION}-contrib postgresql-jdbc
   systemctl disable postgresql-${PG_VERSION}
 
@@ -219,6 +223,10 @@ EOF
       chkconfig --add efm
       chown -R root:root /opt/cloudera/cem/${EFM_BASE_NAME}
       sed -i.bak 's#APP_EXT_LIB_DIR=.*#APP_EXT_LIB_DIR=/usr/share/java#' /opt/cloudera/cem/efm/conf/efm.conf
+      # If Java is not 1.8, remove deprecated JVM option
+      if [[ $(java -version 2>&1 | grep -c "\<1\.[786]") -eq 0 ]]; then
+        sed -i.bak2 's/-XX:+UseParNewGC *//' /opt/cloudera/cem/efm/conf/efm.conf
+      fi
     fi
 
     MINIFI_TARBALL=$(find /opt/cloudera/cem/ -name "minifi-[0-9]*-bin.tar.gz" | sort | tail -1)
