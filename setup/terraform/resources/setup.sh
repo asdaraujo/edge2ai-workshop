@@ -45,7 +45,7 @@ TEMPLATE_FILE=$BASE_DIR/cluster_template.${NAMESPACE}.json
 CM_REPO_FILE=/etc/yum.repos.d/cloudera-manager.repo
 PREINSTALL_COMPLETED_FLAG=${BASE_DIR}/.preinstall.completed
 
-get_public_ip
+export PUBLIC_IP=$(get_public_ip)
 resolve_host_addresses
 load_stack $NAMESPACE
 

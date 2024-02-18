@@ -23,7 +23,7 @@ function cleanup() {
 }
 
 if [[ $(echo "$IP_ADDRESS" | tr "a-z" "A-Z") == "MYIP" ]]; then
-  IP_ADDRESS=$(curl -sL http://ifconfig.me || curl -sL http://api.ipify.org/ || curl -sL https://ipinfo.io/ip)
+  IP_ADDRESS=$(get_public_ip)
 fi
 
 if [[ $(expr "$IP_ADDRESS" : '.*:') -gt 0 ]]; then

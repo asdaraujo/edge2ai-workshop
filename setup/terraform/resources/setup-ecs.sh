@@ -26,7 +26,7 @@ if [[ $ACTION == "install-prereqs" ]]; then
   IPA_PRIVATE_IP=${7:-}
   export IPA_HOST
 
-  get_public_ip
+  export PUBLIC_IP=$(get_public_ip)
   load_stack $NAMESPACE
 
   # Save params

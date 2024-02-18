@@ -406,7 +406,7 @@ function load_env() {
   export TF_VAR_ssh_public_key=$NAMESPACE_DIR/${TF_VAR_key_name}.pem.pub
   export TF_VAR_web_ssh_private_key=$NAMESPACE_DIR/${TF_VAR_web_key_name}.pem
   export TF_VAR_web_ssh_public_key=$NAMESPACE_DIR/${TF_VAR_web_key_name}.pem.pub
-  export TF_VAR_my_public_ip=$(curl -sL http://ifconfig.me || curl -sL http://api.ipify.org/ || curl -sL https://ipinfo.io/ip)
+  export TF_VAR_my_public_ip=$(get_public_ip)
 
   normalize_boolean TF_VAR_use_elastic_ip false
   normalize_boolean TF_VAR_pvc_data_services false
@@ -414,6 +414,21 @@ function load_env() {
 
   export TF_VAR_cdp_license_file_original=${TF_VAR_cdp_license_file:-}
   export TF_VAR_cdp_license_file=$(get_license_file_path)
+}
+
+function get_public_ip() {
+  local retries=5
+  while [[ $retries -gt 0 ]]; do
+    local public_ip=$(curl -sL http://ifconfig.me || curl -sL http://api.ipify.org/ || curl -sL https://ipinfo.io/ip)
+    if [[ $public_ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+      echo $public_ip
+      return
+    fi
+    sleep 5
+    retries=$((retries - 1))
+  done
+  echo "ERROR: Could not retrieve public IP for this instance. Probably a transient error. Please try again." >&2
+  exit 1
 }
 
 function get_license_file_path() {
@@ -631,7 +646,10 @@ function check_for_orphaned_keys() {
       echo "         you will lose access to it."
       echo ""
       echo -n "Do you want to overwrite these key pairs? (y/N) "
-      read CONFIRM
+      local CONFIRM=Y
+      if [[ ${NO_PROMPT:-} == "" ]]; then
+        read CONFIRM
+      fi
       if [[ $(echo "$CONFIRM" | tr "a-z" "A-Z") != "Y" ]]; then
         echo "Ensure the keys listed above don't exist before trying this command again."
         echo "Alternatively, launch the environment using a different namespace."
