@@ -132,11 +132,8 @@ EOF
   fi
 
   # Install Java after seting CM repo, in case we're sourcing Java from there
-  log_status "Installing JDK package ${JAVA_PACKAGE_NAME}"
-  yum_install ${JAVA_PACKAGE_NAME}
-  if ! javac; then
-    set_java_alternatives
-  fi
+  log_status "Installing JDK packages"
+  install_java
 
   log_status "Installing Postgresql repo"
   if [[ $(rpm -qa | grep pgdg-redhat-repo- | wc -l) -eq 0 ]]; then
@@ -225,7 +222,7 @@ EOF
       sed -i.bak 's#APP_EXT_LIB_DIR=.*#APP_EXT_LIB_DIR=/usr/share/java#' /opt/cloudera/cem/efm/conf/efm.conf
       # If Java is not 1.8, remove deprecated JVM option
       if [[ $(java -version 2>&1 | grep -c "\<1\.[786]") -eq 0 ]]; then
-        sed -i.bak2 's/-XX:+UseParNewGC *//' /opt/cloudera/cem/efm/conf/efm.conf
+        sed -i.bak2 's/-XX:+UseParNewGC *//;s/UseConcMarkSweepGC/UseG1GC/' /opt/cloudera/cem/efm/conf/efm.conf
       fi
     fi
 

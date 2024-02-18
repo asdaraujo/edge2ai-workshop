@@ -3,6 +3,8 @@
 KEYTABS_DIR=/keytabs
 KAFKA_CLIENT_PROPERTIES=${KEYTABS_DIR}/kafka-client.properties
 KRB_REALM=WORKSHOP.COM
+OPENJDK_ARCHIVE=https://jdk.java.net/archive/
+JDK_BASE=/usr/lib/jvm
 
 export THE_PWD=Supersecret1
 export THE_PWD_HASH=8ef2932408095916dc440fbbb18e60f2f5ef42ada16527b917c3d830475de7bb
@@ -291,7 +293,15 @@ function validate_stack() {
   # validate required variables
   if [ "$(check_vars "$stack_file" \
             CDH_MAJOR_VERSION CM_MAJOR_VERSION CM_SERVICES \
-            ENABLE_KERBEROS JAVA_PACKAGE_NAME MAVEN_BINARY_URL)" != "0" ]; then
+            ENABLE_KERBEROS MAVEN_BINARY_URL)" != "0" ]; then
+    errors=1
+  fi
+
+  if [[ -z ${JAVA_PACKAGE_NAME:-} && -z ${OPENJDK_VERSION:-} ]]; then
+    echo "${C_RED}ERROR: One of the following properties must be specified in the stack:" > /dev/stderr
+    echo "         - JAVA_PACKAGE_NAME" > /dev/stderr
+    echo "           OR" > /dev/stderr
+    echo "         - OPENJDK_VERSION${C_NORMAL}" > /dev/stderr
     errors=1
   fi
 
@@ -1778,53 +1788,67 @@ function wait_for_parcel_state() {
 }
 
 function set_java_alternatives() {
-  local link_dir=/usr/bin
-  local java_home=$(ls -1d /usr/java/*-cloudera 2>/dev/null| sort | tail -1 || true)
-  if [[ $java_home != "" && -d $java_home ]]; then
-    local jre_dir=$java_home/jre/bin
-    local jdk_dir=$java_home/bin
-    
-    sudo alternatives --install $link_dir/java java $jre_dir/java 20000  \
-      --slave $link_dir/keytool     keytool     $jre_dir/keytool         \
-      --slave $link_dir/orbd        orbd        $jre_dir/orbd            \
-      --slave $link_dir/pack200     pack200     $jre_dir/pack200         \
-      --slave $link_dir/rmid        rmid        $jre_dir/rmid            \
-      --slave $link_dir/rmiregistry rmiregistry $jre_dir/rmiregistry     \
-      --slave $link_dir/servertool  servertool  $jre_dir/servertool      \
-      --slave $link_dir/tnameserv   tnameserv   $jre_dir/tnameserv       \
-      --slave $link_dir/unpack200   unpack200   $jre_dir/unpack200       \
-      --slave $link_dir/jcontrol    jcontrol    $jre_dir/jcontrol        \
-      --slave $link_dir/javaws      javaws      $jre_dir/javaws
-    
-    sudo alternatives --install $link_dir/javac javac $jdk_dir/javac 20000  \
-      --slave $link_dir/appletviewer appletviewer $jdk_dir/appletviewer     \
-      --slave $link_dir/apt          apt          $jdk_dir/apt              \
-      --slave $link_dir/extcheck     extcheck     $jdk_dir/extcheck         \
-      --slave $link_dir/idlj         idlj         $jdk_dir/idlj             \
-      --slave $link_dir/jar          jar          $jdk_dir/jar              \
-      --slave $link_dir/jarsigner    jarsigner    $jdk_dir/jarsigner        \
-      --slave $link_dir/javadoc      javadoc      $jdk_dir/javadoc          \
-      --slave $link_dir/javah        javah        $jdk_dir/javah            \
-      --slave $link_dir/javap        javap        $jdk_dir/javap            \
-      --slave $link_dir/jcmd         jcmd         $jdk_dir/jcmd             \
-      --slave $link_dir/jconsole     jconsole     $jdk_dir/jconsole         \
-      --slave $link_dir/jdb          jdb          $jdk_dir/jdb              \
-      --slave $link_dir/jhat         jhat         $jdk_dir/jhat             \
-      --slave $link_dir/jinfo        jinfo        $jdk_dir/jinfo            \
-      --slave $link_dir/jmap         jmap         $jdk_dir/jmap             \
-      --slave $link_dir/jps          jps          $jdk_dir/jps              \
-      --slave $link_dir/jrunscript   jrunscript   $jdk_dir/jrunscript       \
-      --slave $link_dir/jsadebugd    jsadebugd    $jdk_dir/jsadebugd        \
-      --slave $link_dir/jstack       jstack       $jdk_dir/jstack           \
-      --slave $link_dir/jstat        jstat        $jdk_dir/jstat            \
-      --slave $link_dir/jstatd       jstatd       $jdk_dir/jstatd           \
-      --slave $link_dir/native2ascii native2ascii $jdk_dir/native2ascii     \
-      --slave $link_dir/policytool   policytool   $jdk_dir/policytool       \
-      --slave $link_dir/rmic         rmic         $jdk_dir/rmic             \
-      --slave $link_dir/schemagen    schemagen    $jdk_dir/schemagen        \
-      --slave $link_dir/serialver    serialver    $jdk_dir/serialver        \
-      --slave $link_dir/wsgen        wsgen        $jdk_dir/wsgen            \
-      --slave $link_dir/wsimport     wsimport     $jdk_dir/wsimport         \
-      --slave $link_dir/xjc          xjc          $jdk_dir/xjc
+  local java_home=${1:-$(ls -1d /usr/java/*-cloudera 2>/dev/null| sort | tail -1 || true)}
+  local priority=${2:-9999999}
+
+  if [[ -n $java_home && -d $java_home ]]; then
+    java_home=$(readlink -f ${java_home})
+    local link_dir=/usr/bin
+    local jre_bin_dir
+    local jdk_bin_dir
+    jdk_bin_dir=$(readlink -f "${java_home}/bin")
+    jre_bin_dir=$(readlink -f "${java_home}/jre/bin" || true)
+
+    local bin_dirs=()
+    for bin_dir in $jre_bin_dir $jdk_bin_dir; do
+      if [[ -d $bin_dir ]]; then
+        bin_dirs+=("$bin_dir")
+      fi
+    done
+    java_path=$(find "${bin_dirs[@]}" -name java | head -1)
+    local cmd=(sudo alternatives --install "$link_dir/java" java "$java_path" "${priority}")
+
+    local names="|java|"
+    for path in $(find "${bin_dirs[@]}" ! -type d -perm -001 | sort); do
+      name=$(basename "$path")
+      [[ $names == *"|$name|"* ]] && continue
+      cmd+=(--slave "$link_dir/$name" "$name" "$path")
+    done
+
+    "${cmd[@]}"
+
+    sudo alternatives --install "${JDK_BASE}/jre-openjdk" jre_openjdk "${java_home}" 9999999
+  fi
+}
+
+function install_java() {
+  if [[ -n ${JAVA_PACKAGE_NAME:-} ]]; then
+    yum_install "${JAVA_PACKAGE_NAME}"
+    if ! javac; then
+      set_java_alternatives
+    fi
+  fi
+  if [[ -n ${OPENJDK_VERSION:-} ]]; then
+    local major_version=${OPENJDK_VERSION%%.*}
+    if [[ $major_version -ne 11 && $major_version -ne 17 ]]; then
+      echo "ERROR: Only OpenJDK versions 11.x and 17.x can be installed through the property OPENJDK_VERSION."
+      echo "ERROR: The version specified was ${OPENJDK_VERSION}."
+      echo "ERROR: For other versions, find an available package for CentOS and use the JAVA_PACKAGE_NAME property."
+      exit 1
+    fi
+    local tmp_tarball="/tmp/openjdk.tar.gz"
+    local openjdk_url
+    openjdk_url=$(curl -sL "$OPENJDK_ARCHIVE" | grep -o 'http[^"]*openjdk-'"${OPENJDK_VERSION}"'_linux-x64[^"]*bin.tar.gz' | head -1 || true)
+    if [[ -z ${openjdk_url:-} ]]; then
+      echo "ERROR: The OpenJDK version ${OPENJDK_VERSION} could not be found in ${OPENJDK_ARCHIVE}."
+      echo "ERROR: Choose an option available in the archive and try again."
+      exit 1
+    fi
+    retry_if_needed 5 5 "wget --progress=dot:giga '$openjdk_url' -O '$tmp_tarball'"
+    local java_home="${JDK_BASE}/jdk-${major_version}"
+    mkdir -p "$java_home"
+    tar -C "$java_home" --strip-components=1 -xvf "$tmp_tarball"
+    rm -f $tmp_tarball
+    set_java_alternatives "$java_home"
   fi
 }
