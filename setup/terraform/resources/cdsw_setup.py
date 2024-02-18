@@ -8,6 +8,7 @@ import re
 import requests
 import sys
 import time
+import traceback
 
 PUBLIC_IP = sys.argv[1]
 MODEL_PKL_FILE = sys.argv[2]
@@ -30,6 +31,7 @@ VIZ_API = URL_SCHEME + '://viz.cdsw.{}.nip.io/arc/apps'.format(PUBLIC_IP, )
 VIZ_ADMIN_USER = 'vizapps_admin'
 
 _DEFAULT_PROJECT_NAME = 'Edge2AI Workshop'
+_DEFAULT_PROJECT_SLUG = 'admin/edge2ai-workshop'
 _VIZ_PROJECT_NAME = 'VizApps Workshop'
 
 USERNAME = 'admin'
@@ -67,9 +69,11 @@ def _init_sessions():
         _VIZ_SESSION.verify = TRUSTSTORE
 
 
-def _authorize_sessions():
+def _authorize_sessions(clear_token=False):
     global _CDSW_SESSION
     print("Authorizing sessions")
+    if clear_token:
+        _CDSW_SESSION.headers.update({'Authorization': ''})
     resp = _cdsw_post(CDSW_API + '/authenticate',
                       json={'login': USERNAME, 'password': PASSWORD})
     token = resp.json()['auth_token']
@@ -135,7 +139,7 @@ def _get_viz_runtime():
     return _VIZ_RUNTIME
 
 
-def _get_model(refresh=False):
+def _get_model(refresh=False, model_name=_MODEL_NAME):
     global _MODEL_NAME
     global _MODEL
     if not _MODEL or refresh:
@@ -145,12 +149,22 @@ def _get_model(refresh=False):
                               'latestModelDeployment': True,
                               'latestModelBuild': True,
                           })
-        models = [m for m in resp.json() if m['name'] == _MODEL_NAME]
+        models = [m for m in resp.json() if model_name is None or m['name'] == model_name]
         if models:
             _MODEL = models[0]
         else:
             _MODEL = {}
     return _MODEL
+
+
+def _delete_model():
+    model = _get_model(refresh=True)
+    if model:
+        print("Deleting model with ID {}".format(model['id']))
+        resp = _cdsw_post(CDSW_ALTUS_API + '/models/delete-model',
+                          json={
+                              'id': model['id'],
+                          })
 
 
 def _is_model_deployed():
@@ -164,7 +178,7 @@ def _rest_call(func, url, expected_codes=None, **kwargs):
     resp = func(url, **kwargs)
     if resp.status_code not in expected_codes:
         print(resp.text)
-        raise RuntimeError("Unexpected response: {}".format(resp))
+        raise RuntimeError("Unexpected response: {}".format(resp), resp)
     return resp
 
 
@@ -216,6 +230,12 @@ def _get_project(name=None, project_id=None):
         if (name and proj['name'] == name) or (project_id and proj['id'] == project_id):
             return proj
     return {}
+
+
+def _delete_project(project_slug):
+    project = _get_default_project(refresh=True)
+    if project:
+        resp = _cdsw_delete(CDSW_API + '/projects/' + project_slug, expected_codes=[204])
 
 
 def _create_github_project():
@@ -270,9 +290,9 @@ def _create_local_project(zipfile):
                       })
 
 
-def _get_default_project():
+def _get_default_project(refresh=False):
     global _DEFAULT_PROJECT
-    if not _DEFAULT_PROJECT:
+    if not _DEFAULT_PROJECT or refresh:
         _DEFAULT_PROJECT = _get_project(name=_DEFAULT_PROJECT_NAME)
     return _DEFAULT_PROJECT
 
@@ -290,6 +310,10 @@ def start_model(build_id):
         'cpuMillicores': 1000,
         'memoryMb': 4096,
     })
+
+
+def _restart_application(app_id, project_slug):
+    _cdsw_put(CDSW_API + '/projects/{}/applications/{}/restart'.format(project_slug, app_id), json={})
 
 
 def _get_viz_user(username):
@@ -457,128 +481,143 @@ def main():
         print('User ID: {}'.format(user_id))
 
         print('# Check if model is already running')
-        if _is_model_deployed():
+        model = _get_model(refresh=True)
+        if model and model['latestModelDeployment']['status'] == 'deployed':
             print('Model is already deployed!! Skipping.')
         else:
-            print('# Add engine')
-            resp = _cdsw_post(CDSW_API + '/site/engine-profiles', expected_codes=[201],
-                              json={'cpu': 1, 'memory': 4})
-            engine_profile_id = resp.json()['id']
-            print('Engine ID: {}'.format(engine_profile_id, ))
+            # Check previously failed model deployment
+            model_id = None
+            if model:
+                build_status = model['latestModelBuild']['status']
+                deployment_status = model['latestModelDeployment']['status']
+                if not ('failed' in build_status or 'failed' in deployment_status):
+                    model_id = model['id']
 
-            print('# Add environment variable')
-            _cdsw_patch(CDSW_API + '/site/config',
-                        json={'environment': '{"HADOOP_CONF_DIR":"/etc/hadoop/conf/"}'})
+            if not model_id:
+                print('# Delete previously failed model and project, if they exist')
+                _delete_model()
+                _delete_project(_DEFAULT_PROJECT_SLUG)
 
-            print('# Add project')
-            _cdsw_get(CDSW_API + '/users/admin/projects')
-            if not _get_default_project():
-                if PROJECT_ZIP_FILE:
-                    print('Creating a Local project using file {}'.format(PROJECT_ZIP_FILE))
-                    _create_local_project(PROJECT_ZIP_FILE)
-                else:
-                    print('Creating a GitHub project')
-                    _create_github_project()
-            print('Project ID: {}'.format(_get_default_project()['id'], ))
+                print('# Add engine')
+                resp = _cdsw_post(CDSW_API + '/site/engine-profiles', expected_codes=[201],
+                                  json={'cpu': 1, 'memory': 4})
+                engine_profile_id = resp.json()['id']
+                print('Engine ID: {}'.format(engine_profile_id, ))
 
-            print('# Upload setup script')
-            setup_script = """!pip3 install --upgrade pip scikit-learn
-!HADOOP_USER_NAME=hdfs hdfs dfs -mkdir /user/$HADOOP_USER_NAME
-!HADOOP_USER_NAME=hdfs hdfs dfs -chown $HADOOP_USER_NAME:$HADOOP_USER_NAME /user/$HADOOP_USER_NAME
-!hdfs dfs -put data/historical_iot.txt /user/$HADOOP_USER_NAME
-!hdfs dfs -ls -R /user/$HADOOP_USER_NAME
-"""
-            _cdsw_put(CDSW_API + '/projects/admin/edge2ai-workshop/files/setup_workshop.py',
-                      files={'name': setup_script})
+                print('# Add environment variable')
+                _cdsw_patch(CDSW_API + '/site/config',
+                            json={'environment': '{"HADOOP_CONF_DIR":"/etc/hadoop/conf/"}'})
 
-            print('# Upload model')
-            model_pkl = open(MODEL_PKL_FILE, 'rb')
-            _cdsw_put(CDSW_API + '/projects/admin/edge2ai-workshop/files/iot_model.pkl',
-                      files={'name': model_pkl})
+                print('# Add project')
+                _cdsw_get(CDSW_API + '/users/admin/projects')
+                if not _get_default_project():
+                    if PROJECT_ZIP_FILE:
+                        print('Creating a Local project using file {}'.format(PROJECT_ZIP_FILE))
+                        _create_local_project(PROJECT_ZIP_FILE)
+                    else:
+                        print('Creating a GitHub project')
+                        _create_github_project()
+                print('Project ID: {}'.format(_get_default_project()['id'], ))
 
-            job_params = {
-                'name': 'Setup workshop',
-                'type': 'manual',
-                'script': 'setup_workshop.py',
-                'timezone': 'America/Los_Angeles',
-                'environment': {},
-                'kernel': 'python3',
-                'cpu': 1,
-                'memory': 4,
-                'nvidia_gpu': 0,
-                'notifications': [{
-                    'user_id': user_id,
-                    'success': False,
-                    'failure': False,
-                    'timeout': False,
-                    'stopped': False
-                }],
-                'recipients': {},
-                'attachments': [],
-            }
-            if _get_release() >= [1, 10]:
-                job_params.update({'runtime_id': _get_default_runtime()})
+                print('# Upload setup script')
+                setup_script = """!pip3 install --upgrade pip scikit-learn
+    !HADOOP_USER_NAME=hdfs hdfs dfs -mkdir /user/$HADOOP_USER_NAME
+    !HADOOP_USER_NAME=hdfs hdfs dfs -chown $HADOOP_USER_NAME:$HADOOP_USER_NAME /user/$HADOOP_USER_NAME
+    !hdfs dfs -put data/historical_iot.txt /user/$HADOOP_USER_NAME
+    !hdfs dfs -ls -R /user/$HADOOP_USER_NAME
+    """
+                _cdsw_put(CDSW_API + '/projects/' + _DEFAULT_PROJECT_SLUG + '/files/setup_workshop.py',
+                          files={'name': setup_script})
 
-            print('# Create job to run the setup script')
-            resp = _cdsw_post(CDSW_API + '/projects/admin/edge2ai-workshop/jobs', expected_codes=[201],
-                              json=job_params)
-            job_id = resp.json()['id']
-            print('Job ID: {}'.format(job_id, ))
+                print('# Upload model')
+                model_pkl = open(MODEL_PKL_FILE, 'rb')
+                _cdsw_put(CDSW_API + '/projects/' + _DEFAULT_PROJECT_SLUG + '/files/iot_model.pkl',
+                          files={'name': model_pkl})
 
-            status = None
-            while status != 'succeeded':
-                print('# Start job')
-                job_url = '{}/projects/admin/edge2ai-workshop/jobs/{}'.format(CDSW_API, job_id)
-                start_url = '{}/start'.format(job_url, )
-                _cdsw_post(start_url, json={})
-                while True:
-                    resp = _cdsw_get(job_url)
-                    status = resp.json()['latest']['status']
-                    print('Job {} status: {}'.format(job_id, status))
-                    if status == 'succeeded':
-                        break
-                    if status == 'failed':
-                        print('# Job failed. Will retry in 5 seconds.')
-                        time.sleep(5)
-                        break
-                    time.sleep(10)
-
-            print('# Get engine image to use for model')
-            resp = _cdsw_get(CDSW_API + '/projects/admin/edge2ai-workshop/engine-images')
-            engine_image_id = resp.json()['id']
-            print('Engine image ID: {}'.format(engine_image_id, ))
-
-            print('# Deploy model')
-            if _get_release() >= [1, 10]:
                 job_params = {
-                    'runtimeId': _get_default_runtime(),
-                    'authEnabled': True,
-                    "addons": [],
+                    'name': 'Setup workshop',
+                    'type': 'manual',
+                    'script': 'setup_workshop.py',
+                    'timezone': 'America/Los_Angeles',
+                    'environment': {},
+                    'kernel': 'python3',
+                    'cpu': 1,
+                    'memory': 4,
+                    'nvidia_gpu': 0,
+                    'notifications': [{
+                        'user_id': user_id,
+                        'success': False,
+                        'failure': False,
+                        'timeout': False,
+                        'stopped': False
+                    }],
+                    'recipients': {},
+                    'attachments': [],
                 }
-            else:
-                job_params = {}
-            job_params.update({
-                'projectId': _get_default_project()['id'],
-                'name': _MODEL_NAME,
-                'description': _MODEL_NAME,
-                'visibility': 'private',
-                'targetFilePath': 'cdsw.iot_model.py',
-                'targetFunctionName': 'predict',
-                'engineImageId': engine_image_id,
-                'kernel': 'python3',
-                'examples': [{'request': {'feature': '0, 65, 0, 137, 21.95, 83, 19.42, 111, 9.4, 6, 3.43, 4'}}],
-                'cpuMillicores': 1000,
-                'memoryMb': 4096,
-                'replicationPolicy': {'type': 'fixed', 'numReplicas': 1},
-                'environment': {},
-            })
-            resp = _cdsw_post(CDSW_ALTUS_API + '/models/create-model', json=job_params)
-            try:
-                model_id = resp.json()['id']
-            except Exception as err:
-                print(resp.json())
-                raise err
-            print('Model ID: {}'.format(model_id, ))
+                if _get_release() >= [1, 10]:
+                    job_params.update({'runtime_id': _get_default_runtime()})
+
+                print('# Create job to run the setup script')
+                resp = _cdsw_post(CDSW_API + '/projects/' + _DEFAULT_PROJECT_SLUG + '/jobs', expected_codes=[201],
+                                  json=job_params)
+                job_id = resp.json()['id']
+                print('Job ID: {}'.format(job_id, ))
+
+                status = None
+                while status != 'succeeded':
+                    print('# Start job')
+                    job_url = ('{}/projects/' + _DEFAULT_PROJECT_SLUG + '/jobs/{}').format(CDSW_API, job_id)
+                    start_url = '{}/start'.format(job_url, )
+                    _cdsw_post(start_url, json={})
+                    while True:
+                        resp = _cdsw_get(job_url)
+                        status = resp.json()['latest']['status']
+                        print('Job {} status: {}'.format(job_id, status))
+                        if status == 'succeeded':
+                            break
+                        if status == 'failed':
+                            print('# Job failed. Will retry in 5 seconds.')
+                            time.sleep(5)
+                            break
+                        time.sleep(10)
+
+                print('# Get engine image to use for model')
+                resp = _cdsw_get(CDSW_API + '/projects/' + _DEFAULT_PROJECT_SLUG + '/engine-images')
+                engine_image_id = resp.json()['id']
+                print('Engine image ID: {}'.format(engine_image_id, ))
+
+                print('# Deploy model')
+                if not model_id:
+                    if _get_release() >= [1, 10]:
+                        job_params = {
+                            'runtimeId': _get_default_runtime(),
+                            'authEnabled': True,
+                            "addons": [],
+                        }
+                    else:
+                        job_params = {}
+                    job_params.update({
+                        'projectId': _get_default_project()['id'],
+                        'name': _MODEL_NAME,
+                        'description': _MODEL_NAME,
+                        'visibility': 'private',
+                        'targetFilePath': 'cdsw.iot_model.py',
+                        'targetFunctionName': 'predict',
+                        'engineImageId': engine_image_id,
+                        'kernel': 'python3',
+                        'examples': [{'request': {'feature': '0, 65, 0, 137, 21.95, 83, 19.42, 111, 9.4, 6, 3.43, 4'}}],
+                        'cpuMillicores': 1000,
+                        'memoryMb': 4096,
+                        'replicationPolicy': {'type': 'fixed', 'numReplicas': 1},
+                        'environment': {},
+                    })
+                    resp = _cdsw_post(CDSW_ALTUS_API + '/models/create-model', json=job_params)
+                    try:
+                        model_id = resp.json()['id']
+                    except Exception as err:
+                        print(resp.json())
+                        raise err
+                print('Model ID: {}'.format(model_id, ))
 
         # ================================================================================
 
@@ -622,7 +661,6 @@ def main():
             params = {
                 'bypass_authentication': True,
                 'cpu': 1,
-                'environment': {},
                 'description': 'Viz Server Application',
                 'kernel': 'python3',
                 'memory': 2,
@@ -644,12 +682,16 @@ def main():
         # ================================================================================
 
         print('# Wait for model to start')
+        start_time = time.time()
         while True:
+            if time.time() - start_time > 600:
+                _delete_model()
+                raise RuntimeError("Model took too long to start. Trying again")
             try:
                 model = _get_model(refresh=True)
             except RuntimeError as exc:
-                if '401' in exc.message:
-                    pass
+                if '401' in exc.args[0]:
+                    _authorize_sessions(clear_token=True)
                 raise exc
             if model:
                 build_status = model['latestModelBuild']['status']
@@ -662,26 +704,32 @@ def main():
                 elif build_status == 'built' and deployment_status == 'stopped':
                     # If the deployment stops for any reason, try to give it a little push
                     start_model(build_id)
-                elif build_status == 'failed' or deployment_status == 'failed':
+                elif 'failed' in build_status or deployment_status == 'failed':
                     raise RuntimeError('Model deployment failed')
             time.sleep(10)
 
         if _get_release() > [1, 9]:
             print('# Wait for VizApps to start')
+            retries = 5
             while True:
                 resp = _cdsw_get(_get_viz_project()['url'] + '/applications')
-                app_status = resp.json()[0]['status']
+                app = resp.json()[0]
+                app_status = app['status']
                 print('Data Visualization app status: {}'.format(app_status))
                 if app_status == 'running':
                     print('# Viz server app is running. CDSW setup complete!')
                     set_vizapps_pwd()
                     _add_vizapps_user('admin', PASSWORD, 'Workshop', 'Admin')
                     break
-                elif app_status == 'stopped':
-                    # Additional error handling - if the app exists and is stopped, start it?
-                    break
-                elif app_status == 'failed':
-                    raise RuntimeError('Application deployment failed')
+                elif app_status in ['failed', 'stopped']:
+                    if retries > 0:
+                        print("Application {}. Trying a restart.".format(app_status))
+                        app_id = app['id']
+                        project_slug = app['project']['slug']
+                        _restart_application(app_id, project_slug)
+                        retries -= 1
+                    else:
+                        raise RuntimeError('Application deployment {}'.format(app_status))
                 time.sleep(10)
 
     except Exception as err:
@@ -693,4 +741,18 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    RETRIES = 5
+    while RETRIES > 0:
+        try:
+            main()
+            break
+        except Exception as exc:
+            print('Something went wrong. Exception: {}'.format(exc))
+            if len(exc.args) == 2 and isinstance(exc.args[1], requests.Response) and exc.args[1].status_code in [401, 403] :
+                _authorize_sessions(clear_token=True)
+            traceback.print_exc()
+            RETRIES -= 1
+            if RETRIES > 0:
+                print('Retrying...')
+            else:
+                raise exc
