@@ -520,7 +520,7 @@ function run_terraform() {
   local ret=0
   local run_log=/tmp/run.log.$$
   while [[ $retries -gt 0 ]]; do
-    retry_if_needed 10 1 'terraform_cmd init -upgrade' >> $NAMESPACE_DIR/terraform.log 2>&1
+    retry_if_needed 10 30 'terraform_cmd init -upgrade' >> $NAMESPACE_DIR/terraform.log 2>&1
     set +e
     terraform_cmd "${args[@]}" 2> >(tee $run_log >&2)
     ret=$?
