@@ -19,13 +19,6 @@ def setup_flag():
     return True
 
 
-# @pytest.fixture(scope="session")
-# def cdsw_flag():
-#     if 'SKIP_CDSW' in os.environ:
-#         return False
-#     return True
-
-
 @pytest.fixture(scope="session")
 def teardown_flag():
     if 'SKIP_TEARDOWN' in os.environ:
