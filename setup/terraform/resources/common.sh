@@ -513,6 +513,11 @@ enum_cache_timeout = 45/' /etc/sssd/sssd.conf
   chmod 755 ${KEYTABS_DIR}
   chmod -R 444 ${KEYTABS_DIR}/*
 
+  # Add IPA cert to Java's default truststore
+  local java_home cacerts
+  java_home=$(readlink -f "$(dirname "$(readlink -f "$(which java)")")/..")
+  cacerts=$(readlink -f "$(find "$java_home" -name cacerts)")
+  keytool -importcert -keystore "$cacerts" -storepass changeit -alias ipa-ca-cert -file /etc/ipa/ca.crt -noprompt
 }
 
 function install_kerberos() {
