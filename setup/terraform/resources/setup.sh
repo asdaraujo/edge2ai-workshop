@@ -174,7 +174,7 @@ EOF
     requests-kerberos==0.14.0 \
     thrift-sasl==0.4.3
 
-  rm -f /usr/bin/python3 /usr/bin/pip3
+  rm -f /usr/bin/python3 /usr/bin/pip3 /usr/local/bin/python3.8
   ln -s /opt/rh/rh-python38/root/bin/python3 /usr/bin/python3
   ln -s /opt/rh/rh-python38/root/bin/pip3 /usr/bin/pip3
   ln -s /opt/rh/rh-python38/root/usr/bin/python3.8 /usr/local/bin/python3.8
