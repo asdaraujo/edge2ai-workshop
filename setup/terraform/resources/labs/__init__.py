@@ -11,7 +11,7 @@ from datetime import datetime
 from importlib import import_module
 from inspect import getmembers
 
-import pytest
+#import pytest
 import requests
 
 logging.basicConfig(level=logging.WARN)
@@ -20,8 +20,8 @@ LOG.setLevel(logging.INFO)
 
 # Global constants
 LAB_METHOD_NAME_REGEX = r'lab([0-9]+)'
-HOSTNAME_ENV_VAR = 'TEST_HOSTNAME'
-PUBLIC_IP_ENV_VAR = 'TEST_PUBLIC_IP'
+HOSTNAME_ENV_VAR = 'EDGE2AI_HOSTNAME'
+PUBLIC_IP_ENV_VAR = 'PUBLIC_IP'
 RUN_ID_ENV_VAR = 'RUN_ID'
 THE_PWD_ENV_VAR = 'THE_PWD'
 THE_PWD_FILE_NAME = 'the_pwd.txt'
@@ -101,11 +101,12 @@ def is_kerberos_enabled(path=None):
         return is_kerberos_enabled(_get_parent_dir(path))
 
 
-def get_hostname():
+def get_hostname(public_ip=None):
+    public_ip = public_ip if public_ip else os.environ[PUBLIC_IP_ENV_VAR] if PUBLIC_IP_ENV_VAR in os.environ else None
     if HOSTNAME_ENV_VAR in os.environ:
         return os.environ[HOSTNAME_ENV_VAR]
-    elif PUBLIC_IP_ENV_VAR in os.environ:
-        return 'cdp.{}.nip.io'.format(os.environ[PUBLIC_IP_ENV_VAR])
+    elif public_ip:
+        return f'cdp.{public_ip}.nip.io'
     else:
         return socket.gethostname()
 

@@ -1011,7 +1011,7 @@ fi
 
 if [ "${HAS_CDSW:-}" == "1" ]; then
   log_status "Initiating CDSW setup in the background",
-  nohup python -u /tmp/resources/cdsw_setup.py $(echo "$PUBLIC_DNS" | sed -E 's/cdp.(.*).nip.io/\1/') /tmp/resources/iot_model.pkl /tmp/resources/the_pwd.txt > /tmp/resources/cdsw_setup.log 2>&1 &
+  nohup python -u /tmp/resources/cdsw_setup.py --public-ip "$(echo "$PUBLIC_DNS" | sed -E 's/cdp.(.*).nip.io/\1/')" --model-pkl-file /tmp/resources/iot_model.pkl --password-file /tmp/resources/the_pwd.txt > /tmp/resources/cdsw_setup.log 2>&1 &
 fi
 
 if [[ ! -z ${ECS_PUBLIC_DNS:-} ]]; then

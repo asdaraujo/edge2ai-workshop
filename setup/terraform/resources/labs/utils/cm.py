@@ -6,10 +6,12 @@ import requests
 
 from . import *
 
-CM_CREDS = ('admin', get_the_pwd())
-
 _API_VERSION = None
 _CLUSTER_NAME = None
+
+
+def _default_cm_auth():
+    return 'admin', get_the_pwd()
 
 
 def _get_cm_port():
@@ -20,20 +22,25 @@ def _get_cm_api_version_url():
     return get_url_scheme() + '://{}:{}/api/version'.format(get_hostname(), _get_cm_port())
 
 
-def _get_cm_api_version():
+def _get_cm_api_version(cm_auth=None):
     global _API_VERSION
     if not _API_VERSION:
-        return api_request('GET', _get_cm_api_version_url(), auth=CM_CREDS).text
+        if not cm_auth:
+            cm_auth = _default_cm_auth()
+        return api_request('GET', _get_cm_api_version_url(), auth=cm_auth).text
     return _API_VERSION
 
 
-def _get_cm_api_url():
-    return get_url_scheme() + '://{}:{}/api/{}'.format(get_hostname(), _get_cm_port(), _get_cm_api_version())
+def get_cm_api_url(public_ip=None, cm_auth=None):
+    return get_url_scheme() + '://{}:{}/api/{}'.format(get_hostname(public_ip),
+                                                       _get_cm_port(), _get_cm_api_version(cm_auth))
 
 
 def _api_request(method, endpoint, expected_codes=None, **kwargs):
-    url = _get_cm_api_url() + endpoint
-    return api_request(method, url, expected_codes, auth=CM_CREDS, **kwargs)
+    url = get_cm_api_url() + endpoint
+    if 'auth' not in kwargs:
+        kwargs['auth'] = _default_cm_auth()
+    return api_request(method, url, expected_codes, **kwargs)
 
 
 def _get_cluster_name():
