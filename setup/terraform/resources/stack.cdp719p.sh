@@ -10,7 +10,7 @@ ENABLE_KERBEROS=no
 ENABLE_TLS=no
 
 #####  Java Package
-JAVA_PACKAGE_NAME=java-11-openjdk-devel
+OPENJDK_VERSION=17.0.2
 
 ##### Maven binary
 MAVEN_BINARY_URL=https://downloads.apache.org/maven/maven-3/3.9.6/binaries/apache-maven-3.9.6-bin.tar.gz
@@ -61,8 +61,8 @@ EFM_TARBALL_URL=https://archive.cloudera.com/p/CEM/ubuntu20/${CEM_MAJOR_VERSION}
 #####  CEM AGENTS
 MINIFI_VERSION=1.24.01
 MINIFI_BUILD=${MINIFI_VERSION}-b21
-MINIFI_TARBALL_URL=https://archive.cloudera.com/p/cem-agents/${MINIFI_VERSION}/ubuntu22/apt/tars/nifi-minifi-cpp/nifi-minifi-cpp-${MINIFI_BUILD}-bin-centos.tar.gz
-MINIFITK_TARBALL_URL=https://archive.cloudera.com/p/cem-agents/${MINIFI_VERSION}/ubuntu22/apt/tars/nifi-minifi-cpp/nifi-minifi-cpp-${MINIFI_BUILD}-extra-extensions-centos.tar.gz
+MINIFI_TARBALL_URL=https://archive.cloudera.com/p/cem-agents/${MINIFI_VERSION}/ubuntu22/apt/tars/nifi-minifi-cpp/nifi-minifi-cpp-${MINIFI_BUILD}-bin-linux.tar.gz
+MINIFITK_TARBALL_URL=https://archive.cloudera.com/p/cem-agents/${MINIFI_VERSION}/ubuntu22/apt/tars/nifi-minifi-cpp/nifi-minifi-cpp-${MINIFI_BUILD}-extra-extensions-linux.tar.gz
 
 #####   CSA
 CSA_VERSION=1.12.0.0
