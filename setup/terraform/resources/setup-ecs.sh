@@ -51,13 +51,13 @@ EOF
   cat /etc/systemd/system.conf.d/ecs.conf
   kill -1 1 # reload systemd
 
+  # Install Java
+  log_status "Installing JDK packages"
+  install_java
+
   wait_for_ipa "$IPA_HOST"
   log_status "ECS: Installing IPA client"
   install_ipa_client "$IPA_HOST"
-
-  # Install Java (need keytool to handle certs)
-  log_status "Installing JDK packages"
-  install_java
 
   log_status "ECS: Creating TLS certificates"
   # This is done even if ENABLE_TLS == no, since ShellInABox always needs a cert
