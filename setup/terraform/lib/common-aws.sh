@@ -33,7 +33,13 @@ function get_instance_hourly_cost() {
   local tmp_file=/tmp/instance-cost.$$
   local ret=$(curl -w "%{http_code}" "$ec2_prices_url" -o $tmp_file --stderr /dev/null)
   if [[ $ret == 200 ]]; then
-    jq -r '.prices[] | select(.attributes["aws:ec2:instanceType"] == "'"$instance_type"'").price.USD' $tmp_file
+    if grep '"prices"' $tmp_file > /dev/null; then
+      jq -r '.prices[] | select(.attributes["aws:ec2:instanceType"] == "'"$instance_type"'").price.USD' $tmp_file
+    elif grep '"regions"' $tmp_file > /dev/null; then
+      jq -r '.regions[][] | select(.["Instance Type"] == "'"$instance_type"'").price' $tmp_file
+    else
+      return
+    fi
   fi
   rm -f $tmp_file
 }
