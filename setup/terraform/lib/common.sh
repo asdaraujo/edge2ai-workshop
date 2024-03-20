@@ -380,7 +380,8 @@ function load_env() {
   source $env_file
   export NAMESPACE=$namespace
 
-  export TF_VAR_cloud_provider=${TF_VAR_cloud_provider:-aws}
+  TF_VAR_cloud_provider=${TF_VAR_cloud_provider:-aws}
+  export TF_VAR_cloud_provider
   local provider_common=$BASE_DIR/lib/common-${TF_VAR_cloud_provider}.sh
   if [[ -f $provider_common ]]; then
     source $provider_common
@@ -397,23 +398,25 @@ function load_env() {
   REGISTRATION_CODE_FILE=$NAMESPACE_DIR/registration.code
   TF_STATE=$NAMESPACE_DIR/terraform.state
 
-  export TF_VAR_namespace=$NAMESPACE
-  export TF_VAR_name_prefix=$(echo "$namespace" | tr "A-Z" "a-z")
-  export TF_VAR_key_name="${TF_VAR_name_prefix}-$(echo -n "$TF_VAR_owner" | base64)"
-  export TF_VAR_web_key_name="${TF_VAR_name_prefix}-$(echo -n "$TF_VAR_owner" | base64)-web"
+  TF_VAR_namespace=$NAMESPACE
+  TF_VAR_name_prefix=$(echo "$namespace" | tr "A-Z" "a-z")
+  TF_VAR_key_name="${TF_VAR_name_prefix}-$(echo -n "$TF_VAR_owner" | base64)"
+  TF_VAR_web_key_name="${TF_VAR_name_prefix}-$(echo -n "$TF_VAR_owner" | base64)-web"
 
-  export TF_VAR_ssh_private_key=$NAMESPACE_DIR/${TF_VAR_key_name}.pem
-  export TF_VAR_ssh_public_key=$NAMESPACE_DIR/${TF_VAR_key_name}.pem.pub
-  export TF_VAR_web_ssh_private_key=$NAMESPACE_DIR/${TF_VAR_web_key_name}.pem
-  export TF_VAR_web_ssh_public_key=$NAMESPACE_DIR/${TF_VAR_web_key_name}.pem.pub
-  export TF_VAR_my_public_ip=$(get_public_ip)
+  TF_VAR_ssh_private_key=$NAMESPACE_DIR/${TF_VAR_key_name}.pem
+  TF_VAR_ssh_public_key=$NAMESPACE_DIR/${TF_VAR_key_name}.pem.pub
+  TF_VAR_web_ssh_private_key=$NAMESPACE_DIR/${TF_VAR_web_key_name}.pem
+  TF_VAR_web_ssh_public_key=$NAMESPACE_DIR/${TF_VAR_web_key_name}.pem.pub
+  TF_VAR_my_public_ip=$(get_public_ip)
 
   normalize_boolean TF_VAR_use_elastic_ip false
   normalize_boolean TF_VAR_pvc_data_services false
   normalize_boolean TF_VAR_deploy_cdsw_model true
 
-  export TF_VAR_cdp_license_file_original=${TF_VAR_cdp_license_file:-}
-  export TF_VAR_cdp_license_file=$(get_license_file_path)
+  TF_VAR_cdp_license_file_original=${TF_VAR_cdp_license_file:-}
+  TF_VAR_cdp_license_file=$(get_license_file_path)
+
+  export TF_VAR_namespace TF_VAR_name_prefix TF_VAR_key_name TF_VAR_web_key_name TF_VAR_ssh_private_key TF_VAR_ssh_public_key TF_VAR_web_ssh_private_key TF_VAR_web_ssh_public_key TF_VAR_my_public_ip TF_VAR_cdp_license_file_original TF_VAR_cdp_license_file
 }
 
 function get_public_ip() {
@@ -434,13 +437,18 @@ function get_public_ip() {
 function get_license_file_path() {
   if [[ -z ${TF_VAR_cdp_license_file:-} ]]; then
     echo ""
+  elif [[ $TF_VAR_cdp_license_file != "/"* ]]; then
+    error "The path to the license file specified in TF_VAR_cdp_license_file must be absolute."
+    error "It currently specifies a relative path: $TF_VAR_cdp_license_file"
+    abort
   elif [[ -s $TF_VAR_cdp_license_file ]]; then
     echo "$TF_VAR_cdp_license_file"
   elif [[ $(df | grep "$LICENSE_FILE_MOUNTPOINT" | wc -l) -eq 1 ]]; then
     # we are running inside docker
     echo "$LICENSE_FILE_MOUNTPOINT"
   else
-    echo "/file/not/found"
+    error "The license file specified in TF_VAR_cdp_license_file ($TF_VAR_cdp_license_file) could not be found."
+    abort
   fi
 }
 
@@ -514,7 +522,8 @@ function run_terraform() {
   fi
   check_terraform_version
   pushd $provider_dir > /dev/null
-  export TF_VAR_base_dir=$BASE_DIR
+  TF_VAR_base_dir=$BASE_DIR
+  export TF_VAR_base_dir
   # Sometimes there are issues downloading plugins. So it retries when needed...
   local retries=10
   local ret=0
@@ -1173,7 +1182,8 @@ function security_groups() {
 function ensure_registration_code() {
   local code="${1:-}"
   if [[ $code != "" ]]; then
-    export TF_VAR_registration_code="$code"
+    TF_VAR_registration_code="$code"
+    export TF_VAR_registration_code
   elif [[ ${TF_VAR_registration_code:-} == "" ]]; then
     result=$(curl -w "%{http_code}" --connect-timeout 5 "https://frightanic.com/goodies_content/docker-names.php" 2>/dev/null)
     status_code=$(echo "$result" | tail -1)

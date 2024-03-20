@@ -31,6 +31,10 @@ function log() {
   echo "[$(date)] [$(basename $0): $BASH_LINENO] : $*"
 }
 
+function error() {
+  echo "${C_RED}ERROR: $*${C_NORMAL}" >&2
+}
+
 function abort() {
   echo "Aborting."
   exit 1
