@@ -844,9 +844,14 @@ function remaining_days() {
   local enddate=$1
   python -c "
 from datetime import datetime, timedelta
-dt = datetime.now()
-dt = dt.replace(hour=0, minute=0, second=0, microsecond=0)
-print((datetime.strptime('$enddate', '%m%d%Y') - dt).days)
+now = datetime.now()
+now = now.replace(hour=0, minute=0, second=0, microsecond=0)
+try:
+  dt = datetime.strptime('$enddate', '%m%d%Y')
+  days = (datetime.strptime('$enddate', '%m%d%Y') - now).days
+except ValueError:
+  days = 'INVALID_DATE'
+print(days)
 "
 }
 

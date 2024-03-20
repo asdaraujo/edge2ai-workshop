@@ -34,15 +34,18 @@ validate_env
 # Check if enddate is close
 WARNING_THRESHOLD_DAYS=2
 DATE_CHECK=$(remaining_days "$TF_VAR_enddate")
-if [ "$DATE_CHECK" -le "0" ]; then
-  echo 'ERROR: The expiration date for your environment is either set for today or already in the past.'
-  echo '       Please update "TF_VAR_endddate" in .env.'"$NAMESPACE"' and try again.'
+if [[ $DATE_CHECK == "INVALID_DATE" ]]; then
+  error "TF_VAR_enddate format is invalid. Date must be formatted as MMDDYYYY. Current value: $TF_VAR_enddate"
   abort
-elif [ "$DATE_CHECK" -le "$WARNING_THRESHOLD_DAYS" ]; then
+elif [[ $DATE_CHECK -le 0 ]]; then
+  error 'The expiration date for your environment is either set for today or already in the past.'
+  error 'Please update "TF_VAR_endddate" in .env.'"$NAMESPACE"' and try again.'
+  abort
+elif [[ $DATE_CHECK -le $WARNING_THRESHOLD_DAYS ]]; then
   echo -n "WARNING: Your environment will expire in less than $WARNING_THRESHOLD_DAYS days. Do you really want to continue? "
   read CONFIRM
   CONFIRM=$(echo "${CONFIRM}" | tr a-z A-Z)
-  if [ "$CONFIRM" != "Y" -a "$CONFIRM" != "YES" ]; then
+  if [[ $CONFIRM != "Y" && $CONFIRM != "YES" ]]; then
     echo 'Please update "TF_VAR_endddate" in .env.'"$NAMESPACE"' and try again.'
     abort
   fi
