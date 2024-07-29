@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from . import *
+from kafka import KafkaConsumer
 
 
 def _get_port():
@@ -52,3 +53,24 @@ def get_common_client_properties(env, client_type, consumer_group_id, client_id)
             'ssl.context.service': env.ssl_svc.id,
         })
     return props
+
+
+def consume_topic(topic, stop_after=1, timeout_secs=10):
+    consumer = KafkaConsumer(
+        bootstrap_servers=get_bootstrap_servers(),
+        security_protocol=get_security_protocol(),
+        sasl_mechanism='GSSAPI',
+        sasl_kerberos_service_name='kafka',
+        auto_offset_reset='latest',
+        enable_auto_commit=False,
+    )
+    consumer.subscribe([topic])
+
+    records = []
+    start_time = time.time()
+    while True:
+        resp = consumer.poll(timeout_ms=1000)
+        for tp, msgs in resp.items():
+            records.extend(msgs)
+        if (time.time() > start_time + timeout_secs) or len(records) >= stop_after:
+            return records
