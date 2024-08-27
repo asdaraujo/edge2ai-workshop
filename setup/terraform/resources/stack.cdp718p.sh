@@ -71,21 +71,3 @@ FLINK_BUILD=${FLINK_VERSION}-csa${CSA_VERSION}-cdh7.1.8.0-801-41959971
 CSA_PARCEL_REPO=https://archive.cloudera.com/p/csa/${CSA_VERSION}/parcels/
 FLINK_CSD_URL=https://archive.cloudera.com/p/csa/${CSA_VERSION}/csd/FLINK-${FLINK_BUILD}.jar
 SSB_CSD_URL=https://archive.cloudera.com/p/csa/${CSA_VERSION}/csd/SQL_STREAM_BUILDER-${FLINK_BUILD}.jar
-
-# Parcels to be pre-downloaded during install.
-# Cloudera Manager will download any parcels that are not already downloaded previously.
-CDP_PARCEL_URLS=(
-  hadoop         "$CDH_BUILD"                         "$CDH_PARCEL_REPO"
-  nifi           "$CFM_BUILD"                         "$CFM_PARCEL_REPO"
-  cdsw           "$CDSW_BUILD"                        "$CDSW_PARCEL_REPO"
-  Anaconda3      "$ANACONDA_VERSION"                  "$ANACONDA_PARCEL_REPO"
-  flink          "$FLINK_BUILD"                       "$CSA_PARCEL_REPO"
-)
-
-CDP_CSD_URLS=(
-  $CFM_NIFI_CSD_URL
-  $CFM_NIFIREG_CSD_URL
-  $CDSW_CSD_URL
-  $FLINK_CSD_URL
-  $SSB_CSD_URL
-)

@@ -201,16 +201,65 @@ function load_stack() {
   # Set default for ANACONDA_PRODUCT, which was introduced late
   ANACONDA_PRODUCT=${ANACONDA_PRODUCT:-Anaconda}
 
-  # Ensure deployment works with legacy stacks
-  if [[ -z "${CDP_PARCEL_URLS[@]:-}" && ! -z "${PARCEL_URLS[@]:-}" ]]; then
-    CDP_PARCEL_URLS=(${PARCEL_URLS[@]})
-  fi
-  if [[ -z "${CDP_CSD_URLS[@]:-}" && ! -z "${CSD_URLS[@]:-}" ]]; then
-    CDP_CSD_URLS=(${CSD_URLS[@]})
-  fi
+  # Decides which parcels and CSDs will be installed
+  generate_parcels_and_csds_lists
 
   export ENABLE_KERBEROS ENABLE_TLS KERBEROS_TYPE USE_IPA TF_VAR_use_ipa PROJECT_ZIP_FILE HAS_CEM ANACONDA_PRODUCT CDP_PARCEL_URLS CDP_CSD_URLS
   prepare_keytabs_dir
+}
+
+function generate_parcels_and_csds_lists() {
+  # Generate the lists of parcels and CSDs to be installed based on the stack settings
+  # Newer stacks don't have the CDP_PARCEL_URLS and CDP_CSD_URLS. These are set here instead.
+  # If the stack has these variables set, the components listed there will be honoured, but
+  # we may add others, if needed.
+  # CDP_PARCEL_URLS structure is (product_name, build, parcel_dir_url [, product_name, build, parcel_dir_url, ...])
+  # CDP_CSD_URLS structure is (csd_url [, csd_url, ...])
+
+  # Ensure deployment works with legacy stacks, where
+  if [[ -z ${CDP_PARCEL_URLS[@]:-} ]]; then
+    if [[ -z ${PARCEL_URLS[@]:-} ]]; then
+      CDP_PARCEL_URLS=()
+    else
+      CDP_PARCEL_URLS=("${PARCEL_URLS[@]}")
+    fi
+  fi
+  if [[ -z ${CDP_CSD_URLS[@]:-} ]]; then
+    if [[ -z ${CSD_URLS[@]:-} ]]; then
+      CDP_CSD_URLS=()
+    else
+      CDP_CSD_URLS=("${CSD_URLS[@]}")
+    fi
+  fi
+
+  # At a minimum we always install the CDH parcel
+  if ! contains hadoop "${CDP_PARCEL_URLS[@]:-}"; then
+    CDP_PARCEL_URLS+=(hadoop "$CDH_BUILD" "$CDH_PARCEL_REPO")
+  fi
+
+  if [[ $CM_SERVICES == *"NIFI"* ]] && ! contains nifi "${CDP_PARCEL_URLS[@]}"; then
+    [[ -z ${CFM_BUILD:-} || -z ${CFM_PARCEL_REPO:-} ]] || CDP_PARCEL_URLS+=(nifi "$CFM_BUILD" "$CFM_PARCEL_REPO")
+    [[ -z ${CFM_NIFI_CSD_URL:-} ]] || CDP_CSD_URLS+=("$CFM_NIFI_CSD_URL")
+    [[ -z ${CFM_NIFIREG_CSD_URL:-} ]] || CDP_CSD_URLS+=("$CFM_NIFIREG_CSD_URL")
+  fi
+
+  if [[ $CM_SERVICES == *"FLINK"* ]] && ! contains flink "${CDP_PARCEL_URLS[@]}"; then
+    [[ -z ${FLINK_BUILD:-} || -z ${CSA_PARCEL_REPO:-} ]] || CDP_PARCEL_URLS+=(flink "$FLINK_BUILD" "$CSA_PARCEL_REPO")
+    [[ -z ${FLINK_CSD_URL:-} ]] || CDP_CSD_URLS+=("$FLINK_CSD_URL")
+    [[ -z ${SSB_CSD_URL:-} ]] || CDP_CSD_URLS+=("$SSB_CSD_URL")
+  fi
+
+  if [[ $CM_SERVICES == *"CDSW"* ]] && ! contains cdsw "${CDP_PARCEL_URLS[@]}"; then
+    [[ -z ${CDSW_BUILD:-} || -z ${CDSW_PARCEL_REPO:-} ]] || CDP_PARCEL_URLS+=(cdsw "$CDSW_BUILD" "$CDSW_PARCEL_REPO")
+    [[ -z ${CDSW_CSD_URL:-} ]] || CDP_CSD_URLS+=("$CDSW_CSD_URL")
+
+    # Anaconda parcels are no longer available for CentOS/RHEL 8
+    if [[ $(get_os_major_version) == "7" ]] && ! contains "$ANACONDA_PRODUCT" "${CDP_PARCEL_URLS[@]}"; then
+      [[ -z ${ANACONDA_PRODUCT:-} || -z ${ANACONDA_VERSION:-} || -z ${ANACONDA_PARCEL_REPO:-} ]] || CDP_PARCEL_URLS+=("$ANACONDA_PRODUCT" "$ANACONDA_VERSION" "$ANACONDA_PARCEL_REPO")
+    fi
+  fi
+
+  export CDP_PARCEL_URLS CDP_CSD_URLS
 }
 
 function prepare_keytabs_dir() {
@@ -2034,4 +2083,15 @@ function install_python() {
     alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
   fi
   pip install --quiet --upgrade pip
+}
+
+function contains() {
+  # Checks if a value ($1) is in an array ($2, $3, ...)
+  # Usage: contains "$value" "${array[@]}"
+  local elem=$1
+  shift
+  while [[ $# -gt 0 ]]; do
+    [[ $1 == $elem ]] && return 0 || shift
+  done
+  return 1
 }

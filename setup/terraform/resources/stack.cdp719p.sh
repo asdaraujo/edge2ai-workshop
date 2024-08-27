@@ -65,28 +65,10 @@ MINIFI_BUILD=${MINIFI_VERSION}-b21
 MINIFI_TARBALL_URL=https://archive.cloudera.com/p/cem-agents/${MINIFI_VERSION}/ubuntu22/apt/tars/nifi-minifi-cpp/nifi-minifi-cpp-${MINIFI_BUILD}-bin-linux.tar.gz
 MINIFITK_TARBALL_URL=https://archive.cloudera.com/p/cem-agents/${MINIFI_VERSION}/ubuntu22/apt/tars/nifi-minifi-cpp/nifi-minifi-cpp-${MINIFI_BUILD}-extra-extensions-linux.tar.gz
 
-#####   CSA
-CSA_VERSION=1.12.0.0
-FLINK_VERSION=1.18.0
-FLINK_BUILD=${FLINK_VERSION}-csa${CSA_VERSION}-cdh7.1.9.1-158-50079952
+#####  CSA
+CSA_VERSION=1.13.0.0
+FLINK_VERSION=1.19.1
+FLINK_BUILD=${FLINK_VERSION}-csa${CSA_VERSION}-56480426
 CSA_PARCEL_REPO=https://archive.cloudera.com/p/csa/${CSA_VERSION}/parcels/
 FLINK_CSD_URL=https://archive.cloudera.com/p/csa/${CSA_VERSION}/csd/FLINK-${FLINK_BUILD}.jar
 SSB_CSD_URL=https://archive.cloudera.com/p/csa/${CSA_VERSION}/csd/SQL_STREAM_BUILDER-${FLINK_BUILD}.jar
-
-# Parcels to be pre-downloaded during install.
-# Cloudera Manager will download any parcels that are not already downloaded previously.
-CDP_PARCEL_URLS=(
-  hadoop         "$CDH_BUILD"                         "$CDH_PARCEL_REPO"
-  nifi           "$CFM_BUILD"                         "$CFM_PARCEL_REPO"
-  cdsw           "$CDSW_BUILD"                        "$CDSW_PARCEL_REPO"
-  Anaconda3      "$ANACONDA_VERSION"                  "$ANACONDA_PARCEL_REPO"
-  flink          "$FLINK_BUILD"                       "$CSA_PARCEL_REPO"
-)
-
-CDP_CSD_URLS=(
-  $CFM_NIFI_CSD_URL
-  $CFM_NIFIREG_CSD_URL
-  $CDSW_CSD_URL
-  $FLINK_CSD_URL
-  $SSB_CSD_URL
-)

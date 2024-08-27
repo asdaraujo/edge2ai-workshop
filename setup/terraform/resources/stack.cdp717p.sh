@@ -53,39 +53,21 @@ CDSW_PARCEL_REPO=https://archive.cloudera.com/p/cdsw1/${CDSW_VERSION}/parcels/
 CDSW_CSD_URL=https://archive.cloudera.com/p/cdsw1/${CDSW_VERSION}/csd/CLOUDERA_DATA_SCIENCE_WORKBENCH-CDPDC-${CDSW_VERSION}.jar
 
 #####  CEM
-CEM_VERSION=1.6.0.0
-CEM_BUILD=${CEM_VERSION}-72
+CEM_VERSION=1.5.1.0
+CEM_BUILD=${CEM_VERSION}-25
 CEM_MAJOR_VERSION=${CEM_VERSION%%.*}
 EFM_TARBALL_URL=https://archive.cloudera.com/p/CEM/ubuntu20/${CEM_MAJOR_VERSION}.x/updates/${CEM_VERSION}/tars/efm/efm-${CEM_BUILD}-bin.tar.gz
 
 #####  CEM AGENTS
-MINIFI_VERSION=1.23.06
-MINIFI_BUILD=${MINIFI_VERSION}-b27
+MINIFI_VERSION=1.23.04
+MINIFI_BUILD=${MINIFI_VERSION}-b23
 MINIFI_TARBALL_URL=https://archive.cloudera.com/p/cem-agents/${MINIFI_VERSION}/ubuntu18/apt/tars/nifi-minifi-cpp/nifi-minifi-cpp-${MINIFI_BUILD}-bin-centos.tar.gz
 MINIFITK_TARBALL_URL=https://archive.cloudera.com/p/cem-agents/${MINIFI_VERSION}/ubuntu18/apt/tars/nifi-minifi-cpp/nifi-minifi-cpp-${MINIFI_BUILD}-extra-extensions-centos.tar.gz
 
-#####   CSA
-CSA_VERSION=1.7.0.1
-FLINK_VERSION=1.14.0
-FLINK_BUILD=1.14.0-csa1.7.0.1-cdh7.1.7.0-551-29340707
-CSA_PARCEL_REPO=https://archive.cloudera.com/p/csa/1.7.0.1/parcels/
-FLINK_CSD_URL=https://archive.cloudera.com/p/csa/1.7.0.1/csd/FLINK-1.14.0-csa1.7.0.1-cdh7.1.7.0-551-29340707.jar
-SSB_CSD_URL=https://archive.cloudera.com/p/csa/1.7.0.1/csd/SQL_STREAM_BUILDER-1.14.0-csa1.7.0.1-cdh7.1.7.0-551-29340707.jar
-
-# Parcels to be pre-downloaded during install.
-# Cloudera Manager will download any parcels that are not already downloaded previously.
-CDP_PARCEL_URLS=(
-  hadoop         "$CDH_BUILD"                         "$CDH_PARCEL_REPO"
-  nifi           "$CFM_BUILD"                         "$CFM_PARCEL_REPO"
-  cdsw           "$CDSW_BUILD"                        "$CDSW_PARCEL_REPO"
-  Anaconda3      "$ANACONDA_VERSION"                  "$ANACONDA_PARCEL_REPO"
-  flink          "$FLINK_BUILD"                       "$CSA_PARCEL_REPO"
-)
-
-CDP_CSD_URLS=(
-  $CFM_NIFI_CSD_URL
-  $CFM_NIFIREG_CSD_URL
-  $CDSW_CSD_URL
-  $FLINK_CSD_URL
-  $SSB_CSD_URL
-)
+#####  CSA
+CSA_VERSION=1.10.0.0
+FLINK_VERSION=1.16.1
+FLINK_BUILD=1.16.1-csa1.10.0.0-cdh7.1.8.0-801-41959971
+CSA_PARCEL_REPO=https://archive.cloudera.com/p/csa/1.10.0.0/parcels/
+FLINK_CSD_URL=https://archive.cloudera.com/p/csa/1.10.0.1/csd/FLINK-1.16.1-csa1.10.0.1-cdh7.1.8.0-801-50506469.jar
+SSB_CSD_URL=https://archive.cloudera.com/p/csa/1.10.0.1/csd/SQL_STREAM_BUILDER-1.16.1-csa1.10.0.1-cdh7.1.8.0-801-50506469.jar
