@@ -72,7 +72,7 @@ resource "aws_instance" "web" {
   ami               = var.base_ami
   instance_type     = "t2.medium"
   availability_zone = aws_subnet.subnet1.availability_zone
-  key_name          = aws_key_pair.workshop_web_key_pair.key_name
+  key_name          = aws_key_pair.workshop_web_key_pair[count.index].key_name
 
   network_interface {
     network_interface_id = aws_network_interface.eni_web.id
