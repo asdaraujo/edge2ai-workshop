@@ -14,7 +14,7 @@ COMPACT=${2:-}
 
 source $BASE_DIR/lib/common.sh
 
-CURL=(curl -s -L -k --connect-timeout 4 --max-time 4)
+CURL=(curl -s -L -k --connect-timeout 15 --max-time 15)
 
 function cleanup() {
   rm -f .curl.*.$$
@@ -45,7 +45,14 @@ function check_url() {
   else
     local output=/dev/null
   fi
-  timeout 10 "${CURL[*]} $(url_for_ip "$url_template" "$ip")" 2>/dev/null | tee -a $output | egrep "$ok_pattern" > /dev/null 2>&1 && echo Ok
+  local url=$(url_for_ip "$url_template" "$ip")
+  if [[ $url_template == *"/gateway/cdp-proxy/"* ]]; then
+    # this is a Knox URL
+    local random=$RANDOM
+    timeout 20 "cookie_jar=/tmp/.cj.$random; trap 'rm -f /tmp/.cj.$random' 0; ${CURL[*]} -u 'admin:${THE_PWD}' --cookie /tmp/.cj.$random --cookie-jar /tmp/.cj.$random '$url'" 2>/dev/null | tee -a $output | egrep "$ok_pattern" > /dev/null 2>&1 && echo Ok
+  else
+    timeout 20 "${CURL[*]} '$url'" 2>/dev/null | tee -a $output | egrep "$ok_pattern" > /dev/null 2>&1 && echo Ok
+  fi
 }
 
 # need to load the stack for calling get_service_urls
