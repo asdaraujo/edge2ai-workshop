@@ -74,11 +74,12 @@ function patch_yum_repos_for_centos() {
   # In July 2024 Centos 7 reached EoL and the repo was moved to the CentOS Vault.
   # The mirrorlist.centos.org host was also decommissioned.
   # The commands below update YUM repo file accordingly, if needed
+  local files=$(find /etc/yum.repos.d/ -name "*.repo" | grep -v epel)
   if [[ $(get_os_type) == "CENTOS" ]]; then
-    sed -i 's/mirror.centos.org/vault.centos.org/g' /etc/yum.repos.d/*.repo
-    sed -i 's/^#.*baseurl=http/baseurl=http/g' /etc/yum.repos.d/*.repo
-    sed -i 's/^mirrorlist=http/#mirrorlist=http/g' /etc/yum.repos.d/*.repo
-    sed -i 's/metalink=/#metalink=/' /etc/yum.repos.d/*.repo
+    sed -i 's/mirror.centos.org/vault.centos.org/g' $files
+    sed -i 's/^#.*baseurl=http/baseurl=http/g' $files
+    sed -i 's/^mirrorlist=http/#mirrorlist=http/g' $files
+    sed -i 's/metalink=/#metalink=/' $files
   fi
 }
 
