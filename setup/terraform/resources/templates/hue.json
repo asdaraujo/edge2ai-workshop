@@ -40,11 +40,18 @@
         }
 {% endif %}
 {% if USE_IPA == 'yes' %}
+{% if HAS_KNOX %}
+        ,{
+          "name" : "auth_backend",
+          "value" : "desktop.auth.backend.KnoxSpnegoDjangoBackend"
+        }
+{% else %}
         ,{
           "name" : "auth_backend",
           "value" : "desktop.auth.backend.LdapBackend,desktop.auth.backend.AllowFirstUserDjangoBackend"
-        },
-        {
+        }
+{% endif %}
+        ,{
           "name" : "base_dn",
           "value" : "cn=accounts,dc=workshop,dc=com"
         },
@@ -131,7 +138,7 @@
 {% if ENABLE_TLS == 'yes' %}
             {
               "name": "hue_server_hue_safety_valve",
-              "value": "[beeswax]\n[[ssl]]\nenabled=true\nvalidate=true\ncacerts=/opt/cloudera/security/x509/truststore.pem\n[desktop]\nssl_certificate_chain=/opt/cloudera/security/x509/cert.pem\n[[session]]\nsecure=true\n[impala]\n[[ssl]]\ncacerts=/opt/cloudera/security/x509/truststore.pem"
+              "value": "[beeswax]\n[[ssl]]\nenabled=true\nvalidate=true\ncacerts=/opt/cloudera/security/x509/truststore.pem\n[desktop]\nssl_certificate_chain=/opt/cloudera/security/x509/cert.pem\n[[session]]\nsecure=true\ntrusted_origins={{CLUSTER_HOST}}:9443\n[impala]\n[[ssl]]\ncacerts=/opt/cloudera/security/x509/truststore.pem"
             },
             {
               "name": "ssl_cacerts",

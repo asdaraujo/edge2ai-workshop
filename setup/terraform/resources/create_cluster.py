@@ -386,7 +386,7 @@ class ClusterCreator:
 
         # Enable kerberos
         if use_kerberos:
-            self._enable_kerberos(kerberos_type, ipa_host)
+            self._enable_kerberos(kerberos_type, ipa_host, use_tls)
 
         # Enable TLS
         if use_tls:
@@ -458,13 +458,18 @@ class ClusterCreator:
         cmd = self.mgmt_api.restart_command()
         cmd = self.wait(cmd)
 
-    def _enable_kerberos(self, kerberos_type, ipa_host):
+    def _enable_kerberos(self, kerberos_type, ipa_host, use_tls):
         # Update Kerberos configuration
         config = [
             cm_client.ApiConfig(name='KRB_AUTH_ENABLE', value='true'),
             cm_client.ApiConfig(name='KRB_ENC_TYPES', value='aes256-cts rc4-hmac'),
             cm_client.ApiConfig(name='PUBLIC_CLOUD_STATUS', value='ON_PUBLIC_CLOUD'),
             cm_client.ApiConfig(name='SECURITY_REALM', value='WORKSHOP.COM'),
+            cm_client.ApiConfig(name='FRONTEND_URL',
+                                value=f'{"https" if use_tls else "http"}://{local_hostname()}:9443'),
+            cm_client.ApiConfig(name='PROXYUSER_KNOX_GROUPS', value='*'),
+            cm_client.ApiConfig(name='PROXYUSER_KNOX_HOSTS', value='*'),
+            cm_client.ApiConfig(name='PROXYUSER_KNOX_USERS', value='*'),
         ]
         if kerberos_type == 'MIT':
             config += [
