@@ -52,6 +52,21 @@ function get_namespaces() {
     sed 's/\.env\.//;s/\/\.env$/\/default/' | xargs -I{} basename {}
 }
 
+function get_namespace_instances() {
+  local namespace=$1
+  local tf_json="${BASE_DIR}/namespaces/${namespace}/${namespace}.tf.json"
+  if [[ -s $tf_json ]]; then
+    set +e
+    local instances
+    instances=$(jq -r '.values.root_module.resources[] | select(.type == "aws_instance") | "\(if .name == "cluster" then .index else .name end)"' "$tf_json" 2>/dev/null | sort | tr "\n" "," | sed 's/,$//;s/,/, /g')
+    local ret=$?
+    set -e
+    if [[ $ret -eq 0 ]]; then
+      echo "$instances"
+    fi
+  fi
+}
+
 function show_namespaces() {
   check_env_files
 
@@ -61,7 +76,12 @@ function show_namespaces() {
   else
     echo -e "\nNamespaces:"
     for namespace in $namespaces; do
-      echo "  - $namespace"
+      local instances=$(get_namespace_instances "$namespace")
+      if [[ $instances == "" ]]; then
+        echo "  - $namespace"
+      else
+        printf "%-25s %s\n" "  - $namespace" "(instances: $instances)"
+      fi
     done
   fi
 }
