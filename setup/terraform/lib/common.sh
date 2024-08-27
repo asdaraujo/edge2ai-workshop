@@ -575,7 +575,7 @@ function check_terraform_version() {
     ${TERRAFORM12:-} \
     ; do
     local tf_version=$($tf_binary version | grep Terraform.v | egrep -o "[0-9]+\.[0-9]+")
-    if [[ $state_version == "*" || $state_version == $tf_version ]]; then
+    if [[ $state_version == "*" || $state_version == "$tf_version" ]]; then
       TERRAFORM=$tf_binary
       return
     fi

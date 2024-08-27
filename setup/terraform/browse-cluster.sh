@@ -6,7 +6,7 @@ BASE_DIR=$(cd $(dirname $0); pwd -L)
 source $BASE_DIR/lib/common-basics.sh
 
 if [ $# != 2 -a $# != 3 ]; then
-  echo "Syntax: $0 <namespace> <cluster_number> [socks_proxy_port]"
+  echo "Syntax: $0 <namespace> <instance> [socks_proxy_port]"
   show_namespaces
   exit 1
 fi

@@ -5,7 +5,7 @@ BASE_DIR=$(cd $(dirname $0); pwd -L)
 source $BASE_DIR/lib/common-basics.sh
 
 if [ $# -lt 2 ]; then
-  echo "Syntax: $0 <namespace> <cluster_number>"
+  echo "Syntax: $0 <namespace> <instance>"
   show_namespaces
   exit 1
 fi
