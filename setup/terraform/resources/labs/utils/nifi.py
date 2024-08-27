@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 from nipyapi import nifi, canvas, config, security, parameters
 from . import *
-from . import nifireg
+from . import nifireg, cm
 
 
 DEFAULT_SSL_SERVICE_NAME = 'Default NiFi SSL Context Service'
@@ -11,7 +11,7 @@ DEFAULT_TRUSTSTORE_PASSWORD = get_the_pwd()
 DEFAULT_KEYSTORE_LOCATION = '/opt/cloudera/security/jks/keystore.jks'
 DEFAULT_KEYSTORE_PASSWORD = get_the_pwd()
 
-DEFAULT_KEYTAB_SERVICE_NAME = 'KeytabCredentialsService'
+DEFAULT_KEYTAB_SERVICE_NAME = 'KeytabControllerService'
 DEFAULT_KEYTAB_LOCATION = '/keytabs/admin.keytab'
 DEFAULT_KEYTAB_PRINCIPAL = 'admin'
 
@@ -21,6 +21,8 @@ DEFAULT_JSON_WRITER_SERVICE_NAME = 'JsonRecordSetWriter'
 DEFAULT_AVRO_WRITER_SERVICE_NAME = 'AvroRecordSetWriter'
 DEFAULT_REST_LOOKUP_SERVICE_NAME = 'RestLookupService'
 DEFAULT_HTTP_CTX_MAP_SERVICE_NAME = 'StandardHttpContextMap'
+
+_NIFI_VERSION = None
 
 
 def _get_port():
@@ -33,6 +35,13 @@ def get_url():
 
 def _get_api_url():
     return '%s://%s:%s/nifi-api' % (get_url_scheme(), get_hostname(), _get_port())
+
+
+def get_cfm_version():
+    global _NIFI_VERSION
+    if not _NIFI_VERSION:
+        _NIFI_VERSION = cm.get_product_version('CFM')
+    return [int(x) for x in re.sub('[^0-9.].*', '', _NIFI_VERSION).split('.')]
 
 
 def create_processor(pg, name, processor_types, position, cfg):
@@ -145,9 +154,9 @@ def create_ssl_controller(pg, service_name=DEFAULT_SSL_SERVICE_NAME,
     return _create_controller(pg, service_name, props, 'org.apache.nifi.ssl.StandardRestrictedSSLContextService')
 
 
-def create_keytab_controller(pg, service_name=DEFAULT_KEYTAB_SERVICE_NAME,
-                             keytab_location=DEFAULT_KEYTAB_LOCATION,
-                             keytab_principal=DEFAULT_KEYTAB_PRINCIPAL):
+def create_keytab_credentials_controller(pg, service_name=DEFAULT_KEYTAB_SERVICE_NAME,
+                                         keytab_location=DEFAULT_KEYTAB_LOCATION,
+                                         keytab_principal=DEFAULT_KEYTAB_PRINCIPAL):
     props = {
         'Kerberos Keytab': keytab_location,
         'Kerberos Principal': keytab_principal,
@@ -155,17 +164,31 @@ def create_keytab_controller(pg, service_name=DEFAULT_KEYTAB_SERVICE_NAME,
     return _create_controller(pg, service_name, props, 'org.apache.nifi.kerberos.KeytabCredentialsService')
 
 
+def create_kerberos_keytab_user_controller(pg, service_name=DEFAULT_KEYTAB_SERVICE_NAME,
+                                           keytab_location=DEFAULT_KEYTAB_LOCATION,
+                                           keytab_principal=DEFAULT_KEYTAB_PRINCIPAL):
+    props = {
+        'Kerberos Keytab': keytab_location,
+        'Kerberos Principal': keytab_principal,
+    }
+    return _create_controller(pg, service_name, props, 'org.apache.nifi.kerberos.KerberosKeytabUserService')
+
+
 def create_schema_registry_controller(pg, url, service_name=DEFAULT_SCHREG_SERVICE_NAME,
-                                      keytab_svc=None, ssl_svc=None):
+                                      keytab_credentials_svc=None, keytab_user_svc=None, ssl_svc=None):
     props = {
         'url': url,
     }
-    if keytab_svc:
-        props['kerberos-credentials-service'] = keytab_svc.id
+    if keytab_credentials_svc:
+        props['kerberos-credentials-service'] = keytab_credentials_svc.id
+    if keytab_user_svc:
+        props['kerberos-user-service'] = keytab_user_svc.id
     if ssl_svc:
         props['ssl-context-service'] = ssl_svc.id
     return _create_controller(pg, service_name, props,
-                              'org.apache.nifi.schemaregistry.hortonworks.HortonworksSchemaRegistry')
+                              'com.cloudera.nifi.schemaregistry.ClouderaSchemaRegistry'
+                              if get_cfm_version() >= [2, 1, 6, 0]
+                              else 'org.apache.nifi.schemaregistry.hortonworks.HortonworksSchemaRegistry')
 
 
 def create_json_reader_controller(pg, schema_registry_svc=None, schema_name=None,
@@ -254,6 +277,51 @@ def delete_all(pg):
     for context in parameters.list_all_parameter_contexts():
         parameters.delete_parameter_context(context)
 
+
+def get_process_group(pg_name):
+    return canvas.get_process_group(pg_name, 'name')
+
+
+def get_processor(processor_name):
+    return canvas.get_processor(processor_name, 'name', greedy=False)
+
+
+def check_for_processor_activity(name, entity_type='processor', metric='bytes_in', timeout_secs=120, delta=None, cumulative_delta=None,
+                                 absolute_value=None, is_greater_than_threshold=True):
+    """
+    Returns True is the processor received some data within the specified
+    timeout. False, otherwise.
+    :param processor_name:
+    :param timeout_secs:
+    :return:
+    """
+    assert delta is not None or absolute_value is not None, "Either delta or absolute_value must be specified."
+    start = time.time()
+    previous_value = value = None
+    actual_delta = actual_cumulative_delta = 0
+    while time.time() < start + timeout_secs:
+        if entity_type == 'processor':
+            ent = get_processor(name)
+        elif entity_type in ['process-group', 'pg']:
+            ent = get_process_group(name)
+        else:
+            raise RuntimeError(f'Unknown entity type {entity_type}')
+        value = getattr(ent.status.aggregate_snapshot, metric)
+        if isinstance(value, str):
+            value = int(value)
+        if previous_value is not None:
+            actual_delta = value - previous_value
+            actual_cumulative_delta += actual_delta
+            if delta is not None and ((is_greater_than_threshold and actual_delta >= delta) or (not is_greater_than_threshold and actual_delta <= delta)):
+                return True
+            elif cumulative_delta is not None and ((is_greater_than_threshold and actual_cumulative_delta >= cumulative_delta) or (not is_greater_than_threshold and actual_cumulative_delta <= cumulative_delta)):
+                return True
+            elif absolute_value is not None and ((is_greater_than_threshold and value >= absolute_value) or (not is_greater_than_threshold and value <= absolute_value)):
+                return True
+        previous_value = value
+        time.sleep(1)
+
+    return False
 
 def wait_for_data(pg_name, timeout_secs=120):
     while timeout_secs:

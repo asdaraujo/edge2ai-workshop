@@ -25,6 +25,10 @@ _CSRF_REGEXPS = [
 JOB_RUNNING_STATE = 'RUNNING'
 JOB_STOPPED_STATE = 'STOPPED'
 
+# Global
+use_ssb_load_balancer = False
+use_knox = False
+
 
 def _get_csrf_token(txt, quiet=True):
     token = None
@@ -40,34 +44,53 @@ def _get_csrf_token(txt, quiet=True):
 
 
 def _get_ui_port():
+    global use_ssb_load_balancer, use_knox
     if is_csa17_or_later():
-        return '18121'
+        if use_knox:
+            return '9443'
+        elif use_ssb_load_balancer:
+            return '8470' if is_tls_enabled() else '8070'
+        else:
+            return '18121'
     else:
         return '8001' if is_tls_enabled() else '8000'
 
 
-def _get_api_url():
-    if is_csa17_or_later():
-        return '{}://{}:{}'.format(get_url_scheme(), get_hostname(), _get_ui_port())
+def _get_base_url():
+    if use_knox:
+        path = "ssb-sse-api-lb" if use_ssb_load_balancer else "ssb-sse-api"
+        path = f'/gateway/cdp-proxy-api/{path}'
     else:
-        return '{}://{}:{}/api/v1'.format(get_url_scheme(), get_hostname(), _get_ui_port())
+        path = ''
+    return f'{get_url_scheme()}://{get_hostname()}:{_get_ui_port()}{path}'
 
 
-def _get_rest_api_url():
-    return '{}://{}:18121/api/v1'.format(get_url_scheme(), get_hostname())
+def _get_app_url():
+    """
+    """
+    if is_csa17_or_later():
+        return _get_base_url()
+    else:
+        return _get_api_url()
+
+
+def _get_api_url():
+    return f'{_get_base_url()}/api/v1'
 
 
 def _get_ui_url():
-    return '{}://{}:{}/ui'.format(get_url_scheme(), get_hostname(), _get_ui_port())
+    """
+    """
+    return f'{_get_base_url()}/ui'
 
 
 def _get_url(api_type):
     if api_type == _API_UI:
         return _get_ui_url()
     elif api_type == _API_INTERNAL:
-        return _get_api_url()
+        return _get_app_url()
     else:
-        return _get_rest_api_url()
+        return _get_api_url()
 
 
 def _api_call(func, path, data=None, files=None, headers=None, api_type=_API_INTERNAL, token=False, auth=None):
@@ -115,7 +138,7 @@ def _user_path():
         return '/internal/user/current'
 
 
-def _user_endpoint():
+def _user_endpoint_type():
     if is_csa19_or_later():
         return _API_EXTERNAL
     else:
@@ -129,7 +152,7 @@ def _udf_path():
         return '/internal/udf'
 
 
-def _udf_endpoint():
+def _udf_endpoint_type():
     if is_csa19_or_later():
         return _API_EXTERNAL
     else:
@@ -150,7 +173,7 @@ def _delete_job_path():
         return '/internal/jobs'
 
 
-def _delete_job_endpoint():
+def _delete_job_endpoint_type():
     if is_csa19_or_later():
         return _API_EXTERNAL
     else:
@@ -166,7 +189,7 @@ def _data_source_path():
         return '/external-providers'
 
 
-def _data_source_endpoint():
+def _data_source_endpoint_type():
     if is_csa19_or_later():
         return _API_EXTERNAL
     else:
@@ -196,7 +219,7 @@ def _tables_path():
         return '/sb-source'
 
 
-def _tables_endpoint():
+def _tables_endpoint_type():
     if is_csa19_or_later():
         return _API_EXTERNAL
     else:
@@ -212,7 +235,7 @@ def _tables_tree_path():
         return '/sb-source'
 
 
-def _tables_tree_endpoint():
+def _tables_tree_endpoint_type():
     if is_csa19_or_later():
         return _API_EXTERNAL
     else:
@@ -228,7 +251,7 @@ def _keytab_upload_path():
         return '/keytab/upload'
 
 
-def _keytab_upload_endpoint():
+def _keytab_upload_endpoint_type():
     if is_csa19_or_later():
         return _API_EXTERNAL
     elif is_csa17_or_later():
@@ -246,7 +269,7 @@ def _keytab_generate_path():
         raise RuntimeError('This feature is only implemented for CSA 1.7 and later.')
 
 
-def _keytab_generate_endpoint():
+def _keytab_generate_endpoint_type():
     if is_csa19_or_later():
         return _API_EXTERNAL
     elif is_csa17_or_later():
@@ -262,14 +285,14 @@ def _get_session():
         if is_tls_enabled():
             _SSB_SESSION.verify = get_truststore_path()
 
-        _api_get('/login', api_type=_API_UI)
         if is_csa17_or_later():
             if is_kerberos_enabled():
                 auth = HTTPKerberosAuth(mutual_authentication=DISABLED)
             else:
                 auth = (_SSB_USER, get_the_pwd())
-            _api_get(_user_path(), auth=auth, api_type=_user_endpoint())
+            _api_get(_user_path(), auth=auth, api_type=_user_endpoint_type())
         else:
+            _api_get('/login', api_type=_API_UI)
             _api_post('/login', {'next': '', 'login': _SSB_USER, 'password': get_the_pwd()}, api_type=_API_UI, token=True)
     return _SSB_SESSION
 
@@ -303,6 +326,10 @@ def is_csa110_or_later():
     return _get_csa_version() >= [1, 10]
 
 
+def is_csa113_or_later():
+    return _get_csa_version() >= [1, 13]
+
+
 def is_ssb_installed():
     return len(cm.get_services('SQL_STREAM_BUILDER')) > 0
 
@@ -319,11 +346,11 @@ def create_data_provider(provider_name, provider_type, properties, custom_trusts
     }
     if is_csa110_or_later():
         data['custom_truststore'] = custom_truststore
-    return _api_post(_data_source_path(), data, api_type=_data_source_endpoint(), token=True)
+    return _api_post(_data_source_path(), data, api_type=_data_source_endpoint_type(), token=True)
 
 
 def get_data_providers(provider_name=None):
-    resp = _api_get(_data_source_path(), api_type=_data_source_endpoint())
+    resp = _api_get(_data_source_path(), api_type=_data_source_endpoint_type())
     if is_csa16_or_later():
         providers = resp.json()
     else:
@@ -334,7 +361,7 @@ def get_data_providers(provider_name=None):
 def delete_data_provider(provider_name):
     assert provider_name is not None
     for provider in get_data_providers(provider_name):
-        _api_delete('{}/{}'.format(_data_source_path(), provider[_data_source_id_attr()]), api_type=_data_source_endpoint(), token=True)
+        _api_delete('{}/{}'.format(_data_source_path(), provider[_data_source_id_attr()]), api_type=_data_source_endpoint_type(), token=True)
 
 
 def delete_all_data_providers():
@@ -351,11 +378,11 @@ def create_udf(name, description, input_types, output_type, code):
         'output_type': output_type,
         'code': code,
     }
-    return _api_post(_udf_path(), data, api_type=_udf_endpoint(), token=True)
+    return _api_post(_udf_path(), data, api_type=_udf_endpoint_type(), token=True)
 
 
 def get_udfs(udf_name=None):
-    resp = _api_get(_udf_path(), api_type=_udf_endpoint())
+    resp = _api_get(_udf_path(), api_type=_udf_endpoint_type())
     return [f for f in resp.json() if udf_name is None or f['name'].upper() == udf_name.upper()]
 
 
@@ -367,7 +394,7 @@ def delete_udf(udf_name=None, udf_id=None):
         if not udf:
             return
         udf_id = udf[0]['id']
-    _api_delete('{}/{}'.format(_udf_path(), udf_id), api_type=_udf_endpoint())
+    _api_delete('{}/{}'.format(_udf_path(), udf_id), api_type=_udf_endpoint_type())
 
 
 def delete_all_udfs():
@@ -409,11 +436,11 @@ def create_kafka_table(table_name, table_format, provider_name, topic_name, sche
             "schema": schema,
         }
     }
-    return _api_post(_tables_path(), data, api_type=_tables_endpoint(), token=True)
+    return _api_post(_tables_path(), data, api_type=_tables_endpoint_type(), token=True)
 
 
 def get_tables(table_name=None, org='ssb_default'):
-    resp = _api_get(_tables_tree_path(), api_type=_tables_tree_endpoint())
+    resp = _api_get(_tables_tree_path(), api_type=_tables_tree_endpoint_type())
     if is_csa16_or_later():
         data = resp.json()
         assert 'tables' in data
@@ -429,7 +456,7 @@ def get_tables(table_name=None, org='ssb_default'):
 def delete_table(table_name):
     assert table_name is not None
     for table in get_tables(table_name):
-        _api_delete('{}/{}'.format(_tables_path(), table['id']), api_type=_tables_endpoint(), token=True)
+        _api_delete('{}/{}'.format(_tables_path(), table['id']), api_type=_tables_endpoint_type(), token=True)
 
 
 def execute_sql(stmt, job_name=None, execution_mode='SESSION', parallelism=None, sample_interval_millis=None, savepoint_path=None,
@@ -532,7 +559,7 @@ def delete_job(job_name=None, job_id=None, wait_secs=0):
     assert job_name is None or job_id is None
     stop_job(job_name=job_name, job_id=job_id, wait_secs=wait_secs)
     job_id = job_id or _get_job(job_name=job_name, attr='job_id')
-    _api_delete('{}/{}'.format(_delete_job_path(), job_id), api_type=_delete_job_endpoint())
+    _api_delete('{}/{}'.format(_delete_job_path(), job_id), api_type=_delete_job_endpoint_type())
 
 
 def stop_all_jobs(delete=False, wait_secs=0):
@@ -554,7 +581,7 @@ def upload_keytab(principal, keytab_file):
         files = {'file': (os.path.basename(keytab_file), open(keytab_file, 'rb'), 'application/octet-stream')}
 
         try:
-            _api_post(_keytab_upload_path(), api_type=_keytab_upload_endpoint(), data=data, files=files)
+            _api_post(_keytab_upload_path(), api_type=_keytab_upload_endpoint_type(), data=data, files=files)
         except RuntimeError as exc:
             if exc.args and 'Keytab already exists' in exc.args[0]:
                 return
@@ -565,7 +592,7 @@ def upload_keytab(principal, keytab_file):
             'csrf_token': _SSB_CSRF_TOKEN,
         }
         files = {'keytab_file': (os.path.basename(keytab_file), open(keytab_file, 'rb'), 'application/octet-stream')}
-        _api_post('/keytab/upload', api_type=_keytab_upload_endpoint(), data=data, files=files, token=True)
+        _api_post('/keytab/upload', api_type=_keytab_upload_endpoint_type(), data=data, files=files, token=True)
 
 
 def generate_keytab(principal, password):
@@ -574,7 +601,7 @@ def generate_keytab(principal, password):
         'password': password,
     }
     try:
-        _api_post(_keytab_generate_path(), api_type=_keytab_generate_endpoint(), data=data)
+        _api_post(_keytab_generate_path(), api_type=_keytab_generate_endpoint_type(), data=data)
     except RuntimeError as exc:
         if exc.args and 'Keytab already exists' in exc.args[0]:
             return

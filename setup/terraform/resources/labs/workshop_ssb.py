@@ -127,7 +127,9 @@ class SqlStreamBuilderWorkshop(AbstractWorkshop):
         #     raise
         provider_id = provider.get('provider_id', provider.get('id'))  # property name changed in CSA 1.9
         props = {
-            'catalog_type': 'registry',
+            # TODO: test backward compatibility for the below once CSA-5306 is done
+            #  'catalog_type': 'registry',
+            'catalog_type': 'cloudera-registry',
             'kafka.provider.id': provider_id,
             'registry.address': schreg.get_api_url(),
             'table_filters': [

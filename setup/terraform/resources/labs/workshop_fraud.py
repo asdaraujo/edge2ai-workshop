@@ -1568,15 +1568,19 @@ class FraudWorkshop(AbstractWorkshop):
         parameters.assign_context_to_process_group(self.context.fraud_pg, self.context.params.id)
 
         # Create controller services
+        self.context.ssl_svc = None
+        self.context.keytab_credentials_svc = None
+        self.context.keytab_user_svc = None
         if is_tls_enabled():
             self.context.ssl_svc = nf.create_ssl_controller(self.context.root_pg)
-            self.context.keytab_svc = nf.create_keytab_controller(self.context.fraud_pg)
-        else:
-            self.context.ssl_svc = None
-            self.context.keytab_svc = None
+            if nf.get_cfm_version() >= [2, 1, 6, 0]:
+                self.context.keytab_user_svc = nf.create_kerberos_keytab_user_controller(self.context.fraud_pg)
+            else:
+                self.context.keytab_credentials_svc = nf.create_keytab_credentials_controller(self.context.fraud_pg)
 
         self.context.sr_svc = nf.create_schema_registry_controller(self.context.fraud_pg, schreg.get_api_url(),
-                                                                   keytab_svc=self.context.keytab_svc,
+                                                                   keytab_user_svc=self.context.keytab_user_svc,
+                                                                   keytab_credentials_svc=self.context.keytab_credentials_svc,
                                                                    ssl_svc=self.context.ssl_svc)
 
         self.context.json_reader_svc = nf.create_json_reader_controller(
@@ -1810,6 +1814,8 @@ class FraudWorkshop(AbstractWorkshop):
             'mechanism': 'KERBEROS',
             'ssl.truststore.location': TRUSTSTORE_PATH,
         }
+        if ssb.is_csa113_or_later():
+            props['ssl.truststore.password'] = get_the_pwd()
         ssb.create_data_provider(KAFKA_PROVIDER_NAME, 'kafka', props)
 
     def lab6_create_ssb_kudu_data_provider(self):
