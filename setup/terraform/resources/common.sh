@@ -1092,7 +1092,7 @@ function service_port() {
   local non_tls_config=$4
   local tls_config=${5:-}
 
-  if [[ $tls_config == "" || $ENABLE_TLS != "yes" ]]; then
+  if [[ $tls_config == "" || $(is_tls_enabled) != "yes" ]]; then
     local config=$non_tls_config
   else
     local config=$tls_config
@@ -1112,55 +1112,87 @@ function get_service_urls() {
   CLUSTER_ID=dummy PEER_CLUSTER_ID=dummy PEER_PUBLIC_DNS=dummy \
   python $BASE_DIR/resources/cm_template.py --cdh-major-version $CDH_MAJOR_VERSION $CM_SERVICES > $tmp_template_file
 
-  local cm_port=$([[ $ENABLE_TLS == "yes" ]] && echo 7183 || echo 7180)
-  local protocol=$([[ $ENABLE_TLS == "yes" ]] && echo https || echo http)
+  local cm_port=$([[ $(is_tls_enabled) == "yes" ]] && echo 7183 || echo 7180)
+  local protocol=$([[ $(is_tls_enabled) == "yes" ]] && echo https || echo http)
   (
-    echo "CM=Cloudera Manager=${protocol}://{host}:${cm_port}/"
+    local knox_port=0
+    if [[ ${HAS_KNOX:-0} == 1 ]]; then
+      local knox_port=$(service_port $tmp_template_file KNOX KNOX_GATEWAY gateway_port)
+    fi
+    if [[ ${knox_port} -ne 0 && $(is_kerberos_enabled) == "yes" ]]; then
+      echo "CM=Cloudera Manager=${protocol}://{host}:${knox_port}/gateway/cdp-proxy/cmf/"
+    else
+      echo "CM=Cloudera Manager=${protocol}://{host}:${cm_port}/"
+    fi
     (
+      if [[ ${HAS_KNOX:-0} == 1 ]]; then
+        echo "KNOX=Knox=${protocol}://{host}:${knox_port}/gateway/homepage/home/"
+      fi
       if [[ $CDH_VERSION < "7.1.7" ]]; then
         echo "EFM=Edge Flow Manager=http://{host}:10088/efm/ui/"
       else
         echo "EFM=Edge Flow Manager=${protocol}://{host}:10088/efm/ui/"
       fi
       if [[ ${HAS_FLINK:-0} == 1 ]]; then
-        local flink_version=$(jq -r '.products[] | select(.product == "FLINK").version' $tmp_template_file | sed 's/.*csa//;s/-.*//;s/[a-z]//g')
-        local is_ge_17=$([[ $(echo -e "1.7.0.0\n$flink_version" | sort -V | head -1) == "1.7.0.0" ]] && echo yes || echo no)
-        local flink_port=$(service_port $tmp_template_file FLINK FLINK_HISTORY_SERVER historyserver_web_port)
-        echo "FLINK=Flink Dashboard=${protocol}://{host}:${flink_port}/"
-        local ssb_port=""
-        [[ $is_ge_17 == "yes" ]] && ssb_port=$(service_port $tmp_template_file SQL_STREAM_BUILDER STREAMING_SQL_ENGINE server.port server.port)
-        [[ $ssb_port == "" ]] && ssb_port=$(service_port $tmp_template_file SQL_STREAM_BUILDER STREAMING_SQL_CONSOLE console.port console.secure.port)
-        echo "SSB=SQL Stream Builder=${protocol}://{host}:${ssb_port}/"
+        if [[ ${knox_port} -ne 0 && $(is_kerberos_enabled) == "yes" ]]; then
+          echo "SSB=SQL Stream Builder=${protocol}://{host}:${knox_port}/gateway/cdp-proxy/ssb-sse-ui/"
+        else
+          local flink_version=$(jq -r '.products[] | select(.product == "FLINK").version' $tmp_template_file | sed 's/.*csa//;s/-.*//;s/[a-z]//g')
+          local is_ge_17=$([[ $(echo -e "1.7.0.0\n$flink_version" | sort -V | head -1) == "1.7.0.0" ]] && echo yes || echo no)
+          local flink_port=$(service_port $tmp_template_file FLINK FLINK_HISTORY_SERVER historyserver_web_port)
+          echo "FLINK=Flink Dashboard=${protocol}://{host}:${flink_port}/"
+          local ssb_port=""
+          [[ $is_ge_17 == "yes" ]] && ssb_port=$(service_port $tmp_template_file SQL_STREAM_BUILDER STREAMING_SQL_ENGINE server.port server.port)
+          [[ $ssb_port == "" ]] && ssb_port=$(service_port $tmp_template_file SQL_STREAM_BUILDER STREAMING_SQL_CONSOLE console.port console.secure.port)
+          echo "SSB=SQL Stream Builder=${protocol}://{host}:${ssb_port}/"
+        fi
       fi
       if [[ ${HAS_NIFI:-0} == 1 ]]; then
-        local nifi_port=$(service_port $tmp_template_file NIFI NIFI_NODE nifi.web.http.port nifi.web.https.port)
-        local nifireg_port=$(service_port $tmp_template_file NIFIREGISTRY NIFI_REGISTRY_SERVER nifi.registry.web.http.port nifi.registry.web.https.port)
-        echo "NIFI=NiFi=${protocol}://{host}:${nifi_port}/nifi/"
-        echo "NIFIREG=NiFi Registry=${protocol}://{host}:${nifireg_port}/nifi-registry/"
+        if [[ ${knox_port} -ne 0 && $(is_kerberos_enabled) == "yes" ]]; then
+          echo "NIFI=NiFi=${protocol}://{host}:${knox_port}/gateway/cdp-proxy/nifi-app/nifi/"
+          echo "NIFIREG=NiFi Registry=${protocol}://{host}:${knox_port}/gateway/cdp-proxy/nifi-registry-app/nifi-registry/"
+        else
+          local nifi_port=$(service_port $tmp_template_file NIFI NIFI_NODE nifi.web.http.port nifi.web.https.port)
+          local nifireg_port=$(service_port $tmp_template_file NIFIREGISTRY NIFI_REGISTRY_SERVER nifi.registry.web.http.port nifi.registry.web.https.port)
+          echo "NIFI=NiFi=${protocol}://{host}:${nifi_port}/nifi/"
+          echo "NIFIREG=NiFi Registry=${protocol}://{host}:${nifireg_port}/nifi-registry/"
+        fi
       fi
       if [[ ${HAS_SCHEMAREGISTRY:-0} == 1 ]]; then
-        local schemareg_port=$(service_port $tmp_template_file SCHEMAREGISTRY SCHEMA_REGISTRY_SERVER schema.registry.port schema.registry.ssl.port)
-        echo "SR=Schema Registry=${protocol}://{host}:${schemareg_port}/"
+        if [[ ${knox_port} -ne 0 && $(is_kerberos_enabled) == "yes" ]]; then
+          echo "SR=Schema Registry=${protocol}://{host}:${knox_port}/gateway/cdp-proxy/schema-registry/"
+        else
+          local schemareg_port=$(service_port $tmp_template_file SCHEMAREGISTRY SCHEMA_REGISTRY_SERVER schema.registry.port schema.registry.ssl.port)
+          echo "SR=Schema Registry=${protocol}://{host}:${schemareg_port}/"
+        fi
       fi
       if [[ ${HAS_SMM:-0} == 1 ]]; then
-        local smm_port=$(service_port $tmp_template_file STREAMS_MESSAGING_MANAGER STREAMS_MESSAGING_MANAGER_UI streams.messaging.manager.ui.port)
-        echo "SMM=SMM=${protocol}://{host}:${smm_port}/"
+        if [[ ${knox_port} -ne 0 && $(is_kerberos_enabled) == "yes" ]]; then
+          echo "SMM=SMM=${protocol}://{host}:${knox_port}/gateway/cdp-proxy/smm-ui/"
+        else
+          local smm_port=$(service_port $tmp_template_file STREAMS_MESSAGING_MANAGER STREAMS_MESSAGING_MANAGER_UI streams.messaging.manager.ui.port)
+          echo "SMM=SMM=${protocol}://{host}:${smm_port}/"
+        fi
       fi
       if [[ ${HAS_HUE:-0} == 1 ]]; then
-        local hue_port=$(service_port $tmp_template_file HUE HUE_LOAD_BALANCER listen)
-        echo "HUE=Hue=${protocol}://{host}:${hue_port}/"
+        if [[ ${knox_port} -ne 0 && $(is_kerberos_enabled) == "yes" ]]; then
+          echo "HUE=Hue=${protocol}://{host}:${knox_port}/gateway/cdp-proxy/hue/"
+        else
+          local hue_port=$(service_port $tmp_template_file HUE HUE_LOAD_BALANCER listen)
+          echo "HUE=Hue=${protocol}://{host}:${hue_port}/"
+        fi
       fi
       if [[ ${HAS_ATLAS:-0} == 1 ]]; then
-        local atlas_port=$(service_port $tmp_template_file ATLAS ATLAS_SERVER atlas_server_http_port atlas_server_https_port)
-        echo "ATLAS=Atlas=${protocol}://{host}:${atlas_port}/"
+        if [[ ${knox_port} -ne 0 && $(is_kerberos_enabled) == "yes" ]]; then
+          echo "ATLAS=Atlas=${protocol}://{host}:${knox_port}/gateway/cdp-proxy/atlas/"
+        else
+          local atlas_port=$(service_port $tmp_template_file ATLAS ATLAS_SERVER atlas_server_http_port atlas_server_https_port)
+          echo "ATLAS=Atlas=${protocol}://{host}:${atlas_port}/"
+        fi
       fi
       if [[ ${HAS_RANGER:-0} == 1 ]]; then
         local ranger_port=$(service_port $tmp_template_file RANGER "" ranger_service_http_port ranger_service_https_port)
         echo "RANGER=Ranger=${protocol}://{host}:${ranger_port}/"
-      fi
-      if [[ ${HAS_KNOX:-0} == 1 ]]; then
-        local knox_port=$(service_port $tmp_template_file KNOX KNOX_GATEWAY gateway_port)
-        echo "KNOX=Knox=${protocol}://{host}:${knox_port}/gateway/homepage/home/"
       fi
       if [[ ${HAS_CDSW:-0} == 1 ]]; then
         echo "CDSW=CDSW=${protocol}://cdsw.{ip_address}.nip.io/"
