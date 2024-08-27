@@ -303,6 +303,12 @@ except:
   missing_modules.append("pyyaml")
 
 try:
+  import psutil
+except:
+  print("ERROR: Python module \"psutil\" not found.")
+  missing_modules.append("psutil")
+
+try:
   import jinja2
 except:
   print("ERROR: Python module \"Jinja2\" not found.")

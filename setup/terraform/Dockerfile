@@ -1,7 +1,11 @@
-FROM golang:1.21.0-alpine3.18
+FROM alpine:3.18
+# Note: alpine:3.19 and later versions have a externally managed Python environment (see PEP-668 and 
+# https://packaging.python.org/en/latest/specifications/externally-managed-environments/\#externally-managed-environments)
+# which blocks installation of modules via pip. If we upgrade alpine in the future, some of the
+# installation below will have to be refactored.
 
 LABEL maintainer="Andre Araujo <araujo@cloudera.com>"
-LABEL site="https://github.com/asdaraujo/edge2ai-workshop/tree/master/setup"
+LABEL site="https://github.com/cloudera-labs/edge2ai-workshop/blob/trunk/setup"
 
 ENV INSIDE_DOCKER_CONTAINER=1
 ENV PYTHONUNBUFFERED=0
@@ -13,22 +17,13 @@ ENV PACKERVERSION=${PACKERVERSION:-1.5.1}
 ENV GLIBC_VER=2.31-r0
 
 RUN apk update && apk upgrade \
-    && apk add --no-cache git python3-dev py-pip git linux-headers wget unzip bash openssl openssh jq curl tzdata
+    && apk add --no-cache git python3 python3-dev py3-pip git linux-headers wget unzip bash openssl openssh jq curl tzdata \
+    && cp /usr/share/zoneinfo/Europe/London /etc/localtime && echo Europe/London > /etc/timezone
 
-RUN cp /usr/share/zoneinfo/Europe/London /etc/localtime && echo Europe/London > /etc/timezone
-
-RUN pip install --upgrade pip \
-    && pip install --no-cache jinja2 pyyaml boto3
-
-RUN wget https://releases.hashicorp.com/terraform/${TERRAFORM12VERSION}/terraform_${TERRAFORM12VERSION}_linux_amd64.zip \
-    && unzip terraform_${TERRAFORM12VERSION}_linux_amd64.zip \
-    && mv terraform ${TERRAFORM12} \
-    && rm terraform_${TERRAFORM12VERSION}_linux_amd64.zip \
-    && wget https://releases.hashicorp.com/terraform/${TERRAFORM14VERSION}/terraform_${TERRAFORM14VERSION}_linux_amd64.zip \
-    && unzip terraform_${TERRAFORM14VERSION}_linux_amd64.zip \
-    && mv terraform ${TERRAFORM14} \
-    && rm terraform_${TERRAFORM14VERSION}_linux_amd64.zip \
-    && ln -s ${TERRAFORM14} /usr/local/bin/terraform
+# Azure CLI
+RUN apk add --no-cache --virtual=build gcc musl-dev python3-dev libffi-dev openssl-dev cargo make \
+     && pip install --no-cache-dir azure-cli==2.52.0 \
+     && apk del --purge build
 
 # AWSCLI v2
 RUN apk --no-cache add \
@@ -60,16 +55,27 @@ RUN apk --no-cache add \
         binutils \
     && rm -rf /var/cache/apk/*
 
+# Terraform binaries
+RUN wget https://releases.hashicorp.com/terraform/${TERRAFORM12VERSION}/terraform_${TERRAFORM12VERSION}_linux_amd64.zip \
+    && unzip terraform_${TERRAFORM12VERSION}_linux_amd64.zip \
+    && mv terraform ${TERRAFORM12} \
+    && rm terraform_${TERRAFORM12VERSION}_linux_amd64.zip \
+    && wget https://releases.hashicorp.com/terraform/${TERRAFORM14VERSION}/terraform_${TERRAFORM14VERSION}_linux_amd64.zip \
+    && unzip terraform_${TERRAFORM14VERSION}_linux_amd64.zip \
+    && mv terraform ${TERRAFORM14} \
+    && rm terraform_${TERRAFORM14VERSION}_linux_amd64.zip \
+    && ln -s ${TERRAFORM14} /usr/local/bin/terraform
+
+# Packer
 RUN curl -sSLo /tmp/packer.zip https://releases.hashicorp.com/packer/${PACKERVERSION}/packer_${PACKERVERSION}_linux_amd64.zip \
     && unzip /tmp/packer.zip -d /usr/local/bin \
     && rm /tmp/packer.zip
 
-RUN which python || ln -s $(which python3) /usr/bin/python
-
-# Azure CLI
-RUN apk add --no-cache -q --virtual=build gcc musl-dev python3-dev libffi-dev openssl-dev cargo make \
-     && pip install --no-cache-dir azure-cli==2.52.0 -q \
-     && apk del --purge build
+# Edge2AI requirements
+COPY requirements.txt ./requirements.txt
+RUN pip install --upgrade pip \
+    && pip install --no-cache -r requirements.txt \
+    && which python || ln -s $(which python3) /usr/bin/python
 
 WORKDIR /edge2ai-workshop/setup/terraform
 
