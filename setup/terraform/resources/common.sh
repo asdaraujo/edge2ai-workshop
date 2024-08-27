@@ -38,7 +38,6 @@ export TRUSTSTORE_PEM=${SEC_BASE}/x509/truststore.pem
 export KEYSTORE_JKS=${SEC_BASE}/jks/keystore.jks
 export TRUSTSTORE_JKS=${SEC_BASE}/jks/truststore.jks
 
-LICENSE_FILE_PATH=${BASE_DIR}/.license
 PG_VERSION=15
 
 # Make scripts executable

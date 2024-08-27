@@ -26,6 +26,7 @@ IPA_HOST=${6:-}
 IPA_PRIVATE_IP=${7:-}
 ECS_PUBLIC_DNS=${8:-}
 ECS_PRIVATE_IP=${9:-}
+LICENSE_FILE_PATH=${10:-${BASE_DIR}/.license}
 export NAMESPACE DOCKER_DEVICE IPA_HOST
 
 if [[ ! -z ${CLUSTER_ID:-} ]]; then
@@ -51,7 +52,7 @@ load_stack $NAMESPACE
 
 # Save params
 if [[ ! -f $BASE_DIR/.setup.params ]]; then
-  echo "bash -x $0 '$CLOUD_PROVIDER' '$SSH_USER' '$SSH_PWD' '$NAMESPACE' '$DOCKER_DEVICE' '$IPA_HOST' '$IPA_PRIVATE_IP' '$ECS_PUBLIC_DNS' '$ECS_PRIVATE_IP'" > $BASE_DIR/.setup.params
+  echo "bash -x $0 '$CLOUD_PROVIDER' '$SSH_USER' '$SSH_PWD' '$NAMESPACE' '$DOCKER_DEVICE' '$IPA_HOST' '$IPA_PRIVATE_IP' '$ECS_PUBLIC_DNS' '$ECS_PRIVATE_IP' '$LICENSE_FILE_PATH'" > $BASE_DIR/.setup.params
 fi
 
 
@@ -1034,7 +1035,7 @@ if [[ ! -z ${ECS_PUBLIC_DNS:-} ]]; then
 fi
 
 log_status "Cleaning up"
-rm -f $BASE_DIR/stack.*.sh* $BASE_DIR/stack.sh* $BASE_DIR/.license
+rm -f "$BASE_DIR"/stack.*.sh* "$BASE_DIR"/stack.sh* "$LICENSE_FILE_PATH"
 
 if [[ ! -z ${CLUSTER_ID:-} ]]; then
   echo "At this point you can login into Cloudera Manager host on port 7180 and follow the deployment of the cluster"
