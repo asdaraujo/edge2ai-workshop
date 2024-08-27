@@ -1217,6 +1217,8 @@ function clean_all() {
   ipa host-del $(hostname -f)
   ipa-client-install --uninstall --unattended
 
+  yum -y erase "rh-python38-*"
+
   cp -f /etc/cloudera-scm-agent/config.ini.original /etc/cloudera-scm-agent/config.ini
 
   rm -rf \

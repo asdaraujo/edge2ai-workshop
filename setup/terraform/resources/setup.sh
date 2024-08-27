@@ -168,8 +168,9 @@ EOF
     cm-client==44.0.3 \
     impyla==0.17.0 \
     Jinja2==3.0.3 \
+    kafka-python==2.0.2 \
     kerberos==1.3.1 \
-    nipyapi==0.17.1 \
+    nipyapi==0.20.0 \
     paho-mqtt==1.6.1 \
     psycopg2-binary==2.9.3 \
     pytest==6.2.5 \
