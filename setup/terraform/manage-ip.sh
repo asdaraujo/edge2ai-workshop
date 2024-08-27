@@ -44,4 +44,3 @@ elif [[ $ACTION == "remove" ]]; then
   remove_ingress "$cluster_sg" "$cidr" all all force
   remove_ingress "$web_sg" "$cidr" all all force
 fi
-refresh_tf_state
