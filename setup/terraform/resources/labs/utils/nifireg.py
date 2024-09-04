@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-from nipyapi import versioning
+from nipyapi import versioning, registry
 from nipyapi.registry import BucketFlowsApi
 
 from . import *
@@ -75,4 +75,11 @@ def delete_flows(identifier, identifier_type='name'):
     bucket = versioning.get_registry_bucket(identifier, identifier_type)
     if bucket:
         for flow in versioning.list_flows_in_bucket(bucket.identifier):
-            BucketFlowsApi().delete_flow(flow.bucket_identifier, flow.identifier)
+            for flow_version in versioning.list_flow_versions(bucket.identifier, flow.identifier):
+                try:
+                    BucketFlowsApi().delete_flow(flow_version.version, flow_version.bucket_identifier, flow_version.flow_identifier)
+                except registry.rest.ApiException as exc:
+                    # It seems that when nipyapi deletes a flow version, other versions can also be deleted in the
+                    # process. Therefore, we ignore when getting a Not Found error when trying to delete a flow
+                    if exc.status != 404:
+                        raise

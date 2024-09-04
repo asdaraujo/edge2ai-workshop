@@ -120,16 +120,15 @@ class SqlStreamBuilderWorkshop(AbstractWorkshop):
             IOT_ENRICHED_AVRO_TOPIC, 'Schema for the data in the iot_enriched_avro topic', read_schema())
 
         provider = ssb.get_data_providers(KAFKA_PROVIDER_NAME)[0]
-        # try:
-        #     provider_id = provider['provider_id']
-        # except:
-        #     print(provider)
-        #     raise
+        if ssb.is_csa113_or_later():
+            catalog_type = 'cloudera-registry'
+        else:
+            catalog_type = 'registry'
         provider_id = provider.get('provider_id', provider.get('id'))  # property name changed in CSA 1.9
         props = {
             # TODO: test backward compatibility for the below once CSA-5306 is done
             #  'catalog_type': 'registry',
-            'catalog_type': 'cloudera-registry',
+            'catalog_type': catalog_type,
             'kafka.provider.id': provider_id,
             'registry.address': schreg.get_api_url(),
             'table_filters': [

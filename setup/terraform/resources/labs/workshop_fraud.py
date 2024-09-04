@@ -1426,6 +1426,7 @@ DATAVIZ_CONNECTION_PARAMS = {
 
 DATAVIZ_EXPORT_FILE = 'fraud-demo-viz.json'
 
+
 def read_in_schema(uri=_TRANSACTION_SCHEMA_URI):
     if 'TRANSACTION_SCHEMA_FILE' in os.environ and os.path.exists(os.environ['TRANSACTION_SCHEMA_FILE']):
         return open(os.environ['TRANSACTION_SCHEMA_FILE']).read()
@@ -1460,7 +1461,7 @@ class FraudWorkshop(AbstractWorkshop):
         Return True is the workshop is runnable (i.e. all the necessary prerequisites are satisfied).
         This method can be overriden to check for necessary prerequisites.
         """
-        return cdsw.is_cdsw_installed() and ssb.is_ssb_installed() and ssb.is_csa16_or_later()
+        return cdsw.is_cdsw_installed() and ssb.is_ssb_installed() and ssb.is_csa17_or_later()
 
     def before_setup(self):
         self.context.root_pg = nf.set_environment()
@@ -1758,6 +1759,7 @@ class FraudWorkshop(AbstractWorkshop):
                                            },
                                            'autoTerminatedRelationships': ['success', 'failure'],
                                        })
+        nf.wait_for_relationships(generate_txn, ['success'])
         nf.create_connection(generate_txn, send_txn, relationships=['success'], name='txn_data')
 
         handle_req = nf.create_processor(self.context.generators_pg, 'Handle Scoring Request',

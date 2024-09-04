@@ -3,9 +3,7 @@
 """
 Testing NiFi Workshop
 """
-import time
 from ...labs.utils import nifi as nf
-from ...labs import workshop_fraud as ws
 
 nf.set_environment()
 
@@ -31,15 +29,13 @@ def test_root_pg_failure():
     assert nf.get_process_group('root').sync_failure_count == 0
 
 
-# def test_kudu_output_activity():
-#     assert nf.check_for_processor_activity('Write to Kudu', delta=3)
-#
-#
-# def test_transaction_output_activity():
-#     assert nf.check_for_processor_activity('Publish to Kafka topic: transactions', delta=3)
-#
-#
-# def test_fraud_output_activity():
-#     assert nf.check_for_processor_activity('Publish to Kafka topic: frauds', delta=3)
-#
-#
+def test_kudu_output_activity():
+    assert nf.check_for_processor_activity('Write to Kudu', delta=3)
+
+
+def test_transaction_output_activity():
+    assert nf.check_for_processor_activity('Publish to Kafka topic: transactions', delta=3)
+
+
+def test_fraud_output_activity():
+    assert nf.check_for_processor_activity('Publish to Kafka topic: frauds', delta=3)

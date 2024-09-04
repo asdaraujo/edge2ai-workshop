@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-from nipyapi import nifi, canvas, config, security, parameters
+from nipyapi import nifi, canvas, config, security, parameters, utils
 from . import *
 from . import nifireg, cm
 
@@ -106,6 +106,11 @@ def update_connection(source=None, target=None, new_target=None, bends=None, lab
     })
 
 
+def get_controller(service_name, identifier_type='name'):
+    objs = canvas.list_all_controllers()
+    return utils.filter_obj(objs, service_name, identifier_type, greedy=False)
+
+
 def _get_controller_type(controller_type):
     types = [ctype for ctype in canvas.list_all_controller_types() if ctype.type == controller_type]
     if types:
@@ -116,20 +121,20 @@ def _get_controller_type(controller_type):
 def create_controller(pg, controller_type, properties, start, name=None):
     controller_type = _get_controller_type(controller_type)
     controller = canvas.create_controller(pg, controller_type, name)
-    controller = canvas.get_controller(controller.id, 'id')
+    controller = get_controller(controller.id, 'id')
     canvas.update_controller(controller, nifi.ControllerServiceDTO(properties=properties))
-    controller = canvas.get_controller(controller.id, 'id')
+    controller = get_controller(controller.id, 'id')
     canvas.schedule_controller(controller, start)
-    return canvas.get_controller(controller.id, 'id')
+    return get_controller(controller.id, 'id')
 
 
 def _create_controller(pg, service_name, props, controller_class):
-    svc = canvas.get_controller(service_name, 'name')
+    svc = get_controller(service_name)
     if svc:
         canvas.schedule_controller(svc, False)
-        svc = canvas.get_controller(service_name, 'name')
+        svc = get_controller(service_name)
         canvas.update_controller(svc, nifi.ControllerServiceDTO(properties=props))
-        svc = canvas.get_controller(service_name, 'name')
+        svc = get_controller(service_name)
         canvas.schedule_controller(svc, True)
     else:
         svc = create_controller(pg, controller_class, props, True, name=service_name)
@@ -282,8 +287,30 @@ def get_process_group(pg_name):
     return canvas.get_process_group(pg_name, 'name')
 
 
-def get_processor(processor_name):
-    return canvas.get_processor(processor_name, 'name', greedy=False)
+def get_processor(processor_name, identifier_type='name'):
+    return canvas.get_processor(processor_name, identifier_type, greedy=False)
+
+
+def wait_for_relationships(processor, required_relationships, timeout_secs=60):
+    """
+    Some processors, like InvokeScriptedProcessors has dynamically-defined relationships. These can take a few
+    seconds to be ready while the processor is being validated. This can lead to exceptions When trying to set a
+    connection to a relationship that is not yet available. This method waits until the relationship is ready or
+    until the specified timeout is reached.
+    :param processor:
+    :param required_relationships:
+    :param timeout_secs:
+    :return:
+    """
+    start_time = time.time()
+    while time.time() - start_time < timeout_secs:
+        relationships = [r.name for r in processor.component.relationships]
+        if set(required_relationships) == set(required_relationships).intersection(relationships):
+            return processor
+        time.sleep(1)
+        processor = get_processor(processor.id, 'id')
+    raise RuntimeError(f'Required relationships ({required_relationships}) could not be found.'
+                       f' Found only: {relationships}.')
 
 
 def check_for_processor_activity(name, entity_type='processor', metric='bytes_in', timeout_secs=120, delta=None, cumulative_delta=None,

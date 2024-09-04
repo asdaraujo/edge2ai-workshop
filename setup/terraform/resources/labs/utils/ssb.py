@@ -363,7 +363,8 @@ def delete_data_provider(provider_name):
 
 
 def delete_all_data_providers():
-    for provider in get_data_providers():
+    # Delete Kafka providers last since some Catalog providers can depend on it
+    for provider in sorted(get_data_providers(), key=lambda p: 1 if p['type'] == 'kafka' else 0):
         delete_data_provider(provider['name'])
 
 

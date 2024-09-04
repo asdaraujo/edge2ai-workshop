@@ -16,6 +16,4 @@ def test_ssb_check_data():
 
 
 def test_ssb_get_providers():
-    ssb.use_load_balancer = False
-    ssb.use_knox = True
     assert len(ssb.get_data_providers('Local Kafka')) == 1

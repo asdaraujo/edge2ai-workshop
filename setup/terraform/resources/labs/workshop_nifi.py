@@ -119,12 +119,12 @@ class NiFiWorkshop(AbstractWorkshop):
                 'Keystore Password': get_the_pwd(),
                 'key-password': get_the_pwd(),
             }
-            self.context.ssl_svc = canvas.get_controller(ssl_svc_name, 'name')
+            self.context.ssl_svc = nf.get_controller(ssl_svc_name)
             if self.context.ssl_svc:
                 canvas.schedule_controller(self.context.ssl_svc, False)
-                self.context.ssl_svc = canvas.get_controller(ssl_svc_name, 'name')
+                self.context.ssl_svc = nf.get_controller(ssl_svc_name)
                 canvas.update_controller(self.context.ssl_svc, nifi.ControllerServiceDTO(properties=props))
-                self.context.ssl_svc = canvas.get_controller(ssl_svc_name, 'name')
+                self.context.ssl_svc = nf.get_controller(ssl_svc_name)
                 canvas.schedule_controller(self.context.ssl_svc, True)
             else:
                 self.context.keytab_svc = nf.create_controller(
@@ -135,7 +135,7 @@ class NiFiWorkshop(AbstractWorkshop):
 
         # Create controller services
         if is_tls_enabled():
-            self.context.ssl_svc = canvas.get_controller(ssl_svc_name, 'name')
+            self.context.ssl_svc = nf.get_controller(ssl_svc_name)
             props = {
                 'Kerberos Keytab': '/keytabs/admin.keytab',
                 'Kerberos Principal': 'admin',
