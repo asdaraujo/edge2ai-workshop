@@ -24,6 +24,13 @@ DEFAULT_HTTP_CTX_MAP_SERVICE_NAME = 'StandardHttpContextMap'
 
 _NIFI_VERSION = None
 
+EQ = lambda threshold: lambda value: value == threshold
+NE = lambda threshold: lambda value: value != threshold
+GT = lambda threshold: lambda value: value > threshold
+GE = lambda threshold: lambda value: value >= threshold
+LT = lambda threshold: lambda value: value < threshold
+LE = lambda threshold: lambda value: value <= threshold
+BETWEEN = lambda lower, upper: lambda value: value >= lower and value <= upper
 
 def _get_port():
     return '8443' if is_tls_enabled() else '8080'
@@ -313,42 +320,74 @@ def wait_for_relationships(processor, required_relationships, timeout_secs=60):
                        f' Found only: {relationships}.')
 
 
-def check_for_processor_activity(name, entity_type='processor', metric='bytes_in', timeout_secs=120, delta=None, cumulative_delta=None,
-                                 absolute_value=None, is_greater_than_threshold=True):
+def check_metric_value(entity_name, check_function, entity_type='processor', metric='bytes_in', timeout_secs=120):
+    return check_metric(entity_name, check_function=check_function, entity_type=entity_type, metric=metric,
+                        timeout_secs=timeout_secs, value_type='absolute-value')
+
+
+def check_metric_delta(entity_name, check_function, entity_type='processor', metric='bytes_in', timeout_secs=120):
+    return check_metric(entity_name, check_function=check_function, entity_type=entity_type, metric=metric,
+                        timeout_secs=timeout_secs, value_type='delta')
+
+
+def check_metric_cumulative_delta(entity_name, check_function, entity_type='processor', metric='bytes_in', timeout_secs=120):
+    return check_metric(entity_name, check_function=check_function, entity_type=entity_type, metric=metric,
+                        timeout_secs=timeout_secs, value_type='cumulative-delta')
+
+
+def check_metric(entity_name, check_function, entity_type='processor', metric='bytes_in', timeout_secs=120,
+                 value_type='delta'):
     """
     Returns True is the processor received some data within the specified
     timeout. False, otherwise.
-    :param processor_name:
+    :param metric:
+    :param entity_type:
+    :param entity_name:
+    :param check_function:
+    :param value_type:
     :param timeout_secs:
     :return:
     """
-    assert delta is not None or absolute_value is not None, "Either delta or absolute_value must be specified."
     start = time.time()
-    previous_value = value = None
-    actual_delta = actual_cumulative_delta = 0
+    previous_value = None
+    actual_cumulative_delta = 0
     while time.time() < start + timeout_secs:
         if entity_type == 'processor':
-            ent = get_processor(name)
+            ent = get_processor(entity_name)
         elif entity_type in ['process-group', 'pg']:
-            ent = get_process_group(name)
+            ent = get_process_group(entity_name)
         else:
             raise RuntimeError(f'Unknown entity type {entity_type}')
-        value = getattr(ent.status.aggregate_snapshot, metric)
+        if ent is None:
+            continue
+        if hasattr(ent.status.aggregate_snapshot, metric):
+            value = getattr(ent.status.aggregate_snapshot, metric)
+        elif hasattr(ent, metric):
+            value = getattr(ent, metric)
+        else:
+            raise RuntimeError(f'Metric attribute "{metric}" not found.')
         if isinstance(value, str):
-            value = int(value)
+            value = int(value.replace(',', ''))
         if previous_value is not None:
             actual_delta = value - previous_value
             actual_cumulative_delta += actual_delta
-            if delta is not None and ((is_greater_than_threshold and actual_delta >= delta) or (not is_greater_than_threshold and actual_delta <= delta)):
-                return True
-            elif cumulative_delta is not None and ((is_greater_than_threshold and actual_cumulative_delta >= cumulative_delta) or (not is_greater_than_threshold and actual_cumulative_delta <= cumulative_delta)):
-                return True
-            elif absolute_value is not None and ((is_greater_than_threshold and value >= absolute_value) or (not is_greater_than_threshold and value <= absolute_value)):
+            if value_type == 'delta':
+                check_value = actual_delta
+            elif value_type == 'cumulative-delta':
+                check_value = actual_cumulative_delta
+            elif value_type == 'absolute-value':
+                check_value = value
+            else:
+                raise RuntimeError(f'Unknown value type "{value_type}".'
+                                   f' Valid values are: delta, cumulative-delta, absolute-value')
+            LOG.debug(f'Value: {check_value}, Value type: {value_type}')
+            if check_function(check_value):
                 return True
         previous_value = value
         time.sleep(1)
 
     return False
+
 
 def wait_for_data(pg_name, timeout_secs=120):
     while timeout_secs:
