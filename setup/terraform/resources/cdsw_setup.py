@@ -15,7 +15,7 @@ from datetime import datetime
 from optparse import OptionParser
 from subprocess import Popen, PIPE
 
-from labs import get_base_dir, get_the_pwd, get_truststore_path, get_url_scheme, is_tls_enabled
+from labs import get_base_dir, get_the_pwd, get_pem_truststore_path, get_url_scheme, is_tls_enabled
 from labs.utils import cm
 
 IP_LOOKUP_URLS = [
@@ -804,7 +804,7 @@ class CdswDeployer(object):
                               if self.options.password_file
                               else get_the_pwd()))
         self.use_tls = self.options.use_tls or is_tls_enabled()
-        self.truststore_file = self.options.truststore_file if self.options.truststore_file else get_truststore_path()
+        self.truststore_file = self.options.truststore_file if self.options.truststore_file else get_pem_truststore_path()
         self.cdsw_api = CdswApi(self.options.public_ip, use_tls=self.use_tls, truststore_file=self.truststore_file)
         self.cdsw_watcher = CdswWatcher(self.options.public_ip, DEFAULT_USERNAME, self.the_pwd,
                                         use_tls=self.use_tls, truststore_file=self.truststore_file,

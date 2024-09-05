@@ -84,7 +84,7 @@ def _get_session():
     if not _DATAVIZ_SESSION:
         _DATAVIZ_SESSION = requests.Session()
         if is_tls_enabled():
-            _DATAVIZ_SESSION.verify = get_truststore_path()
+            _DATAVIZ_SESSION.verify = get_pem_truststore_path()
 
         _api_get('/apps/login')
         _api_post('/apps/login?', {'next': '', 'username': _DATAVIZ_USER, 'password': get_the_pwd()})

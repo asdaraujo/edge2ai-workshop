@@ -38,7 +38,7 @@ def get_session():
     if not _CDSW_SESSION:
         _CDSW_SESSION = requests.Session()
         if is_tls_enabled():
-            _CDSW_SESSION.verify = get_truststore_path()
+            _CDSW_SESSION.verify = get_pem_truststore_path()
         r = _CDSW_SESSION.post(_get_api_url() + '/authenticate',
                                json={'login': _CDSW_USERNAME, 'password': get_the_pwd()}, )
         _CDSW_SESSION.headers.update({'Authorization': 'Bearer ' + r.json()['auth_token']})

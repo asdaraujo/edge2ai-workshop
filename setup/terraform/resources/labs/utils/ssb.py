@@ -277,7 +277,7 @@ def _get_session():
     if not _SSB_SESSION:
         _SSB_SESSION = requests.Session()
         if is_tls_enabled():
-            _SSB_SESSION.verify = get_truststore_path()
+            _SSB_SESSION.verify = get_pem_truststore_path()
 
         if is_csa17_or_later():
             if is_kerberos_enabled():

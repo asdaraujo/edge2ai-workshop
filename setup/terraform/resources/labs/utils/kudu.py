@@ -39,7 +39,7 @@ def _connect_to_impala():
             'auth_mechanism': 'GSSAPI',
             'kerberos_service_name': 'impala',
             'use_ssl': True,
-            'ca_cert': get_truststore_path(),
+            'ca_cert': get_pem_truststore_path(),
         }
     else:
         params = {}

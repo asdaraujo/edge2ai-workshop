@@ -27,7 +27,8 @@ THE_PWD_ENV_VAR = 'THE_PWD'
 THE_PWD_FILE_NAME = 'the_pwd.txt'
 ENABLE_TLS_FILE_NAME = '.enable-tls'
 ENABLE_KERBEROS_FILE_NAME = '.enable-kerberos'
-DEFAULT_TRUSTSTORE_PATH = '/opt/cloudera/security/x509/truststore.pem'
+DEFAULT_PEM_TRUSTSTORE_PATH = '/opt/cloudera/security/x509/truststore.pem'
+DEFAULT_JKS_TRUSTSTORE_PATH = '/opt/cloudera/security/jks/truststore.jks'
 WORKSHOPS = {}
 
 
@@ -73,8 +74,12 @@ def _get_the_pwd_from_file(path):
         return _get_the_pwd_from_file(_get_parent_dir(path))
 
 
-def get_truststore_path():
-    return DEFAULT_TRUSTSTORE_PATH
+def get_pem_truststore_path():
+    return DEFAULT_PEM_TRUSTSTORE_PATH
+
+
+def get_jks_truststore_path():
+    return DEFAULT_JKS_TRUSTSTORE_PATH
 
 
 def is_tls_enabled(path=None):
@@ -118,7 +123,7 @@ def get_url_scheme():
 def api_request(method, url, expected_codes=None, auth=None, session=None, **kwargs):
     if not expected_codes:
         expected_codes = [requests.codes.ok]
-    truststore = get_truststore_path() if is_tls_enabled() else None
+    truststore = get_pem_truststore_path() if is_tls_enabled() else None
     LOG.debug('Request: method: %s, url: %s, auth: %s, verify: %s, kwargs: %s',
               method, url, 'yes' if auth else 'no', truststore, kwargs)
     req = session or requests

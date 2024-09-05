@@ -372,8 +372,8 @@ def set_environment():
     config.nifi_config.host = _get_api_url()
     config.registry_config.host = nifireg.get_api_url()
     if is_tls_enabled():
-        security.set_service_ssl_context(service='nifi', ca_file=get_truststore_path())
-        security.set_service_ssl_context(service='registry', ca_file=get_truststore_path())
+        security.set_service_ssl_context(service='nifi', ca_file=get_pem_truststore_path())
+        security.set_service_ssl_context(service='registry', ca_file=get_pem_truststore_path())
         security.service_login(service='nifi', username='admin', password=get_the_pwd())
         security.service_login(service='registry', username='admin@WORKSHOP.COM', password=get_the_pwd())
 

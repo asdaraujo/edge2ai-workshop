@@ -17,7 +17,7 @@ def _get_session():
     if not _EFM_SESSION:
         _EFM_SESSION = requests.Session()
         if is_tls_enabled():
-            _EFM_SESSION.verify = get_truststore_path()
+            _EFM_SESSION.verify = get_pem_truststore_path()
         if is_kerberos_enabled():
             _EFM_SESSION.post(_get_auth_url(), auth=('admin', get_the_pwd()))
             resp = _EFM_SESSION.get(_get_api_url() + '/access')
@@ -33,7 +33,7 @@ def _ensure_urls():
         for scheme in ['http', 'https']:
             api_url = '{}://{}:10088/efm/api'.format(scheme, get_hostname())
             try:
-                requests.get(api_url, verify=get_truststore_path())
+                requests.get(api_url, verify=get_pem_truststore_path())
                 _API_URL = api_url
                 _SWAGGER_URL = '{}://{}:10088/efm/swagger/swagger.json'.format(scheme, get_hostname())
                 break
