@@ -138,4 +138,10 @@ class SqlStreamBuilderWorkshop(AbstractWorkshop):
                 }
             ],
         }
+        if is_tls_enabled():
+            props.update({
+                'registry.ssl.enabled': True,
+                'registry.truststore.location': get_jks_truststore_path(),
+                'registry.truststore.password': get_the_pwd(),
+            })
         ssb.create_data_provider(SR_PROVIDER_NAME, 'catalog', props)
