@@ -55,15 +55,38 @@ def get_common_client_properties(env, client_type, consumer_group_id, client_id)
     return props
 
 
+def _get_kafka_client_properties():
+    props = {
+        'bootstrap_servers': get_bootstrap_servers(),
+        'security_protocol': get_security_protocol(),
+    }
+    if is_kerberos_enabled():
+        props.update({
+            'sasl_mechanism': 'GSSAPI',
+            'sasl_kerberos_service_name': 'kafka',
+        })
+    if is_tls_enabled():
+        props.update({
+            'ssl_cafile': get_pem_truststore_path(),
+        })
+    return props
+
+
+def _get_kafka_consumer_properties(auto_offset_reset, enable_auto_commit):
+    props = _get_kafka_client_properties()
+    props.update({
+        'auto_offset_reset': auto_offset_reset,
+        'enable_auto_commit': enable_auto_commit,
+    })
+    return props
+
+
+def get_consumer(auto_offset_reset='latest', enable_auto_commit=True):
+    return KafkaConsumer(**_get_kafka_consumer_properties(auto_offset_reset, enable_auto_commit))
+
+
 def consume_topic(topic, stop_after=1, timeout_secs=10):
-    consumer = KafkaConsumer(
-        bootstrap_servers=get_bootstrap_servers(),
-        security_protocol=get_security_protocol(),
-        sasl_mechanism='GSSAPI',
-        sasl_kerberos_service_name='kafka',
-        auto_offset_reset='latest',
-        enable_auto_commit=False,
-    )
+    consumer = get_consumer()
     consumer.subscribe([topic])
 
     records = []
