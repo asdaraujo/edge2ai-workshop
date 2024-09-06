@@ -348,6 +348,7 @@ def check_metric(entity_name, check_function, entity_type='processor', metric='b
     :param timeout_secs:
     :return:
     """
+    ent = None
     start = time.time()
     previous_value = None
     actual_cumulative_delta = 0
@@ -380,12 +381,14 @@ def check_metric(entity_name, check_function, entity_type='processor', metric='b
             else:
                 raise RuntimeError(f'Unknown value type "{value_type}".'
                                    f' Valid values are: delta, cumulative-delta, absolute-value')
-            LOG.debug(f'Value: {check_value}, Value type: {value_type}')
+            LOG.debug(f'Waiting for metric {metric} in "{entity_name}": Current value: {check_value}, '
+                      f'Value type: {value_type}. Seconds until timeout: {start + timeout_secs - time.time()}')
             if check_function(check_value):
                 return True
         previous_value = value
         time.sleep(1)
 
+    LOG.debug(f'Wait for metric {metric} in {entity_type} "{entity_name}" has timed out. Entity: {ent}')
     return False
 
 

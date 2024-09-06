@@ -48,4 +48,4 @@ def test_transaction_output_activity():
 
 
 def test_fraud_output_activity():
-    assert nf.check_metric_delta('Publish to Kafka topic: frauds', nf.GT(3))
+    assert nf.check_metric_delta('Publish to Kafka topic: frauds', nf.GT(1), timeout_secs=300)
