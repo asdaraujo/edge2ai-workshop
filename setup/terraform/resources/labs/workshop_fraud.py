@@ -1759,7 +1759,7 @@ class FraudWorkshop(AbstractWorkshop):
                                            },
                                            'autoTerminatedRelationships': ['success', 'failure'],
                                        })
-        nf.wait_for_relationships(generate_txn, ['success'])
+        generate_txn = nf.wait_for_relationships(generate_txn, ['success'])
         nf.create_connection(generate_txn, send_txn, relationships=['success'], name='txn_data')
 
         handle_req = nf.create_processor(self.context.generators_pg, 'Handle Scoring Request',
