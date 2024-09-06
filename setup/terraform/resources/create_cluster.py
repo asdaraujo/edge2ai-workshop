@@ -163,6 +163,7 @@ class ClusterCreator:
         self._all_hosts_api = None
         self._cluster_api = None
         self._command_api = None
+        self._services_api = None
 
         self.remote_repo_usr = remote_repo_usr if remote_repo_usr else None
         self.remote_repo_pwd = remote_repo_pwd if remote_repo_pwd else None
@@ -252,6 +253,12 @@ class ClusterCreator:
         if self._command_api is None:
             self._command_api = cm_client.CommandsResourceApi(self.api_client)
         return self._command_api
+
+    @property
+    def services_api(self):
+        if self._services_api is None:
+            self._services_api = cm_client.ServicesResourceApi(self.api_client)
+        return self._services_api
 
     def wait(self, cmd, timeout_secs=None):
         if cmd.id == self.SYNCHRONOUS_COMMAND_ID:
@@ -455,8 +462,21 @@ class ClusterCreator:
         self._reset_paywall_credentials()
 
         # Restart Mgmt Services
-        cmd = self.mgmt_api.restart_command()
-        cmd = self.wait(cmd)
+        mgmt_restart_cmd = self.mgmt_api.restart_command()
+
+        # Restart Knox because it tends to fail discovery sometimes
+        knox_restart_cmd = None
+        try:
+            knox_restart_cmd = self.services_api.restart_command(cluster_name, 'knox')
+        except cm_client.rest.ApiException as exc:
+            # Ignore if Knox service is not installed, otherwise raise exception
+            if exc.status != 404:
+                raise
+
+        # Wait for restarts to finish
+        self.wait(mgmt_restart_cmd)
+        if knox_restart_cmd is not None:
+            self.wait(knox_restart_cmd)
 
     def _enable_kerberos(self, kerberos_type, ipa_host, use_tls):
         # Update Kerberos configuration
