@@ -177,6 +177,18 @@
             ,{
               "name": "ssb.default.admin.password",
               "value": "{{THE_PWD}}"
+            },
+            {
+              "name": "ssb.python.udf.enabled",
+              "value": "true"
+            },
+            {
+              "name": "ssb.python.executable",
+              "value": "{{PYTHON_EXECUTABLE}}"
+            },
+            {
+              "name": "ssb.python.client.executable",
+              "value": "{{PYTHON_EXECUTABLE}}"
             }
 {% endif %}
 {% if ENABLE_TLS == 'yes' %}

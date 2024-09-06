@@ -164,22 +164,7 @@ EOF
 
   log_status "Installing required Python modules"
   enable_py3
-  pip install --progress-bar off \
-    cm-client==44.0.3 \
-    impyla==0.17.0 \
-    Jinja2==3.0.3 \
-    kafka-python==2.0.2 \
-    kerberos==1.3.1 \
-    nipyapi==0.20.0 \
-    paho-mqtt==1.6.1 \
-    psycopg2-binary==2.9.3 \
-    pytest==6.2.5 \
-    PyYAML==6.0 \
-    requests==2.28.0 \
-    requests-gssapi==1.2.3 \
-    requests-kerberos==0.14.0 \
-    thrift-sasl==0.4.3 \
-    'krb5<0.6.0' # TODO: this module version was released in July/2024 and requires CFLAGS='-std=c99' to compile the wheel correctly
+  pip install --root-user-action ignore --progress-bar off -r "${BASE_DIR}/requirements.txt"
 
   log_status "Installing JDBC connector"
   cp /usr/share/java/postgresql-jdbc.jar /usr/share/java/postgresql-connector-java.jar
@@ -413,6 +398,9 @@ else
 fi
 
 ##### Start install
+
+# Ensure JAVA_HOME is set correctly and exported
+export JAVA_HOME=$(readlink -f $(which javac) | sed 's#/bin/javac##')
 
 enable_py3
 complete_host_initialization
