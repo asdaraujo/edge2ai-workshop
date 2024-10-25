@@ -10,4 +10,4 @@ flask-wtf==1.2.1
 psycopg2-binary==2.9.9
 python-dotenv==1.0.1
 SQLAlchemy==2.0.31
-werkzeug==2.3.8
+werkzeug==3.0.6
