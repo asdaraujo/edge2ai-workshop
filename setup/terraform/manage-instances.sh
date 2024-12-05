@@ -61,4 +61,7 @@ elif [[ $ACTION == "unprotect" ]]; then
   done
 elif [[ $ACTION == "describe" ]]; then
   describe_instances "$INSTANCE_IDS"
+else
+  echo "Syntax: $0 [list|terminate|stop|start|enddate|is_protected|protect|unprotect|describe] ...options..."
+  exit 1
 fi
