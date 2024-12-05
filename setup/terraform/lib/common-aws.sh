@@ -25,20 +25,19 @@ AVAILABLE_SCRIPTS=(
   tf-admin
 )
 
-EC2_PRICES_URL_TEMPLATE=https://raw.githubusercontent.com/yeo/ec2.shop/master/data/ec2/REGION-ondemand.json
+#EC2_PRICES_URL_TEMPLATE=https://raw.githubusercontent.com/yeo/ec2.shop/master/data/ec2/REGION-ondemand.json
+EC2_PRICES_URL_TEMPLATE="https://ec2.shop?region=REGION"
 
 function get_instance_hourly_cost() {
   local instance_type=$1
   local ec2_prices_url=$(echo "$EC2_PRICES_URL_TEMPLATE" | sed "s/REGION/$TF_VAR_aws_region/")
   local tmp_file=/tmp/instance-cost.$$
-  local ret=$(curl -w "%{http_code}" "$ec2_prices_url" -o $tmp_file --stderr /dev/null)
+  set +e
+  local ret=$(curl -H 'Accept: application/json' -w "%{http_code}" "$ec2_prices_url" -o $tmp_file --stderr /dev/null)
+  set -e
   if [[ $ret == 200 ]]; then
-    if grep '"prices"' $tmp_file > /dev/null; then
-      jq -r '.prices[] | select(.attributes["aws:ec2:instanceType"] == "'"$instance_type"'").price.USD' $tmp_file
-    elif grep '"regions"' $tmp_file > /dev/null; then
-      jq -r '.regions[][] | select(.["Instance Type"] == "'"$instance_type"'").price' $tmp_file
-    else
-      return
+    if grep '"Prices"' $tmp_file > /dev/null; then
+      jq -r '.Prices[] | select(.InstanceType == "'"$instance_type"'").Cost' $tmp_file
     fi
   fi
   rm -f $tmp_file
