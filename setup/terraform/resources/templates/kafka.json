@@ -118,6 +118,16 @@
               "value" : "true"
             }
 {% endif %}
+{% if CDH_VERSION is ge('7.1.9') %}
+            ,{
+              "name" : "jmx.control.user.passwd",
+              "value" : "{{THE_PWD}}"
+            },
+            {
+              "name" : "jmx.monitor.user.passwd",
+              "value" : "{{THE_PWD}}"
+            }
+{% endif %}
           ]
         },
 {% if CDH_VERSION is ge('7.1.1') %}
@@ -223,6 +233,19 @@
             {
               "name": "ssl_server_keystore_password",
               "value": "{{THE_PWD}}"
+            }
+{% endif %}
+{% if ENABLE_TLS == 'yes' and CDH_VERSION is ge('7.1.9') %}
+            ,
+{% endif %}
+{% if CDH_VERSION is ge('7.1.9') %}
+            {
+              "name" : "jmx.control.user.passwd",
+              "value" : "{{THE_PWD}}"
+            },
+            {
+              "name" : "jmx.monitor.user.passwd",
+              "value" : "{{THE_PWD}}"
             }
 {% endif %}
           ]

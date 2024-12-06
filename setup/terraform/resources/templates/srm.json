@@ -43,7 +43,7 @@
 {% elif CDH_VERSION is lt('7.1.7') %}
           "value" : "local.bootstrap.servers={{CLUSTER_HOST}}:{% if ENABLE_TLS == 'yes' %}9093{% else %}9092{% endif %}|remote.bootstrap.servers={{CLUSTER_HOST}}:9092|remote->local.enabled=false|replication.factor=1|heartbeats.topic.replication.factor=1|checkpoints.topic.replication.factor=1|offset-syncs.topic.replication.factor=1|offset.storage.replication.factor=1|config.storage.replication.factor=1|status.storage.replication.factor=1"
 {% else %}
-          "value" : "cluster_{{PEER_CLUSTER_ID}}->cluster_{{CLUSTER_ID}}.enabled=false|replication.factor=1|heartbeats.topic.replication.factor=1|checkpoints.topic.replication.factor=1|offset-syncs.topic.replication.factor=1|offset.storage.replication.factor=1|config.storage.replication.factor=1|status.storage.replication.factor=1;connectors.topic.listener.topic.replication.factor=1"
+          "value" : "cluster_{{PEER_CLUSTER_ID}}->cluster_{{CLUSTER_ID}}.enabled=false|replication.factor=1|heartbeats.topic.replication.factor=1|checkpoints.topic.replication.factor=1|offset-syncs.topic.replication.factor=1|offset.storage.replication.factor=1|config.storage.replication.factor=1|status.storage.replication.factor=1|connectors.topic.listener.topic.replication.factor=1"
 {% endif %}
         },
         {

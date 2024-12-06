@@ -9,7 +9,9 @@
 {% if CSA_VERSION is lt('1.7') %}
         ,"sql_stream_builder-STREAMING_SQL_CONSOLE-BASE"
 {% else %}
+{% if CSA_VERSION is lt('1.14.0.0') %}
         ,"sql_stream_builder-LOAD_BALANCER-BASE"
+{% endif %}
 {% endif %}
         ,"sql_stream_builder-STREAMING_SQL_ENGINE-BASE"
         ,"sql_stream_builder-MATERIALIZED_VIEW_ENGINE-BASE"
@@ -217,7 +219,7 @@
               "value": "{{THE_PWD}}"
             }
 {% endif %}
-{% if CSA_VERSION is ge('1.12.0.0') %}
+{% if CSA_VERSION is ge('1.12.0.0') and CSA_VERSION is lt('1.14.0.0') %}
             ,{
               "name": "loadbalancer.url",
               "value": "{{CLUSTER_HOST}}"
@@ -318,7 +320,7 @@
 {% endif %}
           ]
         }
-{% else %}
+{% elif CSA_VERSION is lt('1.14.0.0') %}
         ,{
           "refName": "sql_stream_builder-LOAD_BALANCER-BASE",
           "roleType": "LOAD_BALANCER",
