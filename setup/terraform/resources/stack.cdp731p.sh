@@ -14,7 +14,7 @@ JAVA_PACKAGE_NAME=java-11-openjdk-devel
 OPENJDK_VERSION=17.0.2
 
 ##### Maven binary
-MAVEN_BINARY_URL=https://downloads.apache.org/maven/maven-3/3.9.6/binaries/apache-maven-3.9.6-bin.tar.gz
+MAVEN_BINARY_URL=https://dlcdn.apache.org/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.tar.gz
 
 #####  CM
 CM_VERSION=7.13.1.0
