@@ -23,6 +23,7 @@ AVAILABLE_SCRIPTS=(
   #
   rsync-resources
   tf-admin
+  cluster-log
 )
 
 #EC2_PRICES_URL_TEMPLATE=https://raw.githubusercontent.com/yeo/ec2.shop/master/data/ec2/REGION-ondemand.json

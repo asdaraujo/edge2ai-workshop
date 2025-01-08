@@ -1,4 +1,4 @@
-{{REQUIRES_CDH_MAJOR_VERSION_7}}
+{{ CDH_VERSION | version_must_be_ge('7') }}
 {
   "hostTemplates": [
     {

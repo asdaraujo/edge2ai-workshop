@@ -18,7 +18,7 @@ MAVEN_BINARY_URL=https://downloads.apache.org/maven/maven-3/3.9.6/binaries/apach
 #####  CM
 CM_VERSION=7.3.1
 CM_MAJOR_VERSION=${CM_VERSION%%.*}
-CM_REPO_AS_TARBALL_URL=https://archive.cloudera.com/p/cm7/7.3.1/repo-as-tarball/cm7.3.1-redhat7.tar.gz
+CM_REPO_AS_TARBALL_URL=https://archive.cloudera.com/p/cm7/7.3.1/repo-as-tarball/cm7.3.1-redhat${MAJOR_OS_VERSION}.tar.gz
 CM_BASE_URL=
 CM_REPO_FILE_URL=
 
@@ -34,9 +34,9 @@ CFM_BUILD=2.0.4.0-80
 CFM_MAJOR_VERSION=${CFM_VERSION%%.*}
 NIFI_VERSION=1.11.0
 NIFI_REGISTRY_VERSION=0.6.0
-CFM_PARCEL_REPO=https://archive.cloudera.com/p/CFM/2.x/redhat7/yum/tars/parcel/
-CFM_NIFI_CSD_URL=https://archive.cloudera.com/p/CFM/2.x/redhat7/yum/tars/parcel/NIFI-1.11.4.2.0.4.0-80.jar
-CFM_NIFIREG_CSD_URL=https://archive.cloudera.com/p/CFM/2.x/redhat7/yum/tars/parcel/NIFIREGISTRY-0.6.0.2.0.4.0-80.jar
+CFM_PARCEL_REPO=https://archive.cloudera.com/p/CFM/2.x/redhat${MAJOR_OS_VERSION}/yum/tars/parcel/
+CFM_NIFI_CSD_URL=https://archive.cloudera.com/p/CFM/2.x/redhat${MAJOR_OS_VERSION}/yum/tars/parcel/NIFI-1.11.4.2.0.4.0-80.jar
+CFM_NIFIREG_CSD_URL=https://archive.cloudera.com/p/CFM/2.x/redhat${MAJOR_OS_VERSION}/yum/tars/parcel/NIFIREGISTRY-0.6.0.2.0.4.0-80.jar
 
 #####  Anaconda
 ANACONDA_PRODUCT=Anaconda3

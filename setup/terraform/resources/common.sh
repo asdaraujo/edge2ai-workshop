@@ -528,7 +528,7 @@ function install_ipa_client() {
 
   # Install IPA client package
   log_status "Installing IPA client packages"
-  yum_install ipa-client openldap-clients krb5-workstation krb5-libs
+  yum_install ipa-client openldap-clients krb5-workstation krb5-libs krb5-devel
 
   wait_for_ipa "$ipa_host"
 
@@ -596,7 +596,7 @@ function install_kerberos() {
   krb_realm_lc=$( echo $KRB_REALM | tr A-Z a-z )
 
   # Install Kerberos packages
-  yum_install krb5-libs krb5-server krb5-workstation
+  yum_install krb5-libs krb5-server krb5-workstation krb5-devel
 
   # Ensure entropy
   yum_install rng-tools
@@ -1110,7 +1110,7 @@ function get_service_urls() {
   CLUSTER_HOST=dummy PRIVATE_IP=dummy PUBLIC_DNS=dummy DOCKER_DEVICE=dummy CDSW_DOMAIN=dummy \
   IPA_HOST="$([[ $USE_IPA == "yes" ]] && echo dummy || echo "")" \
   CLUSTER_ID=dummy PEER_CLUSTER_ID=dummy PEER_PUBLIC_DNS=dummy \
-  python $BASE_DIR/resources/cm_template.py --cdh-major-version $CDH_MAJOR_VERSION $CM_SERVICES > $tmp_template_file
+  python $BASE_DIR/resources/cm_template.py $CM_SERVICES > $tmp_template_file
 
   local cm_port=$([[ $(is_tls_enabled) == "yes" ]] && echo 7183 || echo 7180)
   local protocol=$([[ $(is_tls_enabled) == "yes" ]] && echo https || echo http)
@@ -1405,7 +1405,7 @@ function detect_docker_device() {
 function enable_py3() {
   export MANPATH=
   # On CentOS 7, we use the rh-python38 package, which needs to be activated.
-  # On CentOS/RHEL 8, we use the python38 package, which is active by default.
+  # On CentOS/RHEL 8, we use the python39 package, which is active by default.
   [[ -f /opt/rh/rh-python38/enable ]] && source /opt/rh/rh-python38/enable
   if [[ $(python -c 'import sys; print(sys.version_info.major)') != "3" ]]; then
     echo "ERROR: Python 3 is not active."
@@ -1478,7 +1478,7 @@ function deploy_cluster_prereqs() {
     mkdir -p /usr/share/shellinabox
     cp shellinabox/*.css /usr/share/shellinabox/
 
-    useradd -c "Shellinabox" -d /var/lib/shellinabox -s /sbin/nologin -U shellinabox
+    useradd -c "Shellinabox" -d /var/lib/shellinabox -s /sbin/nologin -U shellinabox || true
     cat <<'EOF' > /etc/sysconfig/shellinaboxd
 USER=shellinabox
 GROUP=shellinabox
@@ -2109,11 +2109,18 @@ function install_python() {
     /opt/rh/rh-python38/root/usr/bin/pip3 install --quiet --upgrade pip virtualenv
     enable_py3
   else
-    yum_install python38 python38-devel
-    alternatives --set python /usr/bin/python3
-    alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
+    yum_install python39 python39-devel
+    /usr/bin/pip3.9 install --quiet --upgrade pip virtualenv
+    alternatives --set python /usr/bin/python3.9
+    alternatives --install /usr/bin/pip pip /usr/bin/pip3.9 1
+
+    # CDP 7.1.x on Centos 8 still requires Python 3.8 even if Python 3.8 is installed.
+    if [[ $CDH_VERSION == "7.1."* ]]; then
+      yum_install python38 python38-devel
+      # And Hue needs psycopg2
+      /usr/bin/pip3.8 install --quiet --upgrade pip virtualenv psycopg2-binary==2.9.3
+    fi
   fi
-  pip install --quiet --upgrade pip
 }
 
 function contains() {

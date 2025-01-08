@@ -23,7 +23,6 @@ logging.basicConfig(level=logging.DEBUG)
 LOG = logging.getLogger(__name__)
 
 IDEMPOTENT_IDS = ['refName', 'name', 'clusterName', 'hostName', 'product']
-REQUIRES_PREFIX = 'REQUIRES_CDH_MAJOR_VERSION_'
 HAS_PREFIX = 'HAS_'
 TEMPLATES = {}
 TEMPLATE_DIR = './templates'
@@ -66,6 +65,26 @@ def lt(v1, v2):
     return False
 
 
+def version_must_be_ge(v1, v2):
+    assert ge(v1, v2), f"This template requires version to be greater than or equal to {v2}, but it's {v1}"
+    return ''
+
+
+def version_must_be_gt(v1, v2):
+    assert gt(v1, v2), f"This template requires version to be greater than {v2}, but it's {v1}"
+    return ''
+
+
+def version_must_be_le(v1, v2):
+    assert le(v1, v2), f"This template requires version to be less than or equal to {v2}, but it's {v1}"
+    return ''
+
+
+def version_must_be_lt(v1, v2):
+    assert lt(v1, v2), f"This template requires version to be less than {v2}, but it's {v1}"
+    return ''
+
+
 def jinja2_env():
     global JINJA2_ENV
     if not JINJA2_ENV:
@@ -80,7 +99,10 @@ def init_jinja2_env(template_dir):
     JINJA2_ENV.tests['gt'] = gt
     JINJA2_ENV.tests['le'] = le
     JINJA2_ENV.tests['lt'] = lt
-
+    JINJA2_ENV.filters['version_must_be_ge'] = version_must_be_ge
+    JINJA2_ENV.filters['version_must_be_gt'] = version_must_be_gt
+    JINJA2_ENV.filters['version_must_be_le'] = version_must_be_le
+    JINJA2_ENV.filters['version_must_be_lt'] = version_must_be_lt
 
 def merge_templates(templates):
     merged = {}
@@ -137,11 +159,10 @@ def load_template(json_file, configs):
     try:
         json_content = template.render(**configs)
         return json.loads(json_content)
-    except UndefinedError as exc:
-        m = re.match('.*' + REQUIRES_PREFIX + '([0-9]*).*is undefined', exc.message)
-        if m:
+    except AssertionError as exc:
+        if 'This template requires version' in exc.args[0]:
             template = re.sub(r'\..*', '', json_file).upper()
-            raise RuntimeError('Template {} is only valid for CDH version {}'.format(template, m.groups()[0]))
+            raise RuntimeError(f'Error while processing template {template}: {exc.args[0]}')
         raise
     except:
         LOG.error('Failed to load file {}'.format(json_file))
@@ -155,7 +176,7 @@ def gen_var_template(template_names, yaml_template):
         #
         for var in re.findall(r'{{ *([A-Za-z0-9_]+) *}}|\b(?:if|and|or) *([A-Za-z0-9_]+)\b', template):
             var = var[0] or var[1]
-            if not var.startswith(REQUIRES_PREFIX) and not var.startswith(HAS_PREFIX):
+            if not var.startswith(HAS_PREFIX):
                 vars[var] = None
 
     if os.path.exists(yaml_template):
@@ -189,11 +210,6 @@ def parse_args():
                       metavar='PATH',
                       help='Path of the directory where templates are stored. '
                            'Default: ./templates')
-    parser.add_option('--cdh-major-version', action='store', type='string',
-                      dest='cdh_major_version',
-                      metavar='VERSION',
-                      help='Major version of the CDH cluster for which the template will be generated. '
-                           'Valid values: 5, 6 and 7')
     parser.add_option('--validate-only', action='store_true',
                       dest='validate_only',
                       help='Only validate if the specified services are valid.')
@@ -206,9 +222,16 @@ def parse_args():
 
 def print_valid_templates():
     print('Valid template names are:')
+    op_mapping = {
+        'ge': '>=',
+        'gt': '>',
+        'le': '<=',
+        'lt': '<',
+    }
     for template in sorted(TEMPLATES):
-        requires = re.findall(REQUIRES_PREFIX + '.', open(os.path.join(TEMPLATE_DIR, TEMPLATES[template])).read())
-        print('    - {} {}'.format(template, '({})'.format(', '.join(requires)) if requires else ''))
+        requires = re.findall('([A-Z_]*)[ |]*version_must_be_(lt|le|gt|ge)[ (\'"]*([0-9.]*)', open(os.path.join(TEMPLATE_DIR, TEMPLATES[template])).read())
+        requires = ', '.join([f'{var} {op_mapping[op]} {ver}' for var, op, ver in requires])
+        print(f'    - {template} {f"({requires})" if requires else ""}')
 
 
 def fix_dependencies(template_dir, selected_services):
@@ -239,12 +262,10 @@ def fix_dependencies(template_dir, selected_services):
     return list(svc_set)
 
 
-def get_template(template_names, config_file, cdh_major_version):
+def get_template(template_names, config_file):
     # Get properties from environment variables and configuration file, if specified
     configs = {
         'PYTHON_EXECUTABLE': sys.executable,
-        'CDH_MAJOR_VERSION': cdh_major_version,
-        REQUIRES_PREFIX + cdh_major_version: '',
     }
 
     configs.update(os.environ)
@@ -257,7 +278,7 @@ def get_template(template_names, config_file, cdh_major_version):
         configs[f'{HAS_PREFIX}{template}'] = '1'
 
     chosen_templates = []
-    for template_name in template_names:
+    for template_name in sorted(template_names):
         chosen_templates.append(load_template(TEMPLATES[template_name], configs))
     merged = merge_templates(chosen_templates)
     return json.dumps(merged, indent=2, sort_keys=True)
@@ -270,13 +291,6 @@ def main():
         options.template_dir = os.path.join(os.path.dirname(__file__), 'templates')
     init_jinja2_env(options.template_dir)
     load_templates(options.template_dir)
-
-    if options.cdh_major_version is None:
-        LOG.error('The --cdh-major-version must be specified. Valid values are: 5, 6 and 7')
-        exit(1)
-    elif options.cdh_major_version not in ['5', '6', '7']:
-        LOG.error('The only valid values for --cdh-major-version are 6 and 7')
-        exit(1)
 
     templates = set([t.upper() for a in args for t in a.split(',')])
     templates = fix_dependencies(options.template_dir, templates)
@@ -294,7 +308,7 @@ def main():
         gen_var_template(templates, options.gen_var_template)
         exit(0)
 
-    output = get_template(templates, options.config_file, options.cdh_major_version)
+    output = get_template(templates, options.config_file)
     if options.validate_only:
         exit(0)
     print(output)

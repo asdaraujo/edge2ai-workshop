@@ -5,7 +5,7 @@
       "roleConfigGroupsRefNames": [
          "hive-GATEWAY-BASE"
         ,"hive-HIVEMETASTORE-BASE"
-{% if CDH_MAJOR_VERSION == '6' %}
+{% if CDH_VERSION is ge('6') and CDH_VERSION is lt('7') %}
         ,"hive-HIVESERVER2-BASE"
 {% else %}
         ,"hive_on_tez-GATEWAY-BASE"
@@ -105,7 +105,7 @@
           "roleType": "HIVEMETASTORE",
           "base": true
         }
-{% if CDH_MAJOR_VERSION == '6' %}
+{% if CDH_VERSION is ge('6') and CDH_VERSION is lt('7') %}
         ,{
           "refName": "hive-HIVESERVER2-BASE",
           "roleType": "HIVESERVER2",
@@ -130,7 +130,7 @@
 {% endif %}
       ]
     }
-{% if CDH_MAJOR_VERSION == '7' %}
+{% if CDH_VERSION is ge('7') %}
     ,{
       "refName": "tez",
       "serviceType": "TEZ",

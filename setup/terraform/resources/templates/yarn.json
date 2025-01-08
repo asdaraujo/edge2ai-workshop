@@ -6,7 +6,7 @@
          "yarn-JOBHISTORY-BASE"
         ,"yarn-NODEMANAGER-BASE"
         ,"yarn-RESOURCEMANAGER-BASE"
-{% if CDH_MAJOR_VERSION == '7' %}
+{% if CDH_VERSION is ge('7') %}
         ,"queuemanager-QUEUEMANAGER_WEBAPP-BASE"
         ,"queuemanager-QUEUEMANAGER_STORE-BASE"
 {% endif %}
@@ -76,7 +76,7 @@
         }
       ]
     }
-{% if CDH_MAJOR_VERSION == '7' %}
+{% if CDH_VERSION is ge('7') %}
     ,
     {
       "refName": "queuemanager",

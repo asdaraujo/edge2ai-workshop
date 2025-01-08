@@ -20,7 +20,7 @@ def test_pg_statuses():
     }
     for metric, expected_value in expected_counts_by_status.items():
         assert nf.check_metric_value('Fraud Detection', nf.EQ(expected_value), entity_type='pg',
-                                     metric=metric)
+                                     metric=metric), f'Value of metric {metric} is not equal to {expected_value}'
 
 
 def test_root_pg_disabled():

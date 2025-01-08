@@ -50,7 +50,7 @@
           "value": "uid={0},cn=users,cn=accounts,dc=workshop,dc=com"
         }
 {% endif %}
-{% if CDH_MAJOR_VERSION == '7' %}
+{% if CDH_VERSION is ge('7') %}
        ,{
           "name" : "transaction.state.log.min.isr",
           "value" : "1"
@@ -106,7 +106,7 @@
               "value": "{{THE_PWD}}"
             }
 {% endif %}
-{% if CDH_MAJOR_VERSION == '6' %}
+{% if CDH_VERSION is ge('6') and CDH_VERSION is lt('7') %}
             ,{
               "name" : "kafka.properties_role_safety_valve",
               "value" : "transaction.state.log.min.isr=1\ntransaction.state.log.replication.factor=1"

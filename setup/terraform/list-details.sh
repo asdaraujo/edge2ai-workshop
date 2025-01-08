@@ -79,7 +79,7 @@ function show_details() {
     load_env $namespace
   else
     local tmp_file=/tmp/.${namespace}.$$
-    SKIP_CLOUD_LOGIN=1 load_env $namespace > $tmp_file 2>&1
+    SKIP_CLOUD_LOGIN=1 load_env $namespace > $tmp_file 2>&1 || true
     if [[ -s $tmp_file ]]; then
       warning="$(cat $tmp_file | sed 's/\.$//'). "
     fi

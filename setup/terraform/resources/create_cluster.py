@@ -56,6 +56,10 @@ def print_cmd(cmd, indent=0):
     return cmd_status, ' '.join(item for item in [cmd_name, details, latest_child_details] if item)
 
 
+def print_status(msg):
+    print(f'STATUS:{msg}')
+
+
 def _get_parser():
     global OPT_PARSER
     if OPT_PARSER is None:
@@ -155,6 +159,7 @@ class ClusterCreator:
                  remote_repo_usr=None, remote_repo_pwd=None):
         self.host = host
         self.krb_princ = krb_princ
+        self.cluster_name = None
 
         self._api_client = None
         self._cm_api = None
@@ -164,6 +169,7 @@ class ClusterCreator:
         self._cluster_api = None
         self._command_api = None
         self._services_api = None
+        self._rcgs_api = None
 
         self.remote_repo_usr = remote_repo_usr if remote_repo_usr else None
         self.remote_repo_pwd = remote_repo_pwd if remote_repo_pwd else None
@@ -260,6 +266,12 @@ class ClusterCreator:
             self._services_api = cm_client.ServicesResourceApi(self.api_client)
         return self._services_api
 
+    @property
+    def rcgs_api(self):
+        if self._rcgs_api is None:
+            self._rcgs_api = cm_client.RoleConfigGroupsResourceApi(self.api_client)
+        return self._rcgs_api
+
     def wait(self, cmd, timeout_secs=None):
         if cmd.id == self.SYNCHRONOUS_COMMAND_ID:
             return cmd
@@ -274,7 +286,7 @@ class ClusterCreator:
                 cmd = self.command_api.read_command(int(cmd.id))
                 print(datetime.strftime(datetime.now(), '%c'))
                 status, details = print_cmd(cmd)
-                print('STATUS:%s: %s' % (status, details))
+                print_status(f'{status}: {details}')
                 if not cmd.active:
                     return cmd
 
@@ -289,12 +301,12 @@ class ClusterCreator:
         except ApiException as e:
             print("Exception while waiting a command to finish: %s\n" % e)
 
-    def wait_for_good_health(self, cluster_name, timeout_secs=300):
+    def wait_for_good_health(self, timeout_secs=300):
         wait_until_stable_for_secs = self.WAIT_UNTIL_STABLE_FOR_SECS
         deadline = time.time() + timeout_secs
 
         while True:
-            cluster = self.cluster_api.read_cluster(cluster_name)
+            cluster = self.cluster_api.read_cluster(self.cluster_name)
             if cluster.entity_status == cm_client.ApiEntityStatus.GOOD_HEALTH:
                 wait_until_stable_for_secs -= 1
                 if wait_until_stable_for_secs == 0:
@@ -306,9 +318,32 @@ class ClusterCreator:
             if deadline < now:
                 raise RuntimeError("The status of cluster {} is {}.".format(cluster.name, cluster.entity_status))
             else:
-                print('STATUS:Waiting for cluster {} to become healthy (current status: {}, time left: {} secs)'.format(
-                    cluster.name, cluster.entity_status, int(deadline - time.time())))
+                print_status(f'Waiting for cluster {cluster.name} to become healthy '
+                             f'(current status: {cluster.entity_status}, '
+                             f'time left: {int(deadline - time.time())} secs)')
                 time.sleep(min(self.WAIT_SLEEP_SECS, int(deadline - now)))
+
+    def check_knox_gateway(self):
+        try:
+            roles = self.rcgs_api.read_role_config_groups(self.cluster_name, 'knox')
+            roles = [r for r in roles.items if r.role_type == 'KNOX_GATEWAY']
+            assert len(roles) == 1, 'Service Knox is missing a KNOX_GATEWAY role.'
+            gw_role = roles[0]
+            cfg = self.rcgs_api.read_config(self.cluster_name, gw_role.name, 'knox', view='full')
+
+            port_cfg = [p for p in cfg.items if p.name == 'gateway_port']
+            assert len(port_cfg) == 1, 'Could not find Knox Gateway port in configuration.'
+            gw_port = port_cfg[0].value or port_cfg[0].default
+
+            tls_cfg = [p for p in cfg.items if p.name == 'ssl_enabled']
+            assert len(tls_cfg) == 1, 'Could not find Knox TLS setting.'
+            use_tls = (tls_cfg[0].value or tls_cfg[0].default) == 'true'
+
+            gw_url = f'{"https" if use_tls else "http"}://{socket.gethostname()}:{gw_port}/gateway/cdp-proxy/cmf/'
+            resp = requests.get(gw_url, verify=cm_client.configuration.ssl_ca_cert, timeout=60, auth=('admin', the_pwd()))
+            return resp.status_code == requests.codes.ok
+        except (requests.exceptions.ReadTimeout, requests.exceptions.ConnectionError):
+            return False
 
     def retry(self, cmd):
         return self.command_api.retry(int(cmd.id))
@@ -372,6 +407,7 @@ class ClusterCreator:
             body=cm_client.ApiConfigList([
                 cm_client.ApiConfig(name='CUSTOM_BANNER_HTML', value=banner),
                 cm_client.ApiConfig(name='CUSTOM_HEADER_COLOR', value=header_color),
+                cm_client.ApiConfig(name='SESSION_TIMEOUT', value='86400'),
             ])
         )
 
@@ -408,7 +444,7 @@ class ClusterCreator:
                 requests.get(smon_url)
                 break
             except Exception as exc:
-                print('STATUS:Waiting for Service Monitor to fully start ({})...'.format(smon_url))
+                print_status(f'Waiting for Service Monitor to fully start ({smon_url})...')
                 timeout_secs -= 1
                 time.sleep(1)
 
@@ -427,7 +463,7 @@ class ClusterCreator:
         # Get cluster name from template
         json_template = json.loads(json_str)
         if 'instantiator' in json_template and 'clusterName' in json_template['instantiator']:
-            cluster_name = json_template['instantiator']['clusterName']
+            self.cluster_name = json_template['instantiator']['clusterName']
         else:
             raise RuntimeError('Cannot get name of the cluster from template {}.'.format(template))
 
@@ -451,7 +487,7 @@ class ClusterCreator:
             # health to be GOOD
             mgmt_restart_cmd = self.mgmt_api.restart_command()
             self.wait(mgmt_restart_cmd)
-            self.wait_for_good_health(cluster_name)
+            self.wait_for_good_health()
 
             # Retry original command
             cmd = self.retry(cmd)
@@ -462,21 +498,37 @@ class ClusterCreator:
         self._reset_paywall_credentials()
 
         # Restart Mgmt Services
+        print_status('Restarting Management Services')
         mgmt_restart_cmd = self.mgmt_api.restart_command()
+        self.wait(mgmt_restart_cmd)
 
         # Restart Knox because it tends to fail discovery sometimes
-        knox_restart_cmd = None
-        try:
-            knox_restart_cmd = self.services_api.restart_command(cluster_name, 'knox')
-        except cm_client.rest.ApiException as exc:
-            # Ignore if Knox service is not installed, otherwise raise exception
-            if exc.status != 404:
+        is_knox_live = False
+        knox_restart_retries = 3
+        while knox_restart_retries > 0 and not is_knox_live:
+            try:
+                print_status('Restarting Knox')
+                knox_restart_cmd = self.services_api.restart_command(self.cluster_name, 'knox')
+            except cm_client.rest.ApiException as exc:
+                # Ignore if Knox service is not installed, otherwise raise exception
+                if exc.status == 404:
+                    break
                 raise
 
-        # Wait for restarts to finish
-        self.wait(mgmt_restart_cmd)
-        if knox_restart_cmd is not None:
-            self.wait(knox_restart_cmd)
+            if knox_restart_cmd is not None:
+                self.wait(knox_restart_cmd)
+
+            print_status('Waiting for Knox to respond')
+            knox_check_retries = 10
+            while knox_check_retries > 0:
+                if self.check_knox_gateway():
+                    is_knox_live = True
+                    break
+
+                time.sleep(15)
+                knox_check_retries -= 1
+
+            knox_restart_retries -= 1
 
     def _enable_kerberos(self, kerberos_type, ipa_host, use_tls):
         # Update Kerberos configuration

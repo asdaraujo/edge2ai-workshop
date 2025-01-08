@@ -67,7 +67,7 @@
           "value" : "postgresql"
         }
 {% endif %}
-{% if CDH_MAJOR_VERSION == '6' %}
+{% if CDH_VERSION is ge('6') and CDH_VERSION is lt('7') %}
         ,{
           "name" : "cm.metrics.service.name",
           "value" : "kafka"
@@ -179,7 +179,7 @@
             }
 {% endif %}
 {% endif %}
-{% if CDH_MAJOR_VERSION == '6' %}
+{% if CDH_VERSION is ge('6') and CDH_VERSION is lt('7') %}
             ,{
               "name" : "streams.messaging.manager.schema.registry.url",
               "value" : "http://{{PUBLIC_DNS}}:7788/api/v1"

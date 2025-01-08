@@ -1,18 +1,18 @@
-{{REQUIRES_CDH_MAJOR_VERSION_7}}
+{{ CDH_VERSION | version_must_be_ge('7') }}
 {
   "hostTemplates": [
     {
       "refName": "HostTemplate-0-from-{{CLUSTER_HOST}}",
       "roleConfigGroupsRefNames": [
         "livy-GATEWAY-BASE",
-        "livy-LIVY_SERVER-BASE"
+        "livy-LIVY_SERVER{% if CDH_VERSION is ge('7.3.1') %}_FOR_SPARK3{% endif %}-BASE"
       ]
     }
   ],
   "services": [
     {
       "refName": "livy",
-      "serviceType": "LIVY",
+      "serviceType": "LIVY{% if CDH_VERSION is ge('7.3.1') %}_FOR_SPARK3{% endif %}",
       "displayName": "Livy",
       "roleConfigGroups": [
         {
@@ -33,8 +33,8 @@
           ]
         },
         {
-          "refName": "livy-LIVY_SERVER-BASE",
-          "roleType": "LIVY_SERVER",
+          "refName": "livy-LIVY_SERVER{% if CDH_VERSION is ge('7.3.1') %}_FOR_SPARK3{% endif %}-BASE",
+          "roleType": "LIVY_SERVER{% if CDH_VERSION is ge('7.3.1') %}_FOR_SPARK3{% endif %}",
           "base": true,
           "configs": [
 {% if ENABLE_TLS == 'yes' %}

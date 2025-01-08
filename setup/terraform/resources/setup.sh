@@ -149,6 +149,29 @@ EOF
   sed -i '/^ *export  *JAVA_HOME=.*/d' /etc/default/cloudera-scm-server
   echo "export JAVA_HOME=${JAVA_HOME}" >> /etc/default/cloudera-scm-server
 
+  # TODO: This is a workaround for OPSAPS-72614. Remove once there's a fix for it.
+  FIX_FLAG=/opt/cloudera/cm/bin/.fix.creds.generation
+  FILE_TO_FIX=/opt/cloudera/cm/bin/gen_credentials_ipa_parallel.sh
+  TMP_FILE=/opt/cloudera/cm/bin/gen_credentials_ipa_parallel.tmp.$$
+  if [[ -f $FILE_TO_FIX && ! -f $FIX_FLAG ]]; then
+    cp "$FILE_TO_FIX" "$TMP_FILE"
+    cat > "$FILE_TO_FIX" <<'EOF'
+#!/usr/bin/env bash
+set -e
+set -x
+
+# first, get ticket for CM principal
+export KRB5CCNAME=/tmp/gen_credentials_ipa_parallel.krb5cc.$$
+kinit -k -t $CMF_KEYTAB_FILE $CMF_PRINCIPAL
+
+EOF
+    cat "$TMP_FILE" >> "$FILE_TO_FIX"
+    rm -f "$TMP_FILE"
+    sed -i.bak 's/#.*kdestroy cal*ed .*/kdestroy || true/' "$FILE_TO_FIX"
+    chmod 755 /opt/cloudera/cm/bin/gen_credentials_ipa_parallel.sh
+    touch $FIX_FLAG
+  fi
+
   log_status "Installing PostgreSQL"
   # PostgreSQL has a dependency on Java 8, so the install below will install the OpenJDK 8 package
   # We set the java alternatives manually here so that Java 8 doesn't take priority after the install
@@ -457,20 +480,22 @@ sed -i 's#ExecStart.*OPTS *$#& --static-file=ShellInABox.js:/var/lib/shellinabox
 systemctl daemon-reload
 systemctl restart shellinaboxd
 
+if [[ $(get_os_major_version) == "7" ]]; then
+  # Ensure the OS looks like a compatible CentOS
+  if ! grep "CentOS Linux release 7.9" /etc/redhat-release > /dev/null 2>&1 ; then
+    # CDSW requires Centos 7.5, so we trick it to believe it is...
+    echo "CentOS Linux release 7.9.2009 (Core)" > /etc/redhat-release
+  fi
+else
+  # Ensure this OS looks like a compatible RHEL
+  if grep -i centos /etc/redhat-release > /dev/null; then
+    echo "Red Hat Enterprise Linux release 8.6" > /etc/redhat-release
+    sed -i.bak 's/^ID=.*/ID="rhel"/' /etc/os-release
+  fi
+fi
 
 if [ "${HAS_CDSW:-}" == "1" ]; then
     echo "CDSW_BUILD is set to '${CDSW_BUILD}'"
-    if [[ $(get_os_major_version) == "7" ]]; then
-      if ! grep "CentOS Linux release 7.9" /etc/redhat-release > /dev/null 2>&1 ; then
-        # CDSW requires Centos 7.5, so we trick it to believe it is...
-        echo "CentOS Linux release 7.9.2009 (Core)" > /etc/redhat-release
-      fi
-    else
-      # Ensure this OS looks like a compatible CentOS
-      if grep -i centos /etc/redhat-release > /dev/null; then
-        echo "CentOS Linux release 8.6" > /etc/redhat-release
-      fi
-    fi
     if [[ "${DOCKER_DEVICE}" == "" ]]; then
       echo "ERROR: Could not find any candidate devices."
       exit 1
@@ -618,7 +643,7 @@ fi
 
 log_status "Generating cluster template"
 enable_py3
-python -u $BASE_DIR/cm_template.py --cdh-major-version $CDH_MAJOR_VERSION $CM_SERVICES > $TEMPLATE_FILE
+python -u $BASE_DIR/cm_template.py $CM_SERVICES > $TEMPLATE_FILE
 
 log_status "Creating cluster"
 if [[ $(is_kerberos_enabled) == "yes" ]]; then

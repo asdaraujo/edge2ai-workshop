@@ -3,20 +3,20 @@
     {
       "refName": "HostTemplate-0-from-{{CLUSTER_HOST}}",
       "roleConfigGroupsRefNames": [
-         "spark_on_yarn-GATEWAY-BASE"
-        ,"spark_on_yarn-SPARK_YARN_HISTORY_SERVER-BASE"
+         "spark{% if CDH_VERSION is ge('7.3.1') %}3{% endif %}_on_yarn-GATEWAY-BASE"
+        ,"spark{% if CDH_VERSION is ge('7.3.1') %}3{% endif %}_on_yarn-SPARK{% if CDH_VERSION is ge('7.3.1') %}3{% endif %}_YARN_HISTORY_SERVER-BASE"
       ]
     }
   ],
   "services": [
     {
-      "refName": "spark_on_yarn",
-      "serviceType": "SPARK_ON_YARN",
-      "displayName": "Spark",
+      "refName": "spark{% if CDH_VERSION is ge('7.3.1') %}3{% endif %}_on_yarn",
+      "serviceType": "SPARK{% if CDH_VERSION is ge('7.3.1') %}3{% endif %}_ON_YARN",
+      "displayName": "Spark{% if CDH_VERSION is ge('7.3.1') %}3{% endif %}",
       "roleConfigGroups": [
         {
-          "refName": "spark_on_yarn-SPARK_YARN_HISTORY_SERVER-BASE",
-          "roleType": "SPARK_YARN_HISTORY_SERVER",
+          "refName": "spark{% if CDH_VERSION is ge('7.3.1') %}3{% endif %}_on_yarn-SPARK{% if CDH_VERSION is ge('7.3.1') %}3{% endif %}_YARN_HISTORY_SERVER-BASE",
+          "roleType": "SPARK{% if CDH_VERSION is ge('7.3.1') %}3{% endif %}_YARN_HISTORY_SERVER",
           "base": true,
           "configs": [
 {% if ENABLE_TLS == 'yes' %}
@@ -36,7 +36,7 @@
           ]
         },
         {
-          "refName": "spark_on_yarn-GATEWAY-BASE",
+          "refName": "spark{% if CDH_VERSION is ge('7.3.1') %}3{% endif %}_on_yarn-GATEWAY-BASE",
           "roleType": "GATEWAY",
           "base": true
         }

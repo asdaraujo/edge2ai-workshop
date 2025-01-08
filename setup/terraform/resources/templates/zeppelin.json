@@ -1,5 +1,6 @@
-{{REQUIRES_CDH_MAJOR_VERSION_7}}
+{{ CDH_VERSION | version_must_be_ge('7') }}
 {
+{% if CDH_VERSION is lt('7.3.1') %}
   "hostTemplates": [
     {
       "refName": "HostTemplate-0-from-{{CLUSTER_HOST}}",
@@ -46,4 +47,5 @@
       ]
     }
   ]
+{% endif %}
 }

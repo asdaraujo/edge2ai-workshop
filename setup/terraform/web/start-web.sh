@@ -77,18 +77,33 @@ function install_pg_repo() {
   fi
 }
 
+function enable_py3() {
+  export MANPATH=
+  # On CentOS 7, we use the rh-python38 package, which needs to be activated.
+  # On CentOS/RHEL 8, we use the python39 package, which is active by default.
+  [[ -f /opt/rh/rh-python38/enable ]] && source /opt/rh/rh-python38/enable
+  if [[ $(python -c 'import sys; print(sys.version_info.major)') != "3" ]]; then
+    echo "ERROR: Python 3 is not active."
+    exit 1
+  fi
+}
+
 function install_python() {
   if [[ $(get_os_major_version) == "7" ]]; then
     yum_install centos-release-scl
     patch_yum_repos_for_centos
     yum_install rh-python38 rh-python38-python-devel
-    alternatives --install /usr/bin/python3 workshop-py3-38 /opt/rh/rh-python38/root/usr/bin/python3.8 99999999
+    alternatives --install /usr/bin/python3 workshop-py3-38 /opt/rh/rh-python38/root/usr/bin/python3.8 99999999 \
+      --slave /usr/local/bin/python3 workshop-local-py3-3 /opt/rh/rh-python38/root/usr/bin/python3.8 \
+      --slave /usr/local/bin/python3.8 workshop-local-py3-38 /opt/rh/rh-python38/root/usr/bin/python3.8
     /opt/rh/rh-python38/root/usr/bin/pip3 install --quiet --upgrade pip virtualenv
-    MANPATH= source /opt/rh/rh-python38/enable
-    cat /opt/rh/rh-python38/enable >> /etc/profile
+    enable_py3
   else
-    yum_install python38 python38-devel
-    /usr/bin/pip3.8 install --quiet --upgrade pip virtualenv
+    yum_install python39 python39-devel
+    /usr/bin/pip3.9 install --quiet --upgrade pip virtualenv
+    alternatives --set python /usr/bin/python3.9
+    alternatives --set python3 /usr/bin/python3.9
+    alternatives --install /usr/bin/pip pip /usr/bin/pip3.9 1
   fi
 }
 
@@ -139,16 +154,20 @@ if [[ $(get_os_type) == "RHEL" ]]; then
 fi
 
 log_status "Installing EPEL and PG repositories and Python"
-sudo bash -c "$(for func in yum_install install_epel install_pg_repo install_python patch_yum_repos_for_centos get_os_type get_os_major_version; do declare -f "$func"; done); set -x; set -e; set -u; set -o pipefail; install_epel; install_pg_repo; install_python"
+sudo bash -c "$(for func in enable_py3 yum_install install_epel install_pg_repo install_python patch_yum_repos_for_centos get_os_type get_os_major_version; do declare -f "$func"; done); set -x; set -e; set -u; set -o pipefail; install_epel; install_pg_repo; install_python"
 # Since the installation above is done in a sub-shell, ensure Python's setting are effective
 hash -r
 [[ -f /opt/rh/rh-python38/enable ]] && MANPATH= source /opt/rh/rh-python38/enable || true
 
 log_status "Installing needed tools"
-yum_install supervisor nginx postgresql${PG_VERSION}-server postgresql${PG_VERSION} postgresql${PG_VERSION}-contrib figlet cowsay
+yum_install supervisor nginx postgresql${PG_VERSION}-server postgresql${PG_VERSION} postgresql${PG_VERSION}-contrib figlet cowsay rsync
 # Supervisor's install can mess with Python paths, so we fix it if needed
 if [[ -f /usr/bin/python3.8 ]]; then
+  sudo alternatives --set python /usr/bin/python3.8
   sudo alternatives --set python3 /usr/bin/python3.8
+elif [[ -f /usr/bin/python3.9 ]]; then
+  sudo alternatives --set python /usr/bin/python3.9
+  sudo alternatives --install /usr/bin/pip pip /usr/bin/pip3.9 1
 fi
 
 log_status "Configuring PostgreSQL"
@@ -183,7 +202,8 @@ EOF
 
 log_status "Preparing virtualenv"
 set +e; python -V; type python; pip -V; type pip; set -e
-python3 -m venv $BASE_DIR/env
+rm -rf "$BASE_DIR/env"
+python3 -m venv "$BASE_DIR/env"
 source $BASE_DIR/env/bin/activate
 set +e; python -V; type python; pip -V; type pip; set -e
 pip install --progress-bar off -r $BASE_DIR/requirements.txt
