@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import re
 import json
+import time
 from . import *
 
 _AGENT_MANIFESTS = None
@@ -109,13 +110,24 @@ def get_efm_version():
 
 
 def get_flow(agent_class):
-    resp = _api_get('/designer/flows')
-    resp_json = resp.json()
-    assert ('elements' in resp_json)
-    elements = [e for e in resp_json['elements'] if 'agentClass' in e and e['agentClass'] == agent_class]
-    assert (len(elements) == 1)
-    flow = elements[0]
-    return flow['identifier'], flow['rootProcessGroupIdentifier']
+    # When this runs soon after the MiNiFi agent is started, EFM may not yet have the information about the
+    # agent class. Therefore, we retry a few times.
+    retries = 10
+    while True:
+        try:
+            resp = _api_get('/designer/flows')
+            resp_json = resp.json()
+            assert ('elements' in resp_json)
+            elements = [e for e in resp_json['elements'] if 'agentClass' in e and e['agentClass'] == agent_class]
+            assert (len(elements) == 1)
+            flow = elements[0]
+            return flow['identifier'], flow['rootProcessGroupIdentifier']
+        except AssertionError:
+            retries -= 1
+            if retries >= 0:
+                time.sleep(10)
+            else:
+                raise
 
 
 def _get_processor_bundle(processor_type):
