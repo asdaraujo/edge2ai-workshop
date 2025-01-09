@@ -73,7 +73,7 @@ class EdgeWorkshop(AbstractWorkshop):
             (0, 0),
             {
                 'properties': {
-                    'Command': 'python3',
+                    'Command': '/usr/bin/python3',
                     'Command Arguments': '/opt/demo/simulate.py',
                 },
                 'schedulingPeriod': '1 sec',

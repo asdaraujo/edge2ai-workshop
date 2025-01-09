@@ -4,9 +4,11 @@
 Testing NiFi Workshop
 """
 from ...labs.utils import nifi as nf
+from ...labs import LOG
 
 nf.set_environment()
 
+PG_NAME = 'Fraud Detection'
 
 def test_pg_statuses():
     expected_counts_by_status = {
@@ -18,8 +20,9 @@ def test_pg_statuses():
         'sync_failure_count': 0,
         'up_to_date_count': 0,
     }
+    LOG.debug(nf.get_process_group(PG_NAME))
     for metric, expected_value in expected_counts_by_status.items():
-        assert nf.check_metric_value('Fraud Detection', nf.EQ(expected_value), entity_type='pg',
+        assert nf.check_metric_value(PG_NAME, nf.EQ(expected_value), entity_type='pg',
                                      metric=metric), f'Value of metric {metric} is not equal to {expected_value}'
 
 

@@ -4,6 +4,7 @@
 Common utilities for Python scripts
 """
 import tempfile
+import time
 from nipyapi import canvas, versioning, nifi, parameters
 from nipyapi.nifi.rest import ApiException
 
@@ -1795,7 +1796,27 @@ class FraudWorkshop(AbstractWorkshop):
         nf.create_connection(replace_txt, handle_resp, relationships=['success', 'failure'], name='response')
 
         # Start flow
-        canvas.schedule_process_group(self.context.fraud_pg.id, True)
+        # Note: sometimes the start of the InvokeScriptedProcessor fails with the error
+        # "Unable to load script: No script runner available" (see NIFI-11148). This is due to a racing condition,
+        # so we retry a few times to make it more dependable.
+        startup_retries = 10
+        startup_interval_secs = 15
+        while True:
+            canvas.schedule_process_group(self.context.fraud_pg.id, True)
+            pg = canvas.get_process_group(self.context.fraud_pg.id, 'id')
+            if pg.stopped_count == 0:
+                LOG.debug(f'All processors in process group {pg.component.name} have started successfully.')
+                break
+
+            LOG.debug(f'Not all processors in process group {pg.component.name} have started. '
+                      f'Trying again after {startup_interval_secs} seconds.')
+            LOG.debug(f'Process group details:\n{pg}')
+
+            startup_retries -= 1
+            if startup_retries < 0:
+                break
+            time.sleep(startup_interval_secs)
+
 
     def lab5_create_ssb_kafka_data_provider(self):
         if is_tls_enabled():

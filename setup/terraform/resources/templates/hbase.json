@@ -33,6 +33,10 @@
         {
           "name": "hbase_thriftserver_security_authentication",
           "value": "auth-conf"
+        },
+        {
+          "name": "hbase_service_config_safety_valve",
+          "value": "<property><name>hbase.regionserver.wal.slowsync.roll.threshold</name><value>90000</value></property>"
         }
 {% endif %}
 {% if ENABLE_TLS == 'yes' and ENABLE_KERBEROS == 'yes' %}
