@@ -151,24 +151,55 @@ EOF
 
   # TODO: This is a workaround for OPSAPS-72614. Remove once there's a fix for it.
   FIX_FLAG=/opt/cloudera/cm/bin/.fix.creds.generation
-  FILE_TO_FIX=/opt/cloudera/cm/bin/gen_credentials_ipa_parallel.sh
-  TMP_FILE=/opt/cloudera/cm/bin/gen_credentials_ipa_parallel.tmp.$$
-  if [[ -f $FILE_TO_FIX && ! -f $FIX_FLAG ]]; then
-    cp "$FILE_TO_FIX" "$TMP_FILE"
-    cat > "$FILE_TO_FIX" <<'EOF'
+  TMP_FILE=/opt/cloudera/cm/bin/gen_credentials.tmp.$$
+  if [[ ! -f $FIX_FLAG ]]; then
+    # Fix gen_credentials_ipa_parallel.sh
+    FILE_TO_FIX=/opt/cloudera/cm/bin/gen_credentials_ipa_parallel.sh
+    if [[ -f $FILE_TO_FIX ]]; then
+      cp "$FILE_TO_FIX" "$TMP_FILE"
+      cat > "$FILE_TO_FIX" <<'EOF'
 #!/usr/bin/env bash
 set -e
 set -x
-
+mkdir -p /tmp/gen-creds-logs
+(
 # first, get ticket for CM principal
 export KRB5CCNAME=/tmp/gen_credentials_ipa_parallel.krb5cc.$$
 kinit -k -t $CMF_KEYTAB_FILE $CMF_PRINCIPAL
 
 EOF
-    cat "$TMP_FILE" >> "$FILE_TO_FIX"
-    rm -f "$TMP_FILE"
-    sed -i.bak 's/#.*kdestroy cal*ed .*/kdestroy || true/' "$FILE_TO_FIX"
-    chmod 755 /opt/cloudera/cm/bin/gen_credentials_ipa_parallel.sh
+      cat "$TMP_FILE" >> "$FILE_TO_FIX"
+      rm -f "$TMP_FILE"
+      sed -i.bak 's/#.*kdestroy cal*ed .*/kdestroy || true/' "$FILE_TO_FIX"
+      cat >> "$FILE_TO_FIX" <<'EOF'
+
+) 2>&1 | tee /tmp/gen-creds-logs/gen-creds-ipa-parallel-$(echo "$2" | sed 's#/.*##;s#[^a-z0-9A-Z]##g')-$$.log
+EOF
+      chmod 755 "$FILE_TO_FIX"
+    fi
+
+    # Fix gen_credentials_ipa.sh
+    FILE_TO_FIX=/opt/cloudera/cm/bin/gen_credentials_ipa.sh
+    if [[ -f $FILE_TO_FIX ]]; then
+      cp "$FILE_TO_FIX" "$TMP_FILE"
+      cat > "$FILE_TO_FIX" <<'EOF'
+#!/usr/bin/env bash
+set -e
+set -x
+mkdir -p /tmp/gen-creds-logs
+(
+export KRB5CCNAME=/tmp/gen_credentials_ipa.krb5cc.$$
+
+EOF
+      cat "$TMP_FILE" >> "$FILE_TO_FIX"
+      rm -f "$TMP_FILE"
+      cat >> "$FILE_TO_FIX" <<'EOF'
+
+) 2>&1 | tee /tmp/gen-creds-logs/gen-creds-ipa-$(echo "$2" | sed 's#/.*##;s#[^a-z0-9A-Z]##g')-$$.log
+EOF
+      chmod 755 "$FILE_TO_FIX"
+    fi
+
     touch $FIX_FLAG
   fi
 
