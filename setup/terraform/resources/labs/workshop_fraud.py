@@ -1804,19 +1804,23 @@ class FraudWorkshop(AbstractWorkshop):
         while True:
             canvas.schedule_process_group(self.context.fraud_pg.id, True)
             pg = canvas.get_process_group(self.context.fraud_pg.id, 'id')
-            if pg.stopped_count == 0:
+            LOG.debug(f'Process group details:\n{pg}')
+            if pg.stopped_count == 0 and pg.invalid_count == 0:
                 LOG.debug(f'All processors in process group {pg.component.name} have started successfully.')
                 break
 
             LOG.debug(f'Not all processors in process group {pg.component.name} have started. '
-                      f'Trying again after {startup_interval_secs} seconds.')
-            LOG.debug(f'Process group details:\n{pg}')
+                      f'Trying again after {startup_interval_secs} seconds.'
+                      f'Dumping processors states below.')
+
+            proc_list = canvas.list_all_processors(self.context.fraud_pg.id)
+            for proc in proc_list:
+                LOG.debug(f'Processor: {proc}')
 
             startup_retries -= 1
             if startup_retries < 0:
                 break
             time.sleep(startup_interval_secs)
-
 
     def lab5_create_ssb_kafka_data_provider(self):
         if is_tls_enabled():
