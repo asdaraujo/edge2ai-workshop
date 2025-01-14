@@ -53,6 +53,14 @@ variable "ecs_instance_type" {
   description = "Instance type for the ECS host"
 }
 
+variable "web_instance_type" {
+  description = "Instance type for the Web host"
+}
+
+variable "ipa_instance_type" {
+  description = "Instance type for the IPA host"
+}
+
 variable "name_prefix" {
   description = "Name prefix for resources"
 }

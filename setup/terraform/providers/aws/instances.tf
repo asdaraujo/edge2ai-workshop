@@ -70,7 +70,7 @@ resource "aws_eip" "eip_cluster" {
 resource "aws_instance" "web" {
   count             = (var.launch_web_server ? 1 : 0)
   ami               = var.base_ami
-  instance_type     = "t2.medium"
+  instance_type     = var.web_instance_type
   availability_zone = aws_subnet.subnet1.availability_zone
   key_name          = aws_key_pair.workshop_web_key_pair[count.index].key_name
 
@@ -126,7 +126,7 @@ resource "aws_eip" "eip_web" {
 resource "aws_instance" "ipa" {
   count                 = (var.use_ipa ? 1 : 0)
   ami                    = var.base_ami
-  instance_type          = "t2.medium"
+  instance_type          = var.ipa_instance_type
   subnet_id              = aws_subnet.subnet1.id
   availability_zone      = aws_subnet.subnet1.availability_zone
   key_name               = aws_key_pair.workshop_key_pair.key_name
