@@ -432,7 +432,7 @@ function load_env() {
 function get_public_ip() {
   local retries=5
   while [[ $retries -gt 0 ]]; do
-    local public_ip=$(curl -sL http://ifconfig.me || curl -sL http://api.ipify.org/ || curl -sL https://ipinfo.io/ip)
+    local public_ip=$(curl -4sL http://ifconfig.me || curl -4sL http://api.ipify.org/ || curl -4sL https://ipinfo.io/ip)
     if [[ $public_ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
       echo $public_ip
       return
