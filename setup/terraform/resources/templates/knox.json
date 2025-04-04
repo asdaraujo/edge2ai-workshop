@@ -72,7 +72,7 @@
             },
             {
               "name" : "conf/gateway-site.xml_role_safety_valve",
-              "value" : "<property><name>knox.homepage.logout.enabled</name><value>true</value></property>"
+              "value" : "<property><name>knox.homepage.logout.enabled</name><value>true</value></property>{% if CDH_VERSION is ge('7.3.1') %}<property><name>gateway.servlet.async.supported</name><value>true</value></property>{% endif %}"
             },
             {
               "name" : "gateway_knox_admin_groups",
