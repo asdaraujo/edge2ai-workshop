@@ -47,6 +47,7 @@ CREATE TABLE transactions_cdc (
   'decoding.plugin.name' = 'pgoutput',
   'debezium.publication.name' = 'dbz_publication',
   'debezium.slot.name' = 'flink',
+  'slot.name' = 'flink',
   'debezium.snapshot.mode' = 'initial'
 );
 '''.format(pwd=get_the_pwd(), hostname=get_hostname())
@@ -166,6 +167,7 @@ class ChangeDataCaptureWorkshop(AbstractWorkshop):
     def before_setup(self):
         if is_kerberos_enabled():
             ssb.upload_keytab('admin', '/keytabs/admin.keytab')
+        ssb.execute_sql(DROP_SSB_TABLES)
 
     def after_setup(self):
         pass

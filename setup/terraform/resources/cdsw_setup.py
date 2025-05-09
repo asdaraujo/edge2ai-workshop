@@ -632,8 +632,16 @@ class CdswApi(object):
                 selected = sorted(selected, key=lambda x: (x['edition'], x['shortVersion']))
                 if selected:
                     return selected[-1]
-                sys.stderr.write(f'Could not find the required runtime among the {len(runtimes)} retrieved ones.'
-                                 f'Will retry (#{retries} out of {total_retries} attempts).')
+                sys.stderr.write(f'Could not find the required runtime among the {len(runtimes)} retrieved ones. '
+                                 f'Will retry (#{retries} out of {total_retries} attempts).\n')
+                sys.stderr.write(f'Required runtime: editor={editor}, kernel={kernel}, '
+                                 f'edition={"<any>" if edition is None else edition}, '
+                                 f'short_version={"<any>" if short_version is None else short_version}.\n')
+                sys.stderr.write(f'Retrieved runtimes:\n')
+                for runtime in runtimes:
+                    sys.stderr.write(f'    - editor={runtime["editor"]}, kernel={runtime["kernel"]}, '
+                                     f'edition={"<any>" if runtime["edition"] is None else runtime["edition"]}, '
+                                     f'short_version={"<any>" if runtime["shortVersion"] is None else runtime["shortVersion"]}.\n')
             except CdswEntityNotFound:
                 sys.stderr.write('List of runtimes is not yet available.')
             retries -= 1

@@ -1110,7 +1110,7 @@ function get_service_urls() {
   CLUSTER_HOST=dummy PRIVATE_IP=dummy PUBLIC_DNS=dummy DOCKER_DEVICE=dummy CDSW_DOMAIN=dummy \
   IPA_HOST="$([[ $USE_IPA == "yes" ]] && echo dummy || echo "")" \
   CLUSTER_ID=dummy PEER_CLUSTER_ID=dummy PEER_PUBLIC_DNS=dummy \
-  python $BASE_DIR/resources/cm_template.py $CM_SERVICES > $tmp_template_file
+  python3 $BASE_DIR/resources/cm_template.py $CM_SERVICES > $tmp_template_file
 
   local cm_port=$([[ $(is_tls_enabled) == "yes" ]] && echo 7183 || echo 7180)
   local protocol=$([[ $(is_tls_enabled) == "yes" ]] && echo https || echo http)
@@ -1343,7 +1343,7 @@ EOF
 function compare_version() {
   local v1=$1
   local v2=$2
-  python -c '
+  python3 -c '
 v1 = tuple(map(int, "'"$v1"'".split(".")))
 v2 = tuple(map(int, "'"$v2"'".split(".")))
 if v1 == v2:
@@ -1407,7 +1407,7 @@ function enable_py3() {
   # On CentOS 7, we use the rh-python38 package, which needs to be activated.
   # On CentOS/RHEL 8, we use the python39 package, which is active by default.
   [[ -f /opt/rh/rh-python38/enable ]] && source /opt/rh/rh-python38/enable
-  if [[ $(python -c 'import sys; print(sys.version_info.major)') != "3" ]]; then
+  if [[ $(python3 -c 'import sys; print(sys.version_info.major)' || true) != "3" ]]; then
     echo "ERROR: Python 3 is not active."
     exit 1
   fi
@@ -2109,17 +2109,18 @@ function install_python() {
     /opt/rh/rh-python38/root/usr/bin/pip3 install --quiet --upgrade pip virtualenv
     enable_py3
   else
-    yum_install python39 python39-devel
-    /usr/bin/pip3.9 install --quiet --upgrade pip virtualenv
-    alternatives --set python /usr/bin/python3.9
-    alternatives --install /usr/bin/pip pip /usr/bin/pip3.9 1
-
     # CDP 7.1.x on Centos 8 still requires Python 3.8 even if Python 3.8 is installed.
     if [[ $CDH_VERSION == "7.1."* ]]; then
       yum_install python38 python38-devel
       # And Hue needs psycopg2
       /usr/bin/pip3.8 install --quiet --upgrade pip virtualenv psycopg2-binary==2.9.3
     fi
+
+    # Python 3.9 must be installed after 3.8 to ensure the /usr/local/bin scripts point to it
+    yum_install python39 python39-devel
+    /usr/bin/pip3.9 install --quiet --upgrade pip virtualenv
+    alternatives --set python /usr/bin/python3.9
+    alternatives --install /usr/bin/pip pip /usr/bin/pip3.9 1
   fi
 }
 

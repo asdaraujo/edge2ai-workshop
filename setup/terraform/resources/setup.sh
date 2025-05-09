@@ -206,13 +206,18 @@ EOF
   log_status "Installing PostgreSQL"
   # PostgreSQL has a dependency on Java 8, so the install below will install the OpenJDK 8 package
   # We set the java alternatives manually here so that Java 8 doesn't take priority after the install
-  CURRENT_PYTHON=$(update-alternatives --display workshop-py3-38 | grep "link currently points to" | awk '{print $NF}' || true)
+  PYTHON_ALTERNATIVE=workshop-py3-38
+  CURRENT_PYTHON=$(update-alternatives --display "$PYTHON_ALTERNATIVE" | grep "link currently points to" | awk '{print $NF}' || true)
+  if [[ $CURRENT_PYTHON == "" ]]; then
+    PYTHON_ALTERNATIVE=python
+    CURRENT_PYTHON=$(update-alternatives --display "$PYTHON_ALTERNATIVE" | grep "link currently points to" | awk '{print $NF}' || true)
+  fi
   CURRENT_JAVA=$(update-alternatives --display java | grep "link currently points to" | awk '{print $NF}')
   update-alternatives --set java "$CURRENT_JAVA"
   yum_install postgresql${PG_VERSION}-server postgresql${PG_VERSION} postgresql${PG_VERSION}-contrib postgresql-jdbc
   # Fix Python 3 alternatives after PG install
   if [[ $CURRENT_PYTHON != "" ]]; then
-    update-alternatives --set workshop-py3-38 "$CURRENT_PYTHON"
+    update-alternatives --set "$PYTHON_ALTERNATIVE" "$CURRENT_PYTHON"
   fi
   systemctl disable postgresql-${PG_VERSION}
 
@@ -514,14 +519,18 @@ systemctl restart shellinaboxd
 if [[ $(get_os_major_version) == "7" ]]; then
   # Ensure the OS looks like a compatible CentOS
   if ! grep "CentOS Linux release 7.9" /etc/redhat-release > /dev/null 2>&1 ; then
-    # CDSW requires Centos 7.5, so we trick it to believe it is...
+    # CDSW requires Centos 7.9, so we trick it to believe it is...
     echo "CentOS Linux release 7.9.2009 (Core)" > /etc/redhat-release
   fi
 else
-  # Ensure this OS looks like a compatible RHEL
+  # Ensure this OS looks like a compatible RHEL for CM 7.11.3 or later, or Centos 8 for earlier versions
   if grep -i centos /etc/redhat-release > /dev/null; then
-    echo "Red Hat Enterprise Linux release 8.6" > /etc/redhat-release
-    sed -i.bak 's/^ID=.*/ID="rhel"/' /etc/os-release
+    if [[ $(echo -e "${CM_VERSION}\n7.11.3" | sort -V | head -1) == "7.11.3" ]]; then
+      echo "Red Hat Enterprise Linux release 8.6" > /etc/redhat-release
+      sed -i.bak 's/^ID=.*/ID="rhel"/' /etc/os-release
+    else
+      echo "CentOS Linux release 8.6" > /etc/redhat-release
+    fi
   fi
 fi
 
@@ -622,7 +631,7 @@ systemctl start cloudera-scm-server
 
 log_status "Enabling password-less root login"
 rm -f $KEY_FILE
-ssh-keygen -f $KEY_FILE -t rsa -N ""
+ssh-keygen -f $KEY_FILE -m PEM -t rsa -N ""
 mkdir -p ~/.ssh
 chmod 700 ~/.ssh
 cat $KEY_FILE.pub >> ~/.ssh/authorized_keys
@@ -674,7 +683,7 @@ fi
 
 log_status "Generating cluster template"
 enable_py3
-python -u $BASE_DIR/cm_template.py $CM_SERVICES > $TEMPLATE_FILE
+python3 -u $BASE_DIR/cm_template.py $CM_SERVICES > $TEMPLATE_FILE
 
 log_status "Creating cluster"
 if [[ $(is_kerberos_enabled) == "yes" ]]; then
@@ -701,7 +710,7 @@ NETSTAT_PID=$!
 trap 'RET=$?; kill -9 '"$NETSTAT_PID"'; echo Setup return code: $RET' 0
 
 log_status "Configuring Cloudera Manager"
-python -u $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
+python3 -u $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
   --setup-cm \
     --key-file $KEY_FILE \
     --cm-repo-url $CM_REPO_URL \
@@ -760,7 +769,7 @@ if [[ ${HAS_SRM:-0} == 1 ]]; then
 fi
 
 log_status "Creating cluster"
-python -u $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
+python3 -u $BASE_DIR/create_cluster.py ${CLUSTER_HOST} \
   --create-cluster \
     --remote-repo-usr "$(get_remote_repo_username)" \
     --remote-repo-pwd "$(get_remote_repo_password)" \
@@ -1072,7 +1081,7 @@ fi
 
 if [ "${HAS_CDSW:-}" == "1" ]; then
   log_status "Initiating CDSW setup in the background",
-  nohup python -u /tmp/resources/cdsw_setup.py --public-ip "$(echo "$PUBLIC_DNS" | sed -E 's/cdp.(.*).nip.io/\1/')" --model-pkl-file /tmp/resources/iot_model.pkl --password-file /tmp/resources/the_pwd.txt > /tmp/resources/cdsw_setup.log 2>&1 &
+  nohup python3 -u /tmp/resources/cdsw_setup.py --public-ip "$(echo "$PUBLIC_DNS" | sed -E 's/cdp.(.*).nip.io/\1/')" --model-pkl-file /tmp/resources/iot_model.pkl --password-file /tmp/resources/the_pwd.txt > /tmp/resources/cdsw_setup.log 2>&1 &
 fi
 
 if [[ ! -z ${ECS_PUBLIC_DNS:-} ]]; then

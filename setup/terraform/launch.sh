@@ -66,7 +66,7 @@ log "Validate services selection: $CM_SERVICES"
 THE_PWD=dummy CLUSTER_HOST=dummy PRIVATE_IP=dummy PUBLIC_DNS=dummy DOCKER_DEVICE=dummy CDSW_DOMAIN=dummy \
 IPA_HOST="$([[ $USE_IPA == "yes" ]] && echo dummy || echo "")" USE_IPA="$USE_IPA" \
 CLUSTER_ID=dummy PEER_CLUSTER_ID=dummy PEER_PUBLIC_DNS=dummy \
-python $BASE_DIR/resources/cm_template.py $CM_SERVICES --validate-only
+python3 $BASE_DIR/resources/cm_template.py $CM_SERVICES --validate-only
 
 # Presign URLs, if needed
 STACK_FILE=$(get_stack_file $NAMESPACE $BASE_DIR/resources exclude-signed)
