@@ -390,6 +390,9 @@ function load_env() {
   source $env_file
   export NAMESPACE=$namespace
 
+  TF_VAR_os_type=${TF_VAR_os_type:-centos8}
+  export TF_VAR_os_type
+
   TF_VAR_cloud_provider=${TF_VAR_cloud_provider:-aws}
   export TF_VAR_cloud_provider
   local provider_common=$BASE_DIR/lib/common-${TF_VAR_cloud_provider}.sh
@@ -777,8 +780,9 @@ function check_file_staleness() {
 
 function presign_urls() {
   local stack_file=$1
-  local output_dir=$2
-  python3 $BASE_DIR/presign_urls.py "$stack_file" "$output_dir"
+  local major_os_version=$2
+  local output_dir=$3
+  python3 $BASE_DIR/presign_urls.py "$stack_file" "$major_os_version" "$output_dir"
 }
 
 function validate_env() {

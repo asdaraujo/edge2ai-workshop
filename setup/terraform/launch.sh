@@ -65,13 +65,14 @@ validate_stack $NAMESPACE $BASE_DIR/resources "${TF_VAR_cdp_license_file:-}"
 log "Validate services selection: $CM_SERVICES"
 THE_PWD=dummy CLUSTER_HOST=dummy PRIVATE_IP=dummy PUBLIC_DNS=dummy DOCKER_DEVICE=dummy CDSW_DOMAIN=dummy \
 IPA_HOST="$([[ $USE_IPA == "yes" ]] && echo dummy || echo "")" USE_IPA="$USE_IPA" \
-CLUSTER_ID=dummy PEER_CLUSTER_ID=dummy PEER_PUBLIC_DNS=dummy \
+CLUSTER_ID=dummy PEER_CLUSTER_ID=dummy PEER_PUBLIC_DNS=dummy ALTERNATIVE_JAVA_HOME=dummy \
 python3 $BASE_DIR/resources/cm_template.py $CM_SERVICES --validate-only
 
 # Presign URLs, if needed
 STACK_FILE=$(get_stack_file $NAMESPACE $BASE_DIR/resources exclude-signed)
+MAJOR_OS_VERSION=$([[ ${TF_VAR_os_type} == "centos8" ]] && echo 8 || echo 7)
 echo "Using stack: $STACK_FILE"
-presign_urls $STACK_FILE "${NAMESPACE_DIR}/stack"
+presign_urls "$STACK_FILE" "$MAJOR_OS_VERSION" "${NAMESPACE_DIR}/stack"
 
 # If EXTRA_CIDR_BLOCKS is defined, merge its content with TF_VAR_extra_cidr_blocks
 TF_VAR_extra_cidr_blocks="$(echo "${TF_VAR_extra_cidr_blocks:-},${EXTRA_CIDR_BLOCKS:-}" | sed -E 's#[^0-9.,/]##g;s/,,*/,/g;s/^,//;s/,$//;s/[^,]+/"&"/g;s/^/[/;s/$/]/')"

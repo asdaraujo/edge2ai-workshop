@@ -1,0 +1,116 @@
+{{ CDH_VERSION | version_must_be_ge('7.3.1') }}
+{
+  "hostTemplates": [
+    {
+      "refName": "HostTemplate-0-from-{{CLUSTER_HOST}}",
+      "roleConfigGroupsRefNames": [
+        "dataviz-DATAVIZ_REVERSE_PROXY-BASE",
+        "dataviz-DATAVIZ_WEBSERVER-BASE"
+      ]
+    }
+  ],
+  "products": [
+    {
+      "product": "DATAVIZ",
+      "version": "{{DATAVIZ_BUILD}}"
+    }
+  ],
+  "repositories": [
+    "{{DATAVIZ_PARCEL_REPO}}"
+  ],
+  "services" : [
+    {
+      "refName": "dataviz",
+      "serviceType": "DATAVIZ",
+      "displayName" : "Dataviz",
+      "serviceConfigs" : [
+        {
+          "name" : "METADATA_STORE",
+          "value" : "postgresql"
+        },
+        {
+          "name" : "METASTORE_DB_HOST",
+          "value" : "{{CLUSTER_HOST}}"
+        },
+        {
+          "name" : "METASTORE_DB_PASSWORD",
+          "value" : "{{THE_PWD}}"
+        }
+{% if HAS_KNOX %}
+        ,{
+          "name" : "AUTHENTICATION_BACKENDS",
+          "value" : "arcwebbase.backends.KnoxSpnegoDjangoBackend,django.contrib.auth.backends.ModelBackend"
+        }
+{% endif %}
+{% if ENABLE_KERBEROS == 'yes' %}
+        ,{
+          "name" : "kerberos.auth.enable",
+          "value" : "true"
+        }
+{% endif %}
+      ],
+      "roleConfigGroups" : [
+        {
+          "refName" : "dataviz-DATAVIZ_REVERSE_PROXY-BASE",
+          "displayName" : "Reverse Proxy Default Group",
+          "roleType" : "DATAVIZ_REVERSE_PROXY",
+          "base" : true,
+          "configs" : [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name" : "ssl_enabled",
+              "value" : "true"
+            },
+            {
+              "name" : "ssl_server_ca_certificate_location",
+              "value" : "/opt/cloudera/security/x509/truststore.pem"
+            },
+            {
+              "name" : "ssl_server_certificate_location",
+              "value" : "/opt/cloudera/security/x509/cert.pem"
+            },
+            {
+              "name" : "ssl_server_privatekey_location",
+              "value" : "/opt/cloudera/security/x509/key.pem"
+            },
+            {
+              "name" : "ssl_server_privatekey_password",
+              "value" : "{{THE_PWD}}"
+            }
+{% endif %}
+          ]
+        },
+        {
+          "refName" : "dataviz-DATAVIZ_WEBSERVER-BASE",
+          "displayName" : "Web Server Default Group",
+          "roleType" : "DATAVIZ_WEBSERVER",
+          "base" : true,
+          "configs" : [
+{% if ENABLE_TLS == 'yes' %}
+            {
+              "name" : "ssl_enabled",
+              "value" : "true"
+            },
+            {
+              "name" : "ssl_server_ca_certificate_location",
+              "value" : "/opt/cloudera/security/x509/truststore.pem"
+            },
+            {
+              "name" : "ssl_server_certificate_location",
+              "value" : "/opt/cloudera/security/x509/cert.pem"
+            },
+            {
+              "name" : "ssl_server_privatekey_location",
+              "value" : "/opt/cloudera/security/x509/key.pem"
+            },
+            {
+              "name" : "ssl_server_privatekey_password",
+              "value" : "{{THE_PWD}}"
+            }
+{% endif %}
+          ]
+        }
+      ]
+    }
+  ]
+}

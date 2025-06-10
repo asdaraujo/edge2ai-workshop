@@ -5,6 +5,7 @@ KAFKA_CLIENT_PROPERTIES=${KEYTABS_DIR}/kafka-client.properties
 KRB_REALM=WORKSHOP.COM
 OPENJDK_ARCHIVE=https://jdk.java.net/archive/
 JDK_BASE=/usr/lib/jvm
+JAVA_ENV_FILE="${BASE_DIR}/.java-env"
 
 export THE_PWD=Supersecret1
 export THE_PWD_HASH_PRE719SP1="8ef2932408095916dc440fbbb18e60f2f5ef42ada16527b917c3d830475de7bb"
@@ -256,6 +257,11 @@ function generate_parcels_and_csds_lists() {
     if [[ $(get_os_major_version) == "7" ]] && ! contains "$ANACONDA_PRODUCT" "${CDP_PARCEL_URLS[@]}"; then
       [[ -z ${ANACONDA_PRODUCT:-} || -z ${ANACONDA_VERSION:-} || -z ${ANACONDA_PARCEL_REPO:-} ]] || CDP_PARCEL_URLS+=("$ANACONDA_PRODUCT" "$ANACONDA_VERSION" "$ANACONDA_PARCEL_REPO")
     fi
+  fi
+
+  if [[ $CM_SERVICES == *"DATAVIZ"* ]] && ! contains dataviz "${CDP_PARCEL_URLS[@]}"; then
+    [[ -z ${DATAVIZ_BUILD:-} || -z ${DATAVIZ_PARCEL_REPO:-} ]] || CDP_PARCEL_URLS+=(dataviz "$DATAVIZ_BUILD" "$DATAVIZ_PARCEL_REPO")
+    [[ -z ${DATAVIZ_CSD_URL:-} ]] || CDP_CSD_URLS+=("$DATAVIZ_CSD_URL")
   fi
 
   export CDP_PARCEL_URLS CDP_CSD_URLS
@@ -1017,6 +1023,7 @@ function tighten_keystores_permissions() {
   setfacl -m user:kudu:r--,group:kudu:r-- $KEY_PEM
   setfacl -m user:streamsmsgmgr:r--,group:streamsmsgmgr:r-- $KEY_PEM
   setfacl -m user:ssb:r--,group:ssb:r-- $KEY_PEM
+  setfacl -m user:dataviz:r--,group:dataviz:r-- $KEY_PEM || true
 
   setfacl -m user:cloudera-scm:r--,group:cloudera-scm:r-- ${SEC_BASE}/x509/pwfile
   setfacl -m user:ssb:r--,group:ssb:r-- ${SEC_BASE}/x509/pwfile
@@ -1109,7 +1116,7 @@ function get_service_urls() {
   load_stack $NAMESPACE $BASE_DIR/resources validate_only exclude_signed
   CLUSTER_HOST=dummy PRIVATE_IP=dummy PUBLIC_DNS=dummy DOCKER_DEVICE=dummy CDSW_DOMAIN=dummy \
   IPA_HOST="$([[ $USE_IPA == "yes" ]] && echo dummy || echo "")" \
-  CLUSTER_ID=dummy PEER_CLUSTER_ID=dummy PEER_PUBLIC_DNS=dummy \
+  CLUSTER_ID=dummy PEER_CLUSTER_ID=dummy PEER_PUBLIC_DNS=dummy ALTERNATIVE_JAVA_HOME=dummy \
   python3 $BASE_DIR/resources/cm_template.py $CM_SERVICES > $tmp_template_file
 
   local cm_port=$([[ $(is_tls_enabled) == "yes" ]] && echo 7183 || echo 7180)
@@ -1993,14 +2000,14 @@ function set_java_alternatives() {
 function install_java() {
   if [[ -n ${JAVA_PACKAGE_NAME:-} ]]; then
     yum_install "${JAVA_PACKAGE_NAME}"
-    if ! javac; then
+    if ! javac >/dev/null 2>&1; then
       set_java_alternatives
     fi
   fi
   if [[ -n ${OPENJDK_VERSION:-} ]]; then
     local major_version=${OPENJDK_VERSION%%.*}
-    if [[ $major_version -ne 11 && $major_version -ne 17 ]]; then
-      echo "ERROR: Only OpenJDK versions 11.x and 17.x can be installed through the property OPENJDK_VERSION."
+    if [[ $major_version -lt 11 ]]; then
+      echo "ERROR: Only OpenJDK versions greater than or equal to 11 can be installed through the property OPENJDK_VERSION."
       echo "ERROR: The version specified was ${OPENJDK_VERSION}."
       echo "ERROR: For other versions, find an available package for CentOS and use the JAVA_PACKAGE_NAME property."
       exit 1
@@ -2024,18 +2031,24 @@ function install_java() {
       # BIGTOP_JAVA_MAJOR defines which Java version will be used by CDH services.
       # Some services, like CSA, still don't support Java 17. So, if OpenJDK 17 is installed and the OS-packaged
       # Java is present, set BIGTOP_JAVA_MAJOR to the major version of the latter to avoid problems
-      if [[ $major_version -ne 17 ]]; then
+      if [[ $major_version -lt 17 ]]; then
         bigtop_java_major_version=$major_version
       else
         bigtop_java_major_version=$(java -version 2>&1 | awk -F\" '/version/ {split($2, n, "."); print n[1]}')
       fi
       echo "BIGTOP_JAVA_MAJOR=$bigtop_java_major_version" > /etc/profile.d/cdp.sh
     fi
+    export ALTERNATIVE_JAVA_HOME="$java_home"
   fi
 
   # Sets JAVA_HOME
   local javac_path="$(readlink -f "$(which javac)")"
   export JAVA_HOME="${javac_path%/bin/javac}"
+  export ALTERNATIVE_JAVA_HOME="${ALTERNATIVE_JAVA_HOME:-$JAVA_HOME}"
+  cat > "$JAVA_ENV_FILE" <<EOF
+export JAVA_HOME="$JAVA_HOME"
+export ALTERNATIVE_JAVA_HOME="$ALTERNATIVE_JAVA_HOME"
+EOF
 }
 
 function get_os_type() {

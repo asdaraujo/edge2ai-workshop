@@ -222,6 +222,12 @@
             }
 {% endif %}
 {% endif %}
+{% if CDH_VERSION is ge('7.3.1') %}
+           ,{
+              "name": "nifi.registry.jdk.home",
+              "value": "{{ALTERNATIVE_JAVA_HOME}}"
+            }
+{% endif %}
           ]
         }
       ]
@@ -429,6 +435,12 @@
             ,{
               "name": "nifi.analytics.predict.enabled",
               "value": "true"
+            }
+{% endif %}
+{% if CDH_VERSION is ge('7.3.1') %}
+            ,{
+              "name": "nifi.jdk.home",
+              "value": "{{ALTERNATIVE_JAVA_HOME}}"
             }
 {% endif %}
           ]

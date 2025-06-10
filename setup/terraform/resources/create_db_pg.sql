@@ -52,6 +52,9 @@ CREATE DATABASE eventador_admin OWNER eventador_admin ENCODING 'UTF8';
 CREATE USER eventador_snapper WITH PASSWORD :'the_pwd';
 CREATE DATABASE eventador_snapper OWNER eventador_snapper ENCODING 'UTF8';
 
+CREATE USER dataviz WITH PASSWORD :'the_pwd';
+CREATE DATABASE dataviz OWNER dataviz ENCODING 'UTF8';
+
 -- Configuration for Flink Debezium connector
 CREATE DATABASE cdc_test;
 CREATE ROLE cdc_user WITH REPLICATION LOGIN PASSWORD :'the_pwd';

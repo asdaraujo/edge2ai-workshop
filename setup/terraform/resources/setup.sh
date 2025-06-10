@@ -410,6 +410,15 @@ EOF
     fi
   fi
 
+  if [[ ${HAS_DATAVIZ:-} == "1" && ${HAS_KNOX:-} == "1" && ${DATAVIZ_KNOX_SERVICES_TGZ} != "" ]]; then
+    # Add Knox service definitions for Dataviz
+    tmp_file=/tmp/dataviz-knox.tgz
+    services_dir=/opt/cloudera/parcels/CDH/lib/knox/data/services
+    paywall_curl "$DATAVIZ_KNOX_SERVICES_TGZ" "$tmp_file"
+    tar -xzf "$tmp_file" -C "$services_dir"
+    chown -R cloudera-scm:cloudera-scm "${services_dir}/dataviz"
+  fi
+
   if [[ ${CDP_CSD_URLS[@]:-} != "" ]]; then
     log_status "Installing CSDs"
     install_csds "${CDP_CSD_URLS[@]}"
@@ -459,7 +468,9 @@ fi
 ##### Start install
 
 # Ensure JAVA_HOME is set correctly and exported
-export JAVA_HOME=$(readlink -f $(which javac) | sed 's#/bin/javac##')
+if [[ -f $JAVA_ENV_FILE ]]; then
+  source "$JAVA_ENV_FILE"
+fi
 
 enable_py3
 complete_host_initialization

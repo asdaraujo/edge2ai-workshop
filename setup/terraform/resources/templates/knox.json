@@ -115,7 +115,7 @@
 {% elif CDH_VERSION is ge('7.1.8') %}
             ,{
               "name": "gateway_descriptor_cdp_proxy",
-              "value": "providerConfigRef=sso#CM-API:httpclient.connectionTimeout=5m#CM-API:httpclient.socketTimeout=5m#HUE:httpclient.connectionTimeout=5m#HUE:httpclient.socketTimeout=5m#IMPALA:httpclient.connectionTimeout=5m#IMPALA:httpclient.socketTimeout=5m#NIFI:useTwoWaySsl=true#NIFI-REGISTRY:useTwoWaySsl=true#RANGER:replayBufferSize=65#SSB-SSE-UI#SSB-SSE-WS#SSB-SSE-UI-LB:url=https://{{CLUSTER_HOST}}:8470#SSB-SSE-WS-LB:url=wss://{{CLUSTER_HOST}}:8470"
+              "value": "providerConfigRef=sso#CM-API:httpclient.connectionTimeout=5m#CM-API:httpclient.socketTimeout=5m#HUE:httpclient.connectionTimeout=5m#HUE:httpclient.socketTimeout=5m#IMPALA:httpclient.connectionTimeout=5m#IMPALA:httpclient.socketTimeout=5m#NIFI:useTwoWaySsl=true#NIFI-REGISTRY:useTwoWaySsl=true#RANGER:replayBufferSize=65#SSB-SSE-UI#SSB-SSE-WS#SSB-SSE-UI-LB:url=https://{{CLUSTER_HOST}}:8470#SSB-SSE-WS-LB:url=wss://{{CLUSTER_HOST}}:8470{% if HAS_DATAVIZ %}#DATAVIZ:url=https://{{CLUSTER_HOST}}:8100/{% endif %}"
             },
             {
               "name": "gateway_descriptor_cdp_proxy_api",
@@ -135,7 +135,7 @@
 {% elif CDH_VERSION is ge('7.1.8') %}
             ,{
               "name": "gateway_descriptor_cdp_proxy",
-              "value": "providerConfigRef=sso#CM-API:httpclient.connectionTimeout=5m#CM-API:httpclient.socketTimeout=5m#HUE:httpclient.connectionTimeout=5m#HUE:httpclient.socketTimeout=5m#IMPALA:httpclient.connectionTimeout=5m#IMPALA:httpclient.socketTimeout=5m#NIFI:useTwoWaySsl=true#NIFI-REGISTRY:useTwoWaySsl=true#RANGER:replayBufferSize=65#SSB-SSE-UI#SSB-SSE-WS#SSB-SSE-UI-LB:url=http://{{CLUSTER_HOST}}:8070#SSB-SSE-WS-LB:url=ws://{{CLUSTER_HOST}}:8070"
+              "value": "providerConfigRef=sso#CM-API:httpclient.connectionTimeout=5m#CM-API:httpclient.socketTimeout=5m#HUE:httpclient.connectionTimeout=5m#HUE:httpclient.socketTimeout=5m#IMPALA:httpclient.connectionTimeout=5m#IMPALA:httpclient.socketTimeout=5m#NIFI:useTwoWaySsl=true#NIFI-REGISTRY:useTwoWaySsl=true#RANGER:replayBufferSize=65#SSB-SSE-UI#SSB-SSE-WS#SSB-SSE-UI-LB:url=http://{{CLUSTER_HOST}}:8070#SSB-SSE-WS-LB:url=ws://{{CLUSTER_HOST}}:8070{% if HAS_DATAVIZ %}#DATAVIZ:url=http://{{CLUSTER_HOST}}:8100/{% endif %}"
             },
             {
               "name": "gateway_descriptor_cdp_proxy_api",
