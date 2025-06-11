@@ -71,7 +71,7 @@
               "name": "nifi.registry.web.https.port",
               "value": "18433"
             }
-{% if CDH_VERSION is ge('7.1') %}
+{% if CDH_VERSION is ge('7.1') and CFM_VERSION is lt('4.0.0') %}
             ,{
               "name": "xml.authorizers.userGroupProvider.shell-user-group-provider.enabled",
               "value": "true"
@@ -284,7 +284,7 @@
               "value": "-Xms1g"
             }
 {% endif %}
-{% if CDH_VERSION is ge('7.1') %}
+{% if CDH_VERSION is ge('7.1') and CFM_VERSION is lt('4.0.0') %}
             ,{
               "name": "xml.authorizers.userGroupProvider.shell-user-group-provider.enabled",
               "value": "true"
@@ -437,7 +437,7 @@
               "value": "true"
             }
 {% endif %}
-{% if CDH_VERSION is ge('7.3.1') %}
+{% if CFM_VERSION is ge('4.0.0') %}
             ,{
               "name": "nifi.jdk.home",
               "value": "{{ALTERNATIVE_JAVA_HOME}}"
