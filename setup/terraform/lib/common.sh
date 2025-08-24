@@ -484,8 +484,8 @@ function validate_license() {
   (license_metadata | jq . > /dev/null) && \
   [[ ! -z $(license_metadata | jq -r .name) ]] && \
   [[ ! -z $(license_metadata | jq -r .uuid) ]] && \
-  [[ ! -z $(license_metadata | jq -r .startDate) && $(license_metadata | jq -r .startDate) < "$(date +%Y-%m-%d)" ]] && \
-  [[ ! -z $(license_metadata | jq -r .expirationDate) && $(license_metadata | jq -r .expirationDate) > "$(date +%Y-%m-%d)" ]] && \
+  [[ ! -z $(license_metadata | jq -r .startDate) && $(license_metadata | jq -r .startDate) -le "$(date +%Y-%m-%d)" ]] && \
+  [[ ! -z $(license_metadata | jq -r .expirationDate) && $(license_metadata | jq -r .expirationDate) -ge "$(date +%Y-%m-%d)" ]] && \
   return
 
   echo "${C_RED}ERROR: The license in file "\""${TF_VAR_cdp_license_file_original}"\"" is either invalid or expired.${C_NORMAL}"
